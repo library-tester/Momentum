@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>garden — ascii task manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil-dark:   #1a1410;
+    --soil-panel:  #221a14;
+    --soil-line:   #3a2c1e;
+    --text-dim:    #a8926f;
+    --text-main:   #e8dcc0;
+    --amber:       #d9a441;
+    --moss:        #6b9b6e;
+    --moss-dim:    #4a6b4d;
+    --brick:       #c96a5a;
+    --dusk-blue:   #7fa8c9;
+    --wilt:        #6b5a4a;
+    --error:       #c96a5a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--soil-dark);
+    color:var(--text-main);
+    font-family:'IBM Plex Mono', monospace;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+  header{
+    padding:14px 20px 10px;
+    border-bottom:1px solid var(--soil-line);
+    flex-shrink:0;
+  }
+  header .title{
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:2px;
+    color:var(--amber);
+  }
+  header .title span{ color:var(--moss); }
+  header .stats{
+    margin-top:4px;
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:0.5px;
+  }
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:row;
+    overflow:hidden;
+    min-height:0;
+  }
+  #garden{
+    flex:1 1 55%;
+    overflow:auto;
+    padding:18px 20px;
+    min-width:240px;
+    font-size:13px;
+    line-height:1.15;
+  }
+  .artwork-title{
+    font-size:13px;
+    color:var(--text-main);
+    margin-bottom:10px;
+    letter-spacing:0.5px;
+  }
+  .artwork-progress{
+    color:var(--text-dim);
+    font-size:12px;
+  }
+  .garden-scene{
+    margin:0;
+    font-family:inherit;
+    font-size:13px;
+    line-height:1.15;
+    white-space:pre;
+  }
+  .empty-bed{
+    color:var(--text-dim);
+    font-size:13px;
+    padding:10px 0 0;
+  }
+  .gallery-pre{
+    margin:4px 0 10px;
+    color:var(--amber);
+    font-size:12px;
+    line-height:1.1;
+    white-space:pre;
+  }
+  .gallery-img{
+    display:block;
+    max-width:100%;
+    margin:4px 0 10px;
+    border:1px solid var(--soil-line);
+  }
+  .image-frame{
+    position:relative;
+    width:100%;
+    max-width:520px;
+    overflow:hidden;
+    border:1px solid var(--soil-line);
+    background:var(--soil-panel);
+  }
+  .image-base{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .tile-grid{
+    position:absolute;
+    inset:0;
+    display:grid;
+  }
+  .tile{
+    background:var(--soil-panel);
+    box-shadow: inset 0 0 0 1px var(--soil-dark);
+    transition: transform .3s ease, opacity .3s ease;
+  }
+  .tile.revealed{
+    opacity:0;
+    transform:scale(0.4);
+    pointer-events:none;
+  }
+  #term-wrap{
+    flex:1 1 45%;
+    display:flex;
+    flex-direction:column;
+    min-width:280px;
+    border-right:1px solid var(--soil-line);
+  }
+  #output{
+    flex:1;
+    overflow-y:auto;
+    padding:12px 20px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  #output .line{ white-space:pre-wrap; }
+  #output .ok{ color:var(--moss); }
+  #output .err{ color:var(--error); }
+  #output .info{ color:var(--text-dim); }
+  #output .echo{ color:var(--text-main); }
+  #output .echo::before{ content:"garden $ "; color:var(--amber); }
+  #input-row{
+    display:flex;
+    align-items:center;
+    padding:8px 20px 14px;
+    border-top:1px solid var(--soil-line);
+    flex-shrink:0;
+  }
+  #prompt{ color:var(--amber); margin-right:8px; font-size:13px; }
+  #cmd{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text-main);
+    font-family:inherit;
+    font-size:13px;
+  }
+  ::selection{ background:var(--moss-dim); }
+  #output::-webkit-scrollbar, #garden::-webkit-scrollbar{ width:8px; }
+  #output::-webkit-scrollbar-thumb, #garden::-webkit-scrollbar-thumb{ background:var(--soil-line); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title"><span>THE GARDEN</span> — ascii task manager</div>
+  <div class="stats" id="stats">loading...</div>
+</header>
+
+<div id="main">
+  <div id="term-wrap">
+    <div id="output"></div>
+    <div id="input-row">
+      <span id="prompt">garden $</span>
+      <input id="cmd" type="text" autocomplete="off" spellcheck="false" autofocus />
+    </div>
+  </div>
+  <div id="garden"></div>
+</div>
+
+<script>
+// ---------- state ----------
+let tasks = [];
+let archive = [];                                          // completed tasks live here, out of the normal list
+let projects = [];
+let nextId = 1;
+let history = [];
+let histIdx = -1;
+let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
+
+const STORAGE_KEY = 'garden-tasks-v1';
+
+function isOverdue(t){
+  if(!t.due || t.status === 'done') return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(t.due + 'T00:00:00');
+  return d < today;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function shuffledIndices(n){
+  const arr = Array.from({length:n}, (_,i)=>i);
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ---------- generic collectible reveal track ----------
+// both the ascii-art system and the image system are the same state machine:
+// load a manifest of entries, load the current entry's content, reveal a random
+// handful of its cells per completed task, and once fully revealed, log it to a
+// permanent gallery and start a new one (picked so nothing repeats until every
+// entry in the manifest has had a turn). this factory is shared by both so a
+// third mode later is just another instantiation, not a new system.
+function createRevealTrack({ manifestUrl, itemsField, loadItem, totalCellsFor }){
+  return {
+    manifest: null,
+    current: null,                                        // loaded item, shape depends on loadItem
+    progress: { itemId:null, revealOrder:[], revealedCount:0 },
+    collected: [],                                         // permanent gallery history [{id,name,collectedAt}] — never auto-cleared
+    cycleSeen: [],                                         // ids picked in the current pass, so nothing repeats until everyone's had a turn
+    pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
+
+    async loadManifest(){
+      const res = await fetch(manifestUrl);
+      this.manifest = await res.json();
+    },
+    pickNextEntry(){
+      const items = this.manifest[itemsField];
+      let pool = items.filter(e => !this.cycleSeen.includes(e.id));
+      if(pool.length === 0){ this.cycleSeen = []; pool = items.slice(); }
+      const entry = pool[Math.floor(Math.random() * pool.length)];
+      this.cycleSeen.push(entry.id);
+      return entry;
+    },
+    async startNew(){
+      const entry = this.pickNextEntry();
+      this.current = await loadItem(entry);
+      this.progress = {
+        itemId: this.current.id,
+        revealOrder: shuffledIndices(totalCellsFor(this.current)),
+        revealedCount: 0,
+      };
+      this.pending = false;
+    },
+    async init(){
+      await this.loadManifest();
+      const entry = this.progress.itemId && this.manifest[itemsField].find(e => e.id === this.progress.itemId);
+      if(entry){
+        this.current = await loadItem(entry);
+        const total = totalCellsFor(this.current);
+        if(!Array.isArray(this.progress.revealOrder) || this.progress.revealOrder.length !== total){
+          this.progress.revealOrder = shuffledIndices(total);   // source file changed size since last save
+        }
+        this.progress.revealedCount = Math.min(this.progress.revealedCount || 0, total);
+        return;
+      }
+      await this.startNew();
+    },
+    totalCells(){ return totalCellsFor(this.current); },
+    cellsPerCompletion(){
+      return Math.max(1, Math.ceil(this.totalCells() / (this.current.revealTasks || 6)));
+    },
+    // reveals n more cells; once full, freezes as "pending" instead of auto-advancing —
+    // the caller (close/download) decides when to actually move on.
+    async reveal(n, onComplete){
+      if(!this.current || this.pending) return;
+      const total = totalCellsFor(this.current);
+      this.progress.revealedCount = Math.min(total, this.progress.revealedCount + n);
+      if(this.progress.revealedCount >= total){
+        this.pending = true;
+        if(onComplete) onComplete(this.current);
+      }
+    },
+    // logs the finished piece to the permanent gallery and starts a new one; returns the finished item
+    async closePending(){
+      if(!this.pending) return null;
+      const finished = this.current;
+      this.collected.push({ id: finished.id, name: finished.name, collectedAt: Date.now() });
+      await this.startNew();
+      return finished;
+    },
+    serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending }; },
+    restore(data){
+      if(!data) return;
+      this.progress = data.progress || { itemId:null, revealOrder:[], revealedCount:0 };
+      this.collected = data.collected || [];
+      this.cycleSeen = data.cycleSeen || [];
+      this.pending = !!data.pending;
+    },
+  };
+}
+
+// ---------- ascii-art track ----------
+// artworks live as plain text files under ascii_art/, indexed by ascii_art/manifest.json,
+// so new ones can be dropped in without touching this code.
+async function loadArtworkFile(entry){
+  const res = await fetch('ascii_art/' + entry.file);
+  const text = await res.text();
+  const rawRows = text.replace(/\r\n/g, '\n').split('\n');
+  while(rawRows.length && rawRows[rawRows.length - 1] === '') rawRows.pop();
+  const width = Math.max(1, ...rawRows.map(r => r.length));
+  const rows = rawRows.map(r => r.padEnd(width, ' '));
+  const cellIndices = [];
+  rows.forEach((row, r) => {
+    for(let c = 0; c < width; c++){ if(row[c] !== ' ') cellIndices.push(r * width + c); }
+  });
+  return {
+    id: entry.id, name: entry.name, category: entry.category,
+    revealTasks: entry.revealTasks || 6,
+    rows, width, height: rows.length, cellIndices,
+  };
+}
+
+const asciiTrack = createRevealTrack({
+  manifestUrl: 'ascii_art/manifest.json',
+  itemsField: 'artworks',
+  loadItem: loadArtworkFile,
+  totalCellsFor: item => item.cellIndices.length,
+});
+
+// ---------- image track ----------
+// images live under image_art/, indexed by image_art/manifest.json. each entry declares
+// a reveal grid (cols x rows); completing tasks pops that many "cube" tiles off the image.
+async function loadImageEntry(entry){
+  return {
+    id: entry.id, name: entry.name, category: entry.category, file: entry.file,
+    cols: entry.grid.cols, rows: entry.grid.rows,
+    revealTasks: entry.revealTasks || 6,
+  };
+}
+
+const imageTrack = createRevealTrack({
+  manifestUrl: 'image_art/manifest.json',
+  itemsField: 'images',
+  loadItem: loadImageEntry,
+  totalCellsFor: item => item.cols * item.rows,
+});
+
+function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack; }
+
+async function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const data = JSON.parse(raw);
+      tasks = data.tasks || [];
+      archive = data.archive || [];
+      nextId = data.nextId || 1;
+      projects = data.projects || [];
+      displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
+      asciiTrack.restore(data.ascii);
+      imageTrack.restore(data.image);
+    }
+  }catch(e){ /* nothing stored yet, or storage unavailable */ }
+  try{
+    await Promise.all([asciiTrack.init(), imageTrack.init()]);
+  }catch(e){
+    print('warning: could not load the art collection (serve this over http, not as a bare file)', 'err');
+  }
+  renderGarden();
+  if(tasks.length){
+    print(`— ${tasks.length} task(s) in the garden —`, 'info');
+    cmd_list([]);
+  } else {
+    print('no tasks yet — plant one:  add "water the office plants"', 'info');
+  }
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      tasks, archive, nextId, projects, displayMode,
+      ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
+    }));
+  }catch(e){ print('warning: could not save progress', 'err'); }
+}
+
+// ---------- rendering ----------
+function buildArtworkScene(art, progress){
+  const { rows, width, height, cellIndices } = art;
+  const revealed = new Set(
+    progress.revealOrder.slice(0, progress.revealedCount).map(pos => cellIndices[pos])
+  );
+  let html = '';
+  for(let r = 0; r < height; r++){
+    let line = '';
+    for(let c = 0; c < width; c++){
+      const ch = rows[r][c];
+      if(ch === ' '){ line += ' '; continue; }
+      const idx = r * width + c;
+      line += revealed.has(idx)
+        ? `<span style="color:var(--amber)">${escapeHtml(ch)}</span>`
+        : `<span style="color:var(--soil-line)">·</span>`;
+    }
+    html += line + '\n';
+  }
+  return `<pre class="garden-scene">${html}</pre>`;
+}
+
+function buildImageScene(art, progress){
+  const total = art.cols * art.rows;
+  const revealed = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+  let tiles = '';
+  for(let i = 0; i < total; i++){
+    tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
+  }
+  return (
+    `<div class="image-frame" style="aspect-ratio:${art.cols}/${art.rows}">` +
+      `<img class="image-base" src="image_art/${art.file}" alt="${escapeHtml(art.name)}">` +
+      `<div class="tile-grid" style="grid-template-columns:repeat(${art.cols},1fr);grid-template-rows:repeat(${art.rows},1fr)">${tiles}</div>` +
+    `</div>`
+  );
+}
+
+function renderGarden(){
+  const g = document.getElementById('garden');
+  const track = activeTrack();
+  if(!track.current){
+    g.innerHTML = '<div class="empty-bed">loading the collection...</div>';
+    updateStats();
+    return;
+  }
+  const art = track.current, progress = track.progress;
+  const total = track.totalCells();
+  const pct = total ? Math.round(progress.revealedCount / total * 100) : 0;
+  const scene = displayMode === 'image' ? buildImageScene(art, progress) : buildArtworkScene(art, progress);
+  const pendingTxt = track.pending ? ' · COMPLETE — type "close" or "download"' : '';
+  g.innerHTML =
+    `<div class="artwork-title">${escapeHtml(art.name)} <span class="artwork-progress">${progress.revealedCount}/${total} pieces · ${pct}% · ${displayMode} mode${pendingTxt}</span></div>` +
+    scene;
+  updateStats();
+}
+
+function updateStats(){
+  const total = tasks.length;
+  const active = tasks.filter(t=>t.status==='active').length;
+  const overdue = tasks.filter(isOverdue).length;
+  const collectedTxt = ` · ${asciiTrack.collected.length} ascii + ${imageTrack.collected.length} image collected`;
+  document.getElementById('stats').textContent =
+    `${total} planted · ${archive.length} bloomed · ${active} growing · ${overdue} wilted · ${projects.length} project${projects.length===1?'':'s'}${collectedTxt}`;
+}
+
+// ---------- terminal ----------
+const outputEl = document.getElementById('output');
+function print(text, cls){
+  const div = document.createElement('div');
+  div.className = 'line' + (cls ? ' '+cls : '');
+  div.textContent = text;
+  outputEl.appendChild(div);
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
+function printEcho(text){
+  const div = document.createElement('div');
+  div.className = 'line echo';
+  div.textContent = text;
+  outputEl.appendChild(div);
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
+
+function tokenize(str){
+  const re = /"([^"]*)"|(\S+)/g;
+  const out = [];
+  let m;
+  while((m = re.exec(str)) !== null){ out.push(m[1] !== undefined ? m[1] : m[2]); }
+  return out;
+}
+
+function findTask(idStr){
+  const id = parseInt(idStr, 10);
+  return tasks.find(t => t.id === id);
+}
+
+// splits "3,5,6" -> ["3","5","6"], expands ranges like "1-4" -> ["1","2","3","4"],
+// and "all" expands to every currently-listed (non-archived) task id.
+function splitIds(idsStr){
+  const raw = (idsStr || '').trim();
+  if(!raw) return [];
+  if(raw.toLowerCase() === 'all') return tasks.map(t => String(t.id));
+  const out = [];
+  raw.split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)-(\d+)$/);
+    if(m){
+      let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if(a > b) [a, b] = [b, a];
+      for(let i = a; i <= b; i++) out.push(String(i));
+    } else {
+      out.push(tok);
+    }
+  });
+  return out;
+}
+
+const HELP_TEXT =
+`commands:
+  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)
+
+  add "task title" [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]
+                                                         plant a new task
+  start <id[,id...]|all>                               mark task(s) active (sprouts)
+  done <id[,id...]|all>                                 complete task(s) — moves them to the archive
+  rm <id[,id...]|1-4|all>                               delete task(s)
+  priority <id[,id...]|all> <high|med|low>              change priority
+  due <id[,id...]|all> <YYYY-MM-DD|none>                set or clear a due date
+  tag <id[,id...]|all> add <tag>                        add a tag to task(s)
+  tag <id[,id...]|all> rm <tag>                         remove a tag from task(s)
+  tag <id[,id...]|all> set <tag1,tag2,...>              replace all of task(s)' tags
+  tags                                                  list every tag in use
+  project add <name>                                    create a project
+  project rm <name>                                     delete a project
+  project set <id[,id...]|all> <name|none>              assign task(s) to a project
+  project list                                          list all projects (or: projects)
+  list [all|pending|active] [-proj name] [-t tag]       show tasks as text (excludes archived)
+  archive [-proj name] [-t tag]                         show completed/archived tasks
+  gallery                                               list your collected artworks
+  gallery show <name>                                   reprint a collected artwork in full
+  mode [ascii|image]                                    show or switch the reveal mode
+  image                                                  info on the current piece (whichever mode you're in)
+  image next                                             skip to a new piece (no credit for it)
+  image reveal                                           cheat: instantly finish revealing it
+  image hide                                             cheat: re-mask it back to 0%
+  close                                                  once complete: save it + start a new one
+  download                                                once complete: save the file to your computer
+  stats                                                  garden summary
+  clear                                                  clear the terminal
+  help                                                   show this list`;
+
+function parseFlags(tokens){
+  const args = { _: [] };
+  const flagKeys = { '-p':'p', '-d':'d', '-t':'t', '-proj':'proj' };
+  for(let i=0;i<tokens.length;i++){
+    const tk = tokens[i];
+    if(flagKeys[tk]){ args[flagKeys[tk]] = tokens[++i]; }
+    else { args._.push(tk); }
+  }
+  return args;
+}
+
+function cmd_add(args){
+  const title = args._[0];
+  if(!title){ print('add needs a title, e.g. add "water the plants"', 'err'); return; }
+  let priority = null, due = null, tags = [], project = null;
+  if(args.p){
+    const p = args.p.toLowerCase();
+    if(!['high','med','low'].includes(p)){ print('priority must be high, med, or low', 'err'); return; }
+    priority = p;
+  }
+  if(args.d){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(args.d)){ print('due date must look like YYYY-MM-DD', 'err'); return; }
+    due = args.d;
+  }
+  if(args.t){
+    tags = args.t.split(',').map(s=>s.trim()).filter(Boolean);
+  }
+  if(args.proj){
+    project = args.proj;
+    if(!projects.includes(project)){
+      projects.push(project);
+      print(`note: created new project "${project}"`, 'info');
+    }
+  }
+  const t = { id: nextId++, title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
+  tasks.push(t);
+  const priTxt = priority ? ` [${priority}]` : '';
+  const dueTxt = due ? ` due ${due}` : '';
+  const projTxt = project ? ` proj:${project}` : '';
+  const tagsTxt = tags.length ? ` tags:${tags.join(',')}` : '';
+  print(`planted #${t.id} "${title}"${priTxt}${dueTxt}${projTxt}${tagsTxt}`, 'ok');
+  saveState(); renderGarden();
+}
+
+function cmd_start(idsStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('start needs a task id, e.g. start 3 or start 3,5,6', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    if(t.status === 'done'){ print(`#${t.id} is already bloomed`, 'err'); return; }
+    t.status = 'active';
+    print(`#${t.id} "${t.title}" is sprouting`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderGarden(); }
+}
+
+async function cmd_done(idsStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('done needs a task id, e.g. done 3 or done 3,5,6', 'err'); return; }
+  let changed = false;
+  for(const idStr of ids){
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); continue; }
+    if(t.status === 'done'){ print(`#${t.id} is already done`, 'err'); continue; }
+    t.status = 'done';
+    t.completedAt = Date.now();
+    print(`#${t.id} "${t.title}" bloomed! moved to the archive.`, 'ok');
+    changed = true;
+    tasks = tasks.filter(x => x.id !== t.id);
+    archive.push(t);
+    const track = activeTrack();
+    if(track.current && track.pending){
+      print(`(the current ${displayMode} piece is waiting for you — type "close" or "download")`, 'info');
+    } else if(track.current){
+      await track.reveal(track.cellsPerCompletion(), art => printCompletionPrompt(art));
+    }
+  }
+  if(changed){ saveState(); renderGarden(); }
+}
+
+function cmd_rm(idsStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('rm needs a task id, e.g. rm 3 or rm 3,5,6', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    tasks = tasks.filter(x => x.id !== t.id);
+    print(`pulled #${t.id} "${t.title}" from the bed`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderGarden(); }
+}
+
+function cmd_priority(idsStr, p){
+  p = (p||'').toLowerCase();
+  if(!['high','med','low'].includes(p)){ print('priority must be high, med, or low', 'err'); return; }
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('priority needs a task id, e.g. priority 3 high or priority 3,5,6 high', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    t.priority = p;
+    print(`#${t.id} priority set to ${p}`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderGarden(); }
+}
+
+function cmd_due(idsStr, dateStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('due needs a task id, e.g. due 3 2026-01-01 or due 3,5,6 2026-01-01', 'err'); return; }
+  if(dateStr !== 'none' && !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)){
+    print('due date must look like YYYY-MM-DD, or "none"', 'err'); return;
+  }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    if(dateStr === 'none'){ t.due = null; print(`#${t.id} due date cleared`, 'ok'); }
+    else { t.due = dateStr; print(`#${t.id} due ${dateStr}`, 'ok'); }
+    changed = true;
+  });
+  if(changed){ saveState(); renderGarden(); }
+}
+
+function cmd_tag(idsStr, action, value){
+  action = (action || '').toLowerCase();
+  if(!['add','rm','set'].includes(action)){ print('usage: tag <id> add|rm|set <tag(s)>', 'err'); return; }
+  if(!value){ print(`usage: tag <id> ${action} <tag(s)>`, 'err'); return; }
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('tag needs a task id, e.g. tag 3 add urgent or tag 3,5,6 add urgent', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    if(!t.tags) t.tags = [];
+    if(action === 'add'){
+      value.split(',').map(s=>s.trim()).filter(Boolean).forEach(tag => {
+        if(!t.tags.includes(tag)) t.tags.push(tag);
+cccccbrfdggnrbheirvcdknegdidehhrrlgnitijefjt
+      });
+    } else if(action === 'rm'){
+      t.tags = t.tags.filter(x => x !== value);
+    } else {
+      t.tags = value.split(',').map(s=>s.trim()).filter(Boolean);
+    }
+    print(`#${t.id} tags: ${t.tags.join(', ') || '(none)'}`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderGarden(); }
+}
+
+function cmd_tags(){
+  const counts = {};
+  tasks.forEach(t => (t.tags||[]).forEach(tag => { counts[tag] = (counts[tag]||0) + 1; }));
+  const names = Object.keys(counts).sort();
+  if(names.length === 0){ print('no tags in use yet.', 'info'); return; }
+  names.forEach(tag => print(`${tag}  (${counts[tag]})`));
+}
+
+function cmd_project(sub, ...rest){
+  sub = (sub || 'list').toLowerCase();
+  if(sub === 'add'){
+    const name = rest[0];
+    if(!name){ print('usage: project add <name>', 'err'); return; }
+    if(projects.includes(name)){ print(`project "${name}" already exists`, 'err'); return; }
+    projects.push(name);
+    print(`created project "${name}"`, 'ok');
+    saveState();
+  } else if(sub === 'rm'){
+    const name = rest[0];
+    if(!name || !projects.includes(name)){ print(`no such project "${name||''}"`, 'err'); return; }
+    projects = projects.filter(p => p !== name);
+    let moved = 0;
+    tasks.forEach(t => { if(t.project === name){ t.project = null; moved++; } });
+    archive.forEach(t => { if(t.project === name){ t.project = null; } });
+    print(`removed project "${name}"${moved ? ` (${moved} task(s) unassigned)` : ''}`, 'ok');
+    saveState(); renderGarden();
+  } else if(sub === 'list'){
+    if(projects.length === 0){ print('no projects yet. create one:  project add <name>', 'info'); return; }
+    projects.forEach(p => {
+      const count = tasks.filter(t => t.project === p).length;
+      print(`${p}  (${count} task${count===1?'':'s'})`);
+    });
+  } else if(sub === 'set'){
+    const idsStr = rest[0], name = rest[1];
+    if(name !== 'none' && (!name || !projects.includes(name))){
+      print(`no such project "${name||''}". create it first: project add ${name||'<name>'}`, 'err'); return;
+    }
+    const ids = splitIds(idsStr);
+    if(ids.length === 0){ print('project set needs a task id, e.g. project set 3 home or project set 3,5,6 home', 'err'); return; }
+    let changed = false;
+    ids.forEach(idStr => {
+      const t = findTask(idStr);
+      if(!t){ print(`no task #${idStr}`, 'err'); return; }
+      if(name === 'none'){ t.project = null; print(`#${t.id} removed from project`, 'ok'); }
+      else { t.project = name; print(`#${t.id} assigned to project "${name}"`, 'ok'); }
+      changed = true;
+    });
+    if(changed){ saveState(); renderGarden(); }
+  } else {
+    print('usage: project add|rm|list|set ...', 'err');
+  }
+}
+
+function parseListArgs(tokens){
+  const out = { status:'all', proj:null, tag:null };
+  for(let i=0;i<tokens.length;i++){
+    const tk = tokens[i];
+    if(tk === '-proj'){ out.proj = tokens[++i]; }
+    else if(tk === '-t'){ out.tag = tokens[++i]; }
+    else { out.status = tk; }
+  }
+  return out;
+}
+
+const STATUS_MARK = { pending:'[ ]', active:'[~]', done:'[✓]' };
+
+function cmd_list(tokens){
+  const { status, proj, tag } = parseListArgs(tokens || []);
+  let list = tasks;
+  if(status === 'pending') list = list.filter(t=>t.status==='pending');
+  else if(status === 'active') list = list.filter(t=>t.status==='active');
+  else if(status === 'done'){ print('completed tasks are archived — try the "archive" command', 'info'); return; }
+  else if(status !== 'all'){ print(`unknown filter "${status}" (use all|pending|active)`, 'err'); return; }
+  if(proj){ list = list.filter(t => t.project === proj); }
+  if(tag){
+    const wanted = tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
+  }
+  if(list.length === 0){ print('nothing here.', 'info'); return; }
+
+  list.forEach(t=>{
+    const overdue = isOverdue(t);
+    const mark = STATUS_MARK[t.status] || '[ ]';
+    print(`${mark} ${t.title}`, overdue ? 'err' : undefined);
+    const fields = [`[${t.id}]`];
+    if(t.priority) fields.push(`[${t.priority}]`);
+    if(t.project) fields.push(`[${t.project}]`);
+    if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
+    if(t.due) fields.push(`[due:${t.due}]`);
+    if(overdue) fields.push('[OVERDUE]');
+    print(`    ${fields.join(' ')}`, overdue ? 'err' : 'info');
+  });
+}
+
+function cmd_archive(...tokens){
+  const { proj, tag } = parseListArgs(tokens || []);
+  let list = archive;
+  if(proj){ list = list.filter(t => t.project === proj); }
+  if(tag){
+    const wanted = tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
+  }
+  if(list.length === 0){ print('the archive is empty.', 'info'); return; }
+
+  list.forEach(t=>{
+    print(`[✓] ${t.title}`);
+    const fields = [`[${t.id}]`];
+    if(t.priority) fields.push(`[${t.priority}]`);
+    if(t.project) fields.push(`[${t.project}]`);
+    if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
+    if(t.due) fields.push(`[due:${t.due}]`);
+    if(t.completedAt) fields.push(`[completed:${new Date(t.completedAt).toLocaleDateString()}]`);
+    print(`    ${fields.join(' ')}`, 'info');
+  });
+}
+
+function cmd_stats(){
+  const total = tasks.length;
+  const active = tasks.filter(t=>t.status==='active').length;
+  const pending = tasks.filter(t=>t.status==='pending').length;
+  const overdue = tasks.filter(isOverdue).length;
+  print(`total: ${total}   bloomed: ${archive.length}   growing: ${active}   seeds: ${pending}   overdue: ${overdue}   projects: ${projects.length}   ascii collected: ${asciiTrack.collected.length}   image collected: ${imageTrack.collected.length}`);
+}
+
+function cmd_mode(arg){
+  if(!arg){ print(`current mode: ${displayMode}  (switch with: mode ascii | mode image)`, 'info'); return; }
+  arg = arg.toLowerCase();
+  if(!['ascii','image'].includes(arg)){ print('usage: mode ascii|image', 'err'); return; }
+  if(arg === displayMode){ print(`already in ${arg} mode`, 'info'); return; }
+  displayMode = arg;
+  print(`switched to ${arg} mode`, 'ok');
+  saveState(); renderGarden();
+}
+
+// "image ..." acts on whichever track is currently active (ascii or image) — same
+// command regardless of mode, per the user's own framing: it just targets whatever
+// you're currently looking at.
+function printCompletionPrompt(art){
+  const kind = displayMode === 'image' ? 'Image' : 'Artwork';
+  print(`${kind} completed! "${art.name}" is fully revealed.`, 'ok');
+  print('What do you want to do:  close  (save it, start a new one)   |   download  (save the file to your computer)', 'info');
+}
+
+function slugify(name){
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'artwork';
+}
+
+function triggerDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function cmd_image(sub, ...rest){
+  sub = (sub || 'info').toLowerCase();
+  const track = activeTrack();
+  if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
+  const total = track.totalCells();
+  const unit = displayMode === 'image' ? 'tiles' : 'characters';
+
+  if(sub === 'info'){
+    const pct = total ? Math.round(track.progress.revealedCount / total * 100) : 0;
+    const pendingTxt = track.pending ? '  —  COMPLETE, waiting on close/download' : '';
+    print(`[${displayMode}] ${track.current.name}  —  ${track.progress.revealedCount}/${total} ${unit} (${pct}%)  —  category:${track.current.category || '-'}  —  ${track.current.revealTasks} tasks to fully reveal${pendingTxt}`);
+    return;
+  }
+  if(sub === 'next'){
+    const was = track.current.name;
+    await track.startNew();
+    print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
+    saveState(); renderGarden();
+    return;
+  }
+  if(sub === 'reveal'){
+    if(track.pending){ print(`"${track.current.name}" is already fully revealed — type "close" or "download"`, 'err'); return; }
+    await track.reveal(total - track.progress.revealedCount, art => {
+      print('(cheat)', 'info');
+      printCompletionPrompt(art);
+    });
+    saveState(); renderGarden();
+    return;
+  }
+  if(sub === 'hide'){
+    track.progress.revealedCount = 0;
+    track.pending = false;
+    print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
+    saveState(); renderGarden();
+    return;
+  }
+  print('usage: image [info|next|reveal|hide]  (applies to whichever mode — ascii or image — you\'re currently in)', 'err');
+}
+
+async function cmd_close(){
+  const track = activeTrack();
+  if(!track.pending){ print('nothing to close right now', 'err'); return; }
+  const finished = await track.closePending();
+  print(`closed "${finished.name}" — added to your collection. now revealing "${track.current.name}".`, 'ok');
+  saveState(); renderGarden();
+}
+
+async function cmd_download(){
+  const track = activeTrack();
+  if(!track.pending){ print('nothing to download right now', 'err'); return; }
+  const art = track.current;
+  try{
+    if(displayMode === 'image'){
+      const res = await fetch('image_art/' + art.file);
+      const blob = await res.blob();
+      const ext = art.file.split('.').pop();
+      triggerDownload(blob, `${slugify(art.name)}.${ext}`);
+    } else {
+      const blob = new Blob([art.rows.join('\n')], { type:'text/plain' });
+      triggerDownload(blob, `${slugify(art.name)}.txt`);
+    }
+    print(`downloading "${art.name}"... type "close" when you're ready for a new one.`, 'ok');
+  }catch(e){
+    print('could not download the file', 'err');
+  }
+}
+
+function cmd_gallery(sub, ...rest){
+  sub = (sub || 'list').toLowerCase();
+  if(sub === 'list'){
+    const all = [
+      ...asciiTrack.collected.map(c => ({ ...c, type:'ascii' })),
+      ...imageTrack.collected.map(c => ({ ...c, type:'image' })),
+    ].sort((a,b) => a.collectedAt - b.collectedAt);
+    if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+    all.forEach((c, i) => print(`${i+1}. [${c.type}] ${c.name}  (collected ${new Date(c.collectedAt).toLocaleDateString()})`));
+    return;
+  }
+  if(sub === 'show'){
+    const name = rest.join(' ');
+    if(!name){ print('usage: gallery show <name>', 'err'); return; }
+    const inAscii = asciiTrack.collected.some(c => c.name.toLowerCase() === name.toLowerCase());
+    const inImage = imageTrack.collected.some(c => c.name.toLowerCase() === name.toLowerCase());
+    if(!inAscii && !inImage){ print(`"${name}" isn't in your collection yet`, 'err'); return; }
+    if(inAscii){
+      const entry = asciiTrack.manifest && asciiTrack.manifest.artworks.find(a => a.name.toLowerCase() === name.toLowerCase());
+      if(!entry){ print(`no artwork data found for "${name}"`, 'err'); return; }
+      loadArtworkFile(entry).then(art => {
+        print(`— ${art.name} —`);
+        const pre = document.createElement('pre');
+        pre.className = 'gallery-pre';
+        pre.textContent = art.rows.join('\n');
+        outputEl.appendChild(pre);
+        outputEl.scrollTop = outputEl.scrollHeight;
+      });
+    } else {
+      const entry = imageTrack.manifest && imageTrack.manifest.images.find(a => a.name.toLowerCase() === name.toLowerCase());
+      if(!entry){ print(`no image data found for "${name}"`, 'err'); return; }
+      print(`— ${entry.name} —`);
+      const img = document.createElement('img');
+      img.className = 'gallery-img';
+      img.src = 'image_art/' + entry.file;
+      img.alt = entry.name;
+      outputEl.appendChild(img);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+    return;
+  }
+  print('usage: gallery [list|show <name>]', 'err');
+}
+
+function handleCommand(raw){
+  const tokens = tokenize(raw.trim());
+  if(tokens.length === 0) return;
+  const cmd = tokens[0].toLowerCase();
+  const rest = tokens.slice(1);
+
+  switch(cmd){
+    case 'help': print(HELP_TEXT); break;
+    case 'add': cmd_add(parseFlags(rest)); break;
+    case 'start': cmd_start(rest[0]); break;
+    case 'done': cmd_done(rest[0]); break;
+    case 'rm': case 'delete': cmd_rm(rest[0]); break;
+    case 'priority': cmd_priority(rest[0], rest[1]); break;
+    case 'due': cmd_due(rest[0], rest[1]); break;
+    case 'tag': cmd_tag(rest[0], rest[1], rest[2]); break;
+    case 'tags': cmd_tags(); break;
+    case 'project': cmd_project(rest[0], ...rest.slice(1)); break;
+    case 'projects': cmd_project('list'); break;
+    case 'list': cmd_list(rest); break;
+    case 'archive': cmd_archive(...rest); break;
+    case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
+    case 'mode': cmd_mode(rest[0]); break;
+    case 'image': cmd_image(rest[0], ...rest.slice(1)); break;
+    case 'close': cmd_close(); break;
+    case 'download': cmd_download(); break;
+    case 'stats': cmd_stats(); break;
+    case 'clear': outputEl.innerHTML = ''; break;
+    default: print(`unknown command "${cmd}" — try "help"`, 'err');
+  }
+}
+
+// ---------- input wiring ----------
+const cmdInput = document.getElementById('cmd');
+cmdInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    const val = cmdInput.value;
+    if(val.trim() !== ''){
+      printEcho(val);
+      history.push(val);
+      histIdx = history.length;
+      handleCommand(val);
+    }
+    cmdInput.value = '';
+  } else if(e.key === 'ArrowUp'){
+    if(histIdx > 0){ histIdx--; cmdInput.value = history[histIdx]; }
+    e.preventDefault();
+  } else if(e.key === 'ArrowDown'){
+    if(histIdx < history.length - 1){ histIdx++; cmdInput.value = history[histIdx]; }
+    else { histIdx = history.length; cmdInput.value = ''; }
+    e.preventDefault();
+  }
+});
+document.body.addEventListener('click', ()=> cmdInput.focus());
+
+// ---------- boot ----------
+print('welcome to the garden. type "help" to see what you can plant.', 'info');
+loadState();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "artworks": [
+    { "id": "tree", "name": "Old Oak", "category": "nature", "file": "nature/tree.txt", "revealTasks": 8 },
+    { "id": "flower", "name": "Wildflower", "category": "nature", "file": "nature/flower.txt", "revealTasks": 5 },
+    { "id": "mountain", "name": "Mountain Peak", "category": "nature", "file": "nature/mountain.txt", "revealTasks": 6 }
+  ]
+}

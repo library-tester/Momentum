@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500">
+  <defs>
+    <linearGradient id="nsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0f2c"/>
+      <stop offset="60%" stop-color="#182a52"/>
+      <stop offset="100%" stop-color="#2c4a6e"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c3350"/>
+      <stop offset="100%" stop-color="#0a1830"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fdf6e3"/>
+      <stop offset="100%" stop-color="#d8cfa0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="500" fill="url(#nsky)"/>
+  <circle cx="450" cy="100" r="50" fill="url(#moon)"/>
+  <g fill="#f4ecc9">
+    <circle cx="60" cy="60" r="2"/><circle cx="120" cy="40" r="1.5"/><circle cx="180" cy="90" r="2"/>
+    <circle cx="240" cy="50" r="1.5"/><circle cx="300" cy="30" r="2"/><circle cx="340" cy="110" r="1.5"/>
+    <circle cx="90" cy="150" r="1.5"/><circle cx="200" cy="140" r="2"/><circle cx="30" cy="200" r="1.5"/>
+    <circle cx="380" cy="60" r="1.5"/><circle cx="520" cy="50" r="2"/><circle cx="560" cy="140" r="1.5"/>
+    <circle cx="150" cy="200" r="1.5"/><circle cx="260" cy="180" r="1.5"/>
+  </g>
+  <rect y="300" width="600" height="200" fill="url(#sea)"/>
+  <rect x="420" y="150" width="60" height="150" fill="#fdf6e3" opacity="0.12"/>
+  <g stroke="#3a5878" stroke-width="3" fill="none" opacity="0.6">
+    <path d="M0,340 q30,-10 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0"/>
+    <path d="M0,390 q30,-10 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0"/>
+    <path d="M0,440 q30,-10 60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0 t60,0"/>
+  </g>
+  <path d="M150,300 l15,-25 15,25 z" fill="#0a1830"/>
+  <rect x="163" y="255" width="2" height="20" fill="#0a1830"/>
+</svg>

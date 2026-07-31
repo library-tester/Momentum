@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node --check /tmp/extracted3.js)",
+      "Bash(node test_artwork.js)",
+      "Bash(sed '1d;$d')",
+      "Bash(node --check /tmp/extracted4.js)",
+      "Bash(node --check /tmp/extracted6.js)",
+      "Bash(node --check /tmp/extracted7.js)"
+    ]
+  }
+}
