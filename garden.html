@@ -20,6 +20,20 @@
     --wilt:        #6b5a4a;
     --error:       #c96a5a;
   }
+  :root[data-theme="night"]{
+    --soil-dark:   #000000;
+    --soil-panel:  #000000;
+    --soil-line:   #ff3333;
+    --text-dim:    #ff3333;
+    --text-main:   #ff3333;
+    --amber:       #ff3333;
+    --moss:        #ff3333;
+    --moss-dim:    #ff3333;
+    --brick:       #ff3333;
+    --dusk-blue:   #ff3333;
+    --wilt:        #ff3333;
+    --error:       #ff3333;
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
@@ -97,14 +111,12 @@
     display:block;
     max-width:100%;
     margin:4px 0 10px;
-    border:1px solid var(--soil-line);
   }
   .image-frame{
     position:relative;
     width:100%;
     max-width:520px;
     overflow:hidden;
-    border:1px solid var(--soil-line);
     background:var(--soil-panel);
   }
   .image-base{
@@ -199,6 +211,11 @@ let nextId = 1;
 let history = [];
 let histIdx = -1;
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
+let nightMode = false;
+
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', nightMode ? 'night' : 'day');
+}
 
 const STORAGE_KEY = 'garden-tasks-v1';
 
@@ -366,10 +383,12 @@ async function loadState(){
       nextId = data.nextId || 1;
       projects = data.projects || [];
       displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
+      nightMode = !!data.nightMode;
       asciiTrack.restore(data.ascii);
       imageTrack.restore(data.image);
     }
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
+  applyTheme();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
   }catch(e){
@@ -386,7 +405,7 @@ async function loadState(){
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      tasks, archive, nextId, projects, displayMode,
+      tasks, archive, nextId, projects, displayMode, nightMode,
       ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
     }));
   }catch(e){ print('warning: could not save progress', 'err'); }
@@ -531,6 +550,7 @@ const HELP_TEXT =
   gallery                                               list your collected artworks
   gallery show <name>                                   reprint a collected artwork in full
   mode [ascii|image]                                    show or switch the reveal mode
+  switch [nightmode|daymode]                            show or switch the color theme
   image                                                  info on the current piece (whichever mode you're in)
   image next                                             skip to a new piece (no credit for it)
   image reveal                                           cheat: instantly finish revealing it
@@ -832,6 +852,23 @@ function cmd_mode(arg){
   saveState(); renderGarden();
 }
 
+function cmd_switch(arg){
+  if(!arg){ print(`current theme: ${nightMode ? 'night' : 'day'}  (switch with: switch nightmode | switch daymode)`, 'info'); return; }
+  arg = arg.toLowerCase();
+  if(arg === 'nightmode'){
+    if(nightMode){ print('already in night mode', 'info'); return; }
+    nightMode = true;
+  } else if(arg === 'daymode'){
+    if(!nightMode){ print('already in day mode', 'info'); return; }
+    nightMode = false;
+  } else {
+    print('usage: switch nightmode | switch daymode', 'err'); return;
+  }
+  applyTheme();
+  print(nightMode ? 'entering night mode.' : 'back to day mode.', 'ok');
+  saveState();
+}
+
 // "image ..." acts on whichever track is currently active (ascii or image) — same
 // command regardless of mode, per the user's own framing: it just targets whatever
 // you're currently looking at.
@@ -989,6 +1026,7 @@ function handleCommand(raw){
     case 'archive': cmd_archive(...rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
+    case 'switch': cmd_switch(rest[0]); break;
     case 'image': cmd_image(rest[0], ...rest.slice(1)); break;
     case 'close': cmd_close(); break;
     case 'download': cmd_download(); break;
