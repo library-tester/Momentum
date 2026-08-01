@@ -2,42 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>garden — ascii task manager</title>
+<title>Momentum - yet another task manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --soil-dark:   #1a1410;
-    --soil-panel:  #221a14;
-    --soil-line:   #3a2c1e;
+    --bg-dark:     #1a1410;
+    --bg-panel:    #221a14;
+    --line:        #3a2c1e;
     --text-dim:    #a8926f;
     --text-main:   #e8dcc0;
     --amber:       #d9a441;
-    --moss:        #6b9b6e;
-    --moss-dim:    #4a6b4d;
-    --brick:       #c96a5a;
-    --dusk-blue:   #7fa8c9;
-    --wilt:        #6b5a4a;
+    --accent:      #6b9b6e;
+    --accent-dim:  #4a6b4d;
     --error:       #c96a5a;
   }
   :root[data-theme="night"]{
-    --soil-dark:   #000000;
-    --soil-panel:  #000000;
-    --soil-line:   #ff3333;
+    --bg-dark:     #000000;
+    --bg-panel:    #000000;
+    --line:        #ff3333;
     --text-dim:    #ff3333;
     --text-main:   #ff3333;
     --amber:       #ff3333;
-    --moss:        #ff3333;
-    --moss-dim:    #ff3333;
-    --brick:       #ff3333;
-    --dusk-blue:   #ff3333;
-    --wilt:        #ff3333;
+    --accent:      #ff3333;
+    --accent-dim:  #ff3333;
     --error:       #ff3333;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
-    background:var(--soil-dark);
+    background:var(--bg-dark);
     color:var(--text-main);
     font-family:'IBM Plex Mono', monospace;
     display:flex;
@@ -47,7 +41,7 @@
   }
   header{
     padding:14px 20px 10px;
-    border-bottom:1px solid var(--soil-line);
+    border-bottom:1px solid var(--line);
     flex-shrink:0;
   }
   header .title{
@@ -56,7 +50,7 @@
     letter-spacing:2px;
     color:var(--amber);
   }
-  header .title span{ color:var(--moss); }
+  header .title span{ color:var(--accent); }
   header .stats{
     margin-top:4px;
     font-size:12px;
@@ -70,36 +64,49 @@
     overflow:hidden;
     min-height:0;
   }
-  #garden{
+  #reveal-panel{
     flex:1 1 55%;
     overflow:auto;
     padding:18px 20px;
     min-width:240px;
     font-size:13px;
     line-height:1.15;
+    display:flex;
+    flex-direction:column;
   }
   .artwork-title{
     font-size:13px;
     color:var(--text-main);
     margin-bottom:10px;
     letter-spacing:0.5px;
+    flex-shrink:0;
   }
   .artwork-progress{
     color:var(--text-dim);
     font-size:12px;
   }
-  .garden-scene{
+  .reveal-scene{
     margin:0;
     font-family:inherit;
     font-size:13px;
     line-height:1.15;
     white-space:pre;
+    flex-shrink:0;
   }
-  .empty-bed{
+  .image-stage{
+    flex:1;
+    min-height:0;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+  }
+  .empty-panel{
     color:var(--text-dim);
     font-size:13px;
     padding:10px 0 0;
+    line-height:1.5;
   }
+  .empty-panel.err{ color:var(--error); }
   .gallery-pre{
     margin:4px 0 10px;
     color:var(--amber);
@@ -114,10 +121,8 @@
   }
   .image-frame{
     position:relative;
-    width:100%;
-    max-width:520px;
     overflow:hidden;
-    background:var(--soil-panel);
+    background:var(--bg-panel);
   }
   .image-base{
     position:absolute;
@@ -133,8 +138,8 @@
     display:grid;
   }
   .tile{
-    background:var(--soil-panel);
-    box-shadow: inset 0 0 0 1px var(--soil-dark);
+    background:var(--bg-panel);
+    box-shadow: inset 0 0 0 1px var(--bg-dark);
     transition: transform .3s ease, opacity .3s ease;
   }
   .tile.revealed{
@@ -147,7 +152,7 @@
     display:flex;
     flex-direction:column;
     min-width:280px;
-    border-right:1px solid var(--soil-line);
+    border-right:1px solid var(--line);
   }
   #output{
     flex:1;
@@ -157,16 +162,16 @@
     line-height:1.5;
   }
   #output .line{ white-space:pre-wrap; }
-  #output .ok{ color:var(--moss); }
+  #output .ok{ color:var(--accent); }
   #output .err{ color:var(--error); }
   #output .info{ color:var(--text-dim); }
   #output .echo{ color:var(--text-main); }
-  #output .echo::before{ content:"garden $ "; color:var(--amber); }
+  #output .echo::before{ content:"$ "; color:var(--amber); }
   #input-row{
     display:flex;
     align-items:center;
     padding:8px 20px 14px;
-    border-top:1px solid var(--soil-line);
+    border-top:1px solid var(--line);
     flex-shrink:0;
   }
   #prompt{ color:var(--amber); margin-right:8px; font-size:13px; }
@@ -179,15 +184,15 @@
     font-family:inherit;
     font-size:13px;
   }
-  ::selection{ background:var(--moss-dim); }
-  #output::-webkit-scrollbar, #garden::-webkit-scrollbar{ width:8px; }
-  #output::-webkit-scrollbar-thumb, #garden::-webkit-scrollbar-thumb{ background:var(--soil-line); border-radius:4px; }
+  ::selection{ background:var(--accent-dim); }
+  #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar{ width:8px; }
+  #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="title"><span>THE GARDEN</span> — ascii task manager</div>
+  <div class="title"><span>MOMENTUM</span> — yet another task manager</div>
   <div class="stats" id="stats">loading...</div>
 </header>
 
@@ -195,11 +200,11 @@
   <div id="term-wrap">
     <div id="output"></div>
     <div id="input-row">
-      <span id="prompt">garden $</span>
+      <span id="prompt">$</span>
       <input id="cmd" type="text" autocomplete="off" spellcheck="false" autofocus />
     </div>
   </div>
-  <div id="garden"></div>
+  <div id="reveal-panel"></div>
 </div>
 
 <script>
@@ -212,12 +217,14 @@ let history = [];
 let histIdx = -1;
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
 let nightMode = false;
+let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
 
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', nightMode ? 'night' : 'day');
 }
 
-const STORAGE_KEY = 'garden-tasks-v1';
+const STORAGE_KEY = 'momentum-tasks-v1';
+const LEGACY_STORAGE_KEY = 'garden-tasks-v1';  // fall back to pre-rename saves so existing task lists aren't lost
 
 function isOverdue(t){
   if(!t.due || t.status === 'done') return false;
@@ -239,6 +246,69 @@ function shuffledIndices(n){
   return arr;
 }
 
+// ---------- folder discovery ----------
+// lets new files just work by dropping them into ascii_art/ or image_art/ and
+// reloading — no manifest.json edit required. relies on the dev server exposing
+// a plain directory listing (an <a href> per entry) at each folder URL, which
+// `python3 -m http.server` (this project's usual dev server) does automatically.
+// manifest.json becomes optional, per-file *override* data: if an entry there
+// matches a discovered file's path, its fields (name/category/revealTasks/grid/
+// id) win over the auto-derived defaults, so existing curation keeps working.
+// hosts that don't expose directory listings (most production static hosts)
+// simply fail the discovery fetch, and loadManifest() falls back to reading
+// manifest.json as a plain, complete list, exactly as before.
+function humanizeName(stem){
+  const words = stem.split(/[-_\s]+/).filter(Boolean);
+  if(!words.length) return stem;
+  return words.map(w => (w === w.toUpperCase() && /[A-Z]/.test(w)) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+async function fetchDirListing(url){
+  const res = await fetch(url);
+  if(!res.ok || !(res.headers.get('content-type') || '').includes('text')) throw new Error('no directory listing at ' + url);
+  const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  return Array.from(doc.querySelectorAll('a[href]'))
+    .map(a => a.getAttribute('href'))
+    .filter(href => href && href !== '../' && !href.startsWith('?') && !href.includes('://'));
+}
+async function discoverFiles(baseUrl, extensions, prefix){
+  prefix = prefix || '';
+  const hrefs = await fetchDirListing(baseUrl);
+  let files = [];
+  for(const href of hrefs){
+    if(href.endsWith('/')){
+      files = files.concat(await discoverFiles(baseUrl + href, extensions, prefix + href));
+    } else if(extensions.some(ext => href.toLowerCase().endsWith(ext))){
+      files.push(prefix + decodeURIComponent(href));
+    }
+  }
+  return files;
+}
+async function discoverManifest({ baseDir, extensions, manifestUrl, itemsField, defaultExtra }){
+  const files = await discoverFiles(baseDir, extensions);
+  if(files.length === 0) throw new Error('discovery found nothing at ' + baseDir);   // probably not a real listing — fall back
+
+  let overridesByFile = {};
+  try{
+    const res = await fetch(manifestUrl);
+    if(res.ok){
+      (((await res.json())[itemsField]) || []).forEach(e => { if(e.file) overridesByFile[e.file] = e; });
+    }
+  }catch(e){ /* no manifest.json (or it's unreadable) — discovered defaults stand on their own */ }
+
+  const usedIds = new Set();
+  const items = files.sort().map(file => {
+    const override = overridesByFile[file] || {};
+    const stem = file.slice(file.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '');
+    const folder = file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : null;
+    const baseId = override.id || slugify(stem);
+    let id = baseId, n = 2;
+    while(usedIds.has(id)){ id = `${baseId}-${n++}`; }
+    usedIds.add(id);
+    return Object.assign({ id, name: humanizeName(stem), category: folder, file, revealTasks: 6 }, defaultExtra, override, { file });
+  });
+  return { [itemsField]: items };
+}
+
 // ---------- generic collectible reveal track ----------
 // both the ascii-art system and the image system are the same state machine:
 // load a manifest of entries, load the current entry's content, reveal a random
@@ -246,7 +316,7 @@ function shuffledIndices(n){
 // permanent gallery and start a new one (picked so nothing repeats until every
 // entry in the manifest has had a turn). this factory is shared by both so a
 // third mode later is just another instantiation, not a new system.
-function createRevealTrack({ manifestUrl, itemsField, loadItem, totalCellsFor }){
+function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, loadItem, totalCellsFor, defaultExtra }){
   return {
     manifest: null,
     current: null,                                        // loaded item, shape depends on loadItem
@@ -256,8 +326,12 @@ function createRevealTrack({ manifestUrl, itemsField, loadItem, totalCellsFor })
     pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
 
     async loadManifest(){
-      const res = await fetch(manifestUrl);
-      this.manifest = await res.json();
+      try{
+        this.manifest = await discoverManifest({ baseDir, extensions, manifestUrl, itemsField, defaultExtra });
+      }catch(e){
+        const res = await fetch(manifestUrl);
+        this.manifest = await res.json();
+      }
     },
     pickNextEntry(){
       const items = this.manifest[itemsField];
@@ -347,6 +421,8 @@ async function loadArtworkFile(entry){
 }
 
 const asciiTrack = createRevealTrack({
+  baseDir: 'ascii_art/',
+  extensions: ['.txt'],
   manifestUrl: 'ascii_art/manifest.json',
   itemsField: 'artworks',
   loadItem: loadArtworkFile,
@@ -365,17 +441,20 @@ async function loadImageEntry(entry){
 }
 
 const imageTrack = createRevealTrack({
+  baseDir: 'image_art/',
+  extensions: ['.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif'],
   manifestUrl: 'image_art/manifest.json',
   itemsField: 'images',
   loadItem: loadImageEntry,
   totalCellsFor: item => item.cols * item.rows,
+  defaultExtra: { grid: { cols: 6, rows: 4 } },
 });
 
 function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack; }
 
 async function loadState(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if(raw){
       const data = JSON.parse(raw);
       tasks = data.tasks || [];
@@ -389,17 +468,23 @@ async function loadState(){
     }
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
-  try{
-    await Promise.all([asciiTrack.init(), imageTrack.init()]);
-  }catch(e){
-    print('warning: could not load the art collection (serve this over http, not as a bare file)', 'err');
+  if(location.protocol === 'file:'){
+    collectionLoadError = 'opened as a local file — the art collection can\'t load this way. serve this folder over http instead: run "python3 -m http.server" in it, then open the http:// address it prints.';
+    print(collectionLoadError, 'err');
+  } else {
+    try{
+      await Promise.all([asciiTrack.init(), imageTrack.init()]);
+    }catch(e){
+      collectionLoadError = 'could not load the art collection — make sure ascii_art/ and image_art/ are being served alongside this page.';
+      print(collectionLoadError, 'err');
+    }
   }
-  renderGarden();
+  renderPanel();
   if(tasks.length){
-    print(`— ${tasks.length} task(s) in the garden —`, 'info');
+    print(`— ${tasks.length} task(s) loaded —`, 'info');
     cmd_list([]);
   } else {
-    print('no tasks yet — plant one:  add "water the office plants"', 'info');
+    print('no tasks yet — add one:  add "organize your desk"', 'info');
   }
 }
 function saveState(){
@@ -426,11 +511,11 @@ function buildArtworkScene(art, progress){
       const idx = r * width + c;
       line += revealed.has(idx)
         ? `<span style="color:var(--amber)">${escapeHtml(ch)}</span>`
-        : `<span style="color:var(--soil-line)">·</span>`;
+        : `<span style="color:var(--line)">·</span>`;
     }
     html += line + '\n';
   }
-  return `<pre class="garden-scene">${html}</pre>`;
+  return `<pre class="reveal-scene">${html}</pre>`;
 }
 
 function buildImageScene(art, progress){
@@ -441,18 +526,64 @@ function buildImageScene(art, progress){
     tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
   }
   return (
-    `<div class="image-frame" style="aspect-ratio:${art.cols}/${art.rows}">` +
-      `<img class="image-base" src="image_art/${art.file}" alt="${escapeHtml(art.name)}">` +
-      `<div class="tile-grid" style="grid-template-columns:repeat(${art.cols},1fr);grid-template-rows:repeat(${art.rows},1fr)">${tiles}</div>` +
+    `<div class="image-stage">` +
+      `<div class="image-frame">` +
+        `<img class="image-base" src="image_art/${art.file}" alt="${escapeHtml(art.name)}">` +
+        `<div class="tile-grid" style="grid-template-columns:repeat(${art.cols},1fr);grid-template-rows:repeat(${art.rows},1fr)">${tiles}</div>` +
+      `</div>` +
     `</div>`
   );
 }
 
-function renderGarden(){
-  const g = document.getElementById('garden');
+// sizes the frame in real pixels rather than via CSS aspect-ratio, because the
+// frame's own children are absolutely positioned (so it has no intrinsic
+// content size for the browser's auto-sizing to key off). starts from the
+// reveal grid's cols/rows as an approximate ratio (so there's a correctly-shaped
+// box on first paint), then corrects to the photo's real aspect ratio once it
+// loads. raster photos are additionally capped at their native pixel size so
+// small images never get blown up past their real resolution; vector art has
+// no such ceiling and is free to fill the available space.
+let imageResizeObserver = null;
+function fitImageFrame(container, art){
+  const stage = container.querySelector('.image-stage');
+  const frame = container.querySelector('.image-frame');
+  const img = container.querySelector('.image-base');
+  if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
+  if(!stage || !frame || !img) return;
+
+  const isVector = /\.svg($|\?)/i.test(art.file);
+  let ratio = art.cols / art.rows;
+
+  function layout(){
+    const availW = stage.clientWidth, availH = stage.clientHeight;
+    if(!availW || !availH) return;
+    let w = availW, h = w / ratio;
+    if(h > availH){ h = availH; w = h * ratio; }
+    if(!isVector && img.naturalWidth && w > img.naturalWidth){
+      w = img.naturalWidth; h = img.naturalHeight;
+    }
+    frame.style.width = `${w}px`;
+    frame.style.height = `${h}px`;
+  }
+
+  const onLoad = () => {
+    if(img.naturalWidth && img.naturalHeight) ratio = img.naturalWidth / img.naturalHeight;
+    layout();
+  };
+  if(img.complete) onLoad(); else img.addEventListener('load', onLoad, { once:true });
+
+  layout();
+  imageResizeObserver = new ResizeObserver(layout);
+  imageResizeObserver.observe(stage);
+}
+
+function renderPanel(){
+  const g = document.getElementById('reveal-panel');
   const track = activeTrack();
   if(!track.current){
-    g.innerHTML = '<div class="empty-bed">loading the collection...</div>';
+    g.innerHTML = collectionLoadError
+      ? `<div class="empty-panel err">${escapeHtml(collectionLoadError)}</div>`
+      : '<div class="empty-panel">loading the collection...</div>';
     updateStats();
     return;
   }
@@ -464,6 +595,12 @@ function renderGarden(){
   g.innerHTML =
     `<div class="artwork-title">${escapeHtml(art.name)} <span class="artwork-progress">${progress.revealedCount}/${total} pieces · ${pct}% · ${displayMode} mode${pendingTxt}</span></div>` +
     scene;
+  if(displayMode === 'image'){
+    fitImageFrame(g, art);
+  } else if(imageResizeObserver){
+    imageResizeObserver.disconnect();
+    imageResizeObserver = null;
+  }
   updateStats();
 }
 
@@ -473,7 +610,7 @@ function updateStats(){
   const overdue = tasks.filter(isOverdue).length;
   const collectedTxt = ` · ${asciiTrack.collected.length} ascii + ${imageTrack.collected.length} image collected`;
   document.getElementById('stats').textContent =
-    `${total} planted · ${archive.length} bloomed · ${active} growing · ${overdue} wilted · ${projects.length} project${projects.length===1?'':'s'}${collectedTxt}`;
+    `${total} total · ${archive.length} completed · ${active} in progress · ${overdue} overdue · ${projects.length} project${projects.length===1?'':'s'}${collectedTxt}`;
 }
 
 // ---------- terminal ----------
@@ -531,8 +668,8 @@ const HELP_TEXT =
   (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)
 
   add "task title" [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]
-                                                         plant a new task
-  start <id[,id...]|all>                               mark task(s) active (sprouts)
+                                                         add a new task
+  start <id[,id...]|all>                               mark task(s) active
   done <id[,id...]|all>                                 complete task(s) — moves them to the archive
   rm <id[,id...]|1-4|all>                               delete task(s)
   priority <id[,id...]|all> <high|med|low>              change priority
@@ -557,7 +694,7 @@ const HELP_TEXT =
   image hide                                             cheat: re-mask it back to 0%
   close                                                  once complete: save it + start a new one
   download                                                once complete: save the file to your computer
-  stats                                                  garden summary
+  stats                                                  task summary
   clear                                                  clear the terminal
   help                                                   show this list`;
 
@@ -574,7 +711,7 @@ function parseFlags(tokens){
 
 function cmd_add(args){
   const title = args._[0];
-  if(!title){ print('add needs a title, e.g. add "water the plants"', 'err'); return; }
+  if(!title){ print('add needs a title, e.g. add "buy groceries"', 'err'); return; }
   let priority = null, due = null, tags = [], project = null;
   if(args.p){
     const p = args.p.toLowerCase();
@@ -601,8 +738,8 @@ function cmd_add(args){
   const dueTxt = due ? ` due ${due}` : '';
   const projTxt = project ? ` proj:${project}` : '';
   const tagsTxt = tags.length ? ` tags:${tags.join(',')}` : '';
-  print(`planted #${t.id} "${title}"${priTxt}${dueTxt}${projTxt}${tagsTxt}`, 'ok');
-  saveState(); renderGarden();
+  print(`added #${t.id} "${title}"${priTxt}${dueTxt}${projTxt}${tagsTxt}`, 'ok');
+  saveState(); renderPanel();
 }
 
 function cmd_start(idsStr){
@@ -612,12 +749,12 @@ function cmd_start(idsStr){
   ids.forEach(idStr => {
     const t = findTask(idStr);
     if(!t){ print(`no task #${idStr}`, 'err'); return; }
-    if(t.status === 'done'){ print(`#${t.id} is already bloomed`, 'err'); return; }
+    if(t.status === 'done'){ print(`#${t.id} is already done`, 'err'); return; }
     t.status = 'active';
-    print(`#${t.id} "${t.title}" is sprouting`, 'ok');
+    print(`#${t.id} "${t.title}" is now active`, 'ok');
     changed = true;
   });
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 async function cmd_done(idsStr){
@@ -630,7 +767,7 @@ async function cmd_done(idsStr){
     if(t.status === 'done'){ print(`#${t.id} is already done`, 'err'); continue; }
     t.status = 'done';
     t.completedAt = Date.now();
-    print(`#${t.id} "${t.title}" bloomed! moved to the archive.`, 'ok');
+    print(`#${t.id} "${t.title}" done! moved to the archive.`, 'ok');
     changed = true;
     tasks = tasks.filter(x => x.id !== t.id);
     archive.push(t);
@@ -641,7 +778,7 @@ async function cmd_done(idsStr){
       await track.reveal(track.cellsPerCompletion(), art => printCompletionPrompt(art));
     }
   }
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_rm(idsStr){
@@ -652,10 +789,10 @@ function cmd_rm(idsStr){
     const t = findTask(idStr);
     if(!t){ print(`no task #${idStr}`, 'err'); return; }
     tasks = tasks.filter(x => x.id !== t.id);
-    print(`pulled #${t.id} "${t.title}" from the bed`, 'ok');
+    print(`removed #${t.id} "${t.title}"`, 'ok');
     changed = true;
   });
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_priority(idsStr, p){
@@ -671,7 +808,7 @@ function cmd_priority(idsStr, p){
     print(`#${t.id} priority set to ${p}`, 'ok');
     changed = true;
   });
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_due(idsStr, dateStr){
@@ -688,7 +825,7 @@ function cmd_due(idsStr, dateStr){
     else { t.due = dateStr; print(`#${t.id} due ${dateStr}`, 'ok'); }
     changed = true;
   });
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_tag(idsStr, action, value){
@@ -705,7 +842,6 @@ function cmd_tag(idsStr, action, value){
     if(action === 'add'){
       value.split(',').map(s=>s.trim()).filter(Boolean).forEach(tag => {
         if(!t.tags.includes(tag)) t.tags.push(tag);
-cccccbrfdggnrbheirvcdknegdidehhrrlgnitijefjt
       });
     } else if(action === 'rm'){
       t.tags = t.tags.filter(x => x !== value);
@@ -715,7 +851,7 @@ cccccbrfdggnrbheirvcdknegdidehhrrlgnitijefjt
     print(`#${t.id} tags: ${t.tags.join(', ') || '(none)'}`, 'ok');
     changed = true;
   });
-  if(changed){ saveState(); renderGarden(); }
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_tags(){
@@ -743,7 +879,7 @@ function cmd_project(sub, ...rest){
     tasks.forEach(t => { if(t.project === name){ t.project = null; moved++; } });
     archive.forEach(t => { if(t.project === name){ t.project = null; } });
     print(`removed project "${name}"${moved ? ` (${moved} task(s) unassigned)` : ''}`, 'ok');
-    saveState(); renderGarden();
+    saveState(); renderPanel();
   } else if(sub === 'list'){
     if(projects.length === 0){ print('no projects yet. create one:  project add <name>', 'info'); return; }
     projects.forEach(p => {
@@ -765,7 +901,7 @@ function cmd_project(sub, ...rest){
       else { t.project = name; print(`#${t.id} assigned to project "${name}"`, 'ok'); }
       changed = true;
     });
-    if(changed){ saveState(); renderGarden(); }
+    if(changed){ saveState(); renderPanel(); }
   } else {
     print('usage: project add|rm|list|set ...', 'err');
   }
@@ -839,7 +975,7 @@ function cmd_stats(){
   const active = tasks.filter(t=>t.status==='active').length;
   const pending = tasks.filter(t=>t.status==='pending').length;
   const overdue = tasks.filter(isOverdue).length;
-  print(`total: ${total}   bloomed: ${archive.length}   growing: ${active}   seeds: ${pending}   overdue: ${overdue}   projects: ${projects.length}   ascii collected: ${asciiTrack.collected.length}   image collected: ${imageTrack.collected.length}`);
+  print(`total: ${total}   completed: ${archive.length}   active: ${active}   pending: ${pending}   overdue: ${overdue}   projects: ${projects.length}   ascii collected: ${asciiTrack.collected.length}   image collected: ${imageTrack.collected.length}`);
 }
 
 function cmd_mode(arg){
@@ -849,7 +985,7 @@ function cmd_mode(arg){
   if(arg === displayMode){ print(`already in ${arg} mode`, 'info'); return; }
   displayMode = arg;
   print(`switched to ${arg} mode`, 'ok');
-  saveState(); renderGarden();
+  saveState(); renderPanel();
 }
 
 function cmd_switch(arg){
@@ -910,7 +1046,7 @@ async function cmd_image(sub, ...rest){
     const was = track.current.name;
     await track.startNew();
     print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
-    saveState(); renderGarden();
+    saveState(); renderPanel();
     return;
   }
   if(sub === 'reveal'){
@@ -919,14 +1055,14 @@ async function cmd_image(sub, ...rest){
       print('(cheat)', 'info');
       printCompletionPrompt(art);
     });
-    saveState(); renderGarden();
+    saveState(); renderPanel();
     return;
   }
   if(sub === 'hide'){
     track.progress.revealedCount = 0;
     track.pending = false;
     print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
-    saveState(); renderGarden();
+    saveState(); renderPanel();
     return;
   }
   print('usage: image [info|next|reveal|hide]  (applies to whichever mode — ascii or image — you\'re currently in)', 'err');
@@ -937,7 +1073,7 @@ async function cmd_close(){
   if(!track.pending){ print('nothing to close right now', 'err'); return; }
   const finished = await track.closePending();
   print(`closed "${finished.name}" — added to your collection. now revealing "${track.current.name}".`, 'ok');
-  saveState(); renderGarden();
+  saveState(); renderPanel();
 }
 
 async function cmd_download(){
@@ -1060,7 +1196,7 @@ cmdInput.addEventListener('keydown', (e)=>{
 document.body.addEventListener('click', ()=> cmdInput.focus());
 
 // ---------- boot ----------
-print('welcome to the garden. type "help" to see what you can plant.', 'info');
+print('welcome to Momentum. type "help" to see what you can do.', 'info');
 loadState();
 </script>
 </body>
