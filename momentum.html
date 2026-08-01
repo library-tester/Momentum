@@ -148,6 +148,15 @@
     transform:scale(0.4);
     pointer-events:none;
   }
+  #fullscreen-overlay{
+    position:fixed;
+    inset:0;
+    background:#000;
+    display:grid;
+    place-items:center;
+    z-index:1000;
+    cursor:pointer;
+  }
   #term-wrap{
     flex:1 1 45%;
     display:flex;
@@ -536,29 +545,23 @@ function buildImageScene(art, progress){
   );
 }
 
-// sizes the frame in real pixels rather than via CSS aspect-ratio, because the
+// sizes a frame in real pixels rather than via CSS aspect-ratio, because the
 // frame's own children are absolutely positioned (so it has no intrinsic
 // content size for the browser's auto-sizing to key off). starts from the
 // reveal grid's cols/rows as an approximate ratio (so there's a correctly-shaped
 // box on first paint), then corrects to the photo's real aspect ratio once it
 // loads. raster photos are additionally capped at their native pixel size so
 // small images never get blown up past their real resolution; vector art has
-// no such ceiling and is free to fill the available space.
-let imageResizeObserver = null;
-function fitImageFrame(container, art){
-  const stage = container.querySelector('.image-stage');
-  const frame = container.querySelector('.image-frame');
-  const img = container.querySelector('.image-base');
-  if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
-  if(!stage || !frame || !img) return;
-
+// no such ceiling and is free to fill the available space. shared by the
+// in-panel view and the fullscreen "display" overlay — they only differ in
+// what counts as "available space" (getAvail). returns the layout function so
+// the caller can re-run it (e.g. on resize).
+function fitFrameToAvail(frame, img, art, getAvail){
   const isVector = /\.svg($|\?)/i.test(art.file);
   let ratio = art.cols / art.rows;
 
   function layout(){
-    const cs = getComputedStyle(stage);
-    const availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const { w: availW, h: availH } = getAvail();
     if(!availW || !availH) return;
     let w = availW, h = w / ratio;
     if(h > availH){ h = availH; w = h * ratio; }
@@ -576,8 +579,73 @@ function fitImageFrame(container, art){
   if(img.complete) onLoad(); else img.addEventListener('load', onLoad, { once:true });
 
   layout();
+  return layout;
+}
+
+let imageResizeObserver = null;
+function fitImageFrame(container, art){
+  const stage = container.querySelector('.image-stage');
+  const frame = container.querySelector('.image-frame');
+  const img = container.querySelector('.image-base');
+  if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
+  if(!stage || !frame || !img) return;
+
+  const layout = fitFrameToAvail(frame, img, art, () => {
+    const cs = getComputedStyle(stage);
+    return {
+      w: stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+      h: stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom),
+    };
+  });
   imageResizeObserver = new ResizeObserver(layout);
   imageResizeObserver.observe(stage);
+}
+
+// ---------- fullscreen "display" ----------
+// shows the current image's live reveal state (not the pristine source file)
+// stretched as large as the screen allows, same contain/no-upscale rules as
+// the in-panel view. exits on escape or on click, per the user's request.
+let fullscreenEl = null, fullscreenResizeHandler = null;
+function handleFullscreenKey(e){
+  if(e.key === 'Escape') closeFullscreen();
+}
+function closeFullscreen(){
+  if(!fullscreenEl) return;
+  fullscreenEl.remove();
+  fullscreenEl = null;
+  if(fullscreenResizeHandler){ window.removeEventListener('resize', fullscreenResizeHandler); fullscreenResizeHandler = null; }
+  document.removeEventListener('keydown', handleFullscreenKey);
+  cmdInput.focus();
+}
+function openFullscreen(art, progress){
+  const total = art.cols * art.rows;
+  const revealed = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+  let tiles = '';
+  for(let i = 0; i < total; i++){
+    tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
+  }
+  fullscreenEl = document.createElement('div');
+  fullscreenEl.id = 'fullscreen-overlay';
+  fullscreenEl.innerHTML =
+    `<div class="image-frame">` +
+      `<img class="image-base" src="image_art/${art.file}" alt="${escapeHtml(art.name)}">` +
+      `<div class="tile-grid" style="grid-template-columns:repeat(${art.cols},1fr);grid-template-rows:repeat(${art.rows},1fr)">${tiles}</div>` +
+    `</div>`;
+  document.body.appendChild(fullscreenEl);
+
+  const frame = fullscreenEl.querySelector('.image-frame');
+  const img = fullscreenEl.querySelector('.image-base');
+  const layout = fitFrameToAvail(frame, img, art, () => ({ w: window.innerWidth, h: window.innerHeight }));
+  fullscreenResizeHandler = layout;
+  window.addEventListener('resize', fullscreenResizeHandler);
+  fullscreenEl.addEventListener('click', closeFullscreen);
+  document.addEventListener('keydown', handleFullscreenKey);
+  cmdInput.blur();
+}
+function cmd_display(){
+  if(displayMode !== 'image'){ print('display only shows images — switch with: mode image', 'err'); return; }
+  if(!imageTrack.current){ print('the image collection is still loading...', 'info'); return; }
+  openFullscreen(imageTrack.current, imageTrack.progress);
 }
 
 function renderPanel(){
@@ -697,6 +765,7 @@ const HELP_TEXT =
   image hide                                             cheat: re-mask it back to 0%
   close                                                  once complete: save it + start a new one
   download                                                once complete: save the file to your computer
+  display                                                fullscreen the current image, however much is revealed so far (esc or click to exit)
   stats                                                  task summary
   clear                                                  clear the terminal
   help                                                   show this list`;
@@ -1169,6 +1238,7 @@ function handleCommand(raw){
     case 'image': cmd_image(rest[0], ...rest.slice(1)); break;
     case 'close': cmd_close(); break;
     case 'download': cmd_download(); break;
+    case 'display': cmd_display(); break;
     case 'stats': cmd_stats(); break;
     case 'clear': outputEl.innerHTML = ''; break;
     default: print(`unknown command "${cmd}" — try "help"`, 'err');
