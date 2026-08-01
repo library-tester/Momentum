@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* "amber" — the original look, and the default/fallback for any unrecognized data-theme value */
   :root{
     --bg-dark:     #1a1410;
     --bg-panel:    #221a14;
@@ -27,6 +28,42 @@
     --accent:      #ff3333;
     --accent-dim:  #ff3333;
     --error:       #ff3333;
+  }
+  /* "day" — mirror image of nightmode: black on white, no other color at all */
+  :root[data-theme="day"]{
+    --bg-dark:     #ffffff;
+    --bg-panel:    #ffffff;
+    --line:        #000000;
+    --text-dim:    #000000;
+    --text-main:   #000000;
+    --amber:       #000000;
+    --accent:      #000000;
+    --accent-dim:  #000000;
+    --error:       #000000;
+  }
+  /* "solar" — solarized-dark inspired */
+  :root[data-theme="solar"]{
+    --bg-dark:     #002b36;
+    --bg-panel:    #073642;
+    --line:        #0d4a58;
+    --text-dim:    #586e75;
+    --text-main:   #93a1a1;
+    --amber:       #b58900;
+    --accent:      #2aa198;
+    --accent-dim:  #0a4552;
+    --error:       #dc322f;
+  }
+  /* "nord" — arctic blue-gray, nord-inspired */
+  :root[data-theme="nord"]{
+    --bg-dark:     #2e3440;
+    --bg-panel:    #3b4252;
+    --line:        #434c5e;
+    --text-dim:    #7b88a1;
+    --text-main:   #e5e9f0;
+    --amber:       #ebcb8b;
+    --accent:      #88c0d0;
+    --accent-dim:  #434c5e;
+    --error:       #bf616a;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
@@ -226,11 +263,13 @@ let nextId = 1;
 let history = [];
 let histIdx = -1;
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
-let nightMode = false;
+const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
+const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
+let theme = 'amber';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
 
 function applyTheme(){
-  document.documentElement.setAttribute('data-theme', nightMode ? 'night' : 'day');
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 const STORAGE_KEY = 'momentum-tasks-v1';
@@ -472,7 +511,7 @@ async function loadState(){
       nextId = data.nextId || 1;
       projects = data.projects || [];
       displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
-      nightMode = !!data.nightMode;
+      theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
       asciiTrack.restore(data.ascii);
       imageTrack.restore(data.image);
     }
@@ -500,7 +539,7 @@ async function loadState(){
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      tasks, archive, nextId, projects, displayMode, nightMode,
+      tasks, archive, nextId, projects, displayMode, theme,
       ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
     }));
   }catch(e){ print('warning: could not save progress', 'err'); }
@@ -758,7 +797,7 @@ const HELP_TEXT =
   gallery                                               list your collected artworks
   gallery show <name>                                   reprint a collected artwork in full
   mode [ascii|image]                                    show or switch the reveal mode
-  switch [nightmode|daymode]                            show or switch the color theme
+  switch [amber|night|day|solar|nord]                   show or switch the color theme (nightmode/daymode also work)
   image                                                  info on the current piece (whichever mode you're in)
   image next                                             skip to a new piece (no credit for it)
   image reveal                                           cheat: instantly finish revealing it
@@ -1061,19 +1100,13 @@ function cmd_mode(arg){
 }
 
 function cmd_switch(arg){
-  if(!arg){ print(`current theme: ${nightMode ? 'night' : 'day'}  (switch with: switch nightmode | switch daymode)`, 'info'); return; }
-  arg = arg.toLowerCase();
-  if(arg === 'nightmode'){
-    if(nightMode){ print('already in night mode', 'info'); return; }
-    nightMode = true;
-  } else if(arg === 'daymode'){
-    if(!nightMode){ print('already in day mode', 'info'); return; }
-    nightMode = false;
-  } else {
-    print('usage: switch nightmode | switch daymode', 'err'); return;
-  }
+  if(!arg){ print(`current theme: ${theme}  (switch with: switch <${THEMES.join('|')}>, or the classic switch nightmode|daymode)`, 'info'); return; }
+  const target = THEME_ALIASES[arg.toLowerCase()] || arg.toLowerCase();
+  if(!THEMES.includes(target)){ print(`usage: switch <${THEMES.join('|')}>`, 'err'); return; }
+  if(target === theme){ print(`already in ${target} mode`, 'info'); return; }
+  theme = target;
   applyTheme();
-  print(nightMode ? 'entering night mode.' : 'back to day mode.', 'ok');
+  print(`switched to ${theme} mode.`, 'ok');
   saveState();
 }
 
