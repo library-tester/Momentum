@@ -97,8 +97,9 @@
     flex:1;
     min-height:0;
     display:grid;
-    place-items:center;
+    place-items:start;
     overflow:hidden;
+    padding:22px;
   }
   .empty-panel{
     color:var(--text-dim);
@@ -555,7 +556,9 @@ function fitImageFrame(container, art){
   let ratio = art.cols / art.rows;
 
   function layout(){
-    const availW = stage.clientWidth, availH = stage.clientHeight;
+    const cs = getComputedStyle(stage);
+    const availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     if(!availW || !availH) return;
     let w = availW, h = w / ratio;
     if(h > availH){ h = availH; w = h * ratio; }
