@@ -192,8 +192,29 @@
     background:#000;
     display:grid;
     place-items:center;
+    overflow:hidden;
     z-index:1000;
     cursor:pointer;
+  }
+  /* ascii keeps its real glyph size (see openAsciiFullscreen) — the grid centering
+     above places it, and scaling from the centre means an oversized piece shrinks
+     toward the middle instead of drifting off one edge */
+  .ascii-fullscreen{
+    transform-origin:center center;
+    color:var(--text-main);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .ascii-fullscreen .reveal-scene{ margin:0; text-align:left; }
+  /* day is the one theme that paints its art pure black — which is invisible against
+     the fullscreen overlay's black backdrop. inside the overlay only, the ascii goes
+     white instead. this redefines the *custom property* rather than `color`, because
+     buildArtworkScene writes an inline style="color:var(--amber)" on every character:
+     an inline style beats any `color` rule, but the var() it contains still resolves
+     against whatever --amber it inherits from here. the in-panel view is untouched —
+     it sits on the theme's own white background, where black is correct. */
+  :root[data-theme="day"] .ascii-fullscreen{
+    --amber:#ffffff;
+    color:#ffffff;
   }
   #term-wrap{
     flex:1 1 45%;
@@ -469,6 +490,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     collected: [],                                         // permanent gallery history [{id,name,collectedAt}] — never auto-cleared
     cycleSeen: [],                                         // ids picked in the current pass, so nothing repeats until everyone's had a turn
     pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
+    banked: 0,                                             // completions earned while pending, waiting to be spent on the next piece
 
     async loadManifest(){
       // live discovery first: when served over http this picks up newly dropped-in
@@ -535,6 +557,38 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
         if(onComplete) onComplete(this.current);
       }
     },
+    // one finished task = one completion's worth of reveal. if the current piece is
+    // already fully revealed and just waiting to be closed, the credit is *banked*
+    // rather than dropped on the floor: the whole promise of the app is that every
+    // completed task moves the reward forward, so "done 1,2,3" that finishes the
+    // piece on task 1 must still pay out for tasks 2 and 3 (see applyBanked).
+    async creditCompletion(onComplete){
+      if(!this.current) return 'none';
+      if(this.pending){ this.banked++; return 'banked'; }
+      await this.reveal(this.cellsPerCompletion(), onComplete);
+      return 'revealed';
+    },
+    // spends the banked completions on the freshly started piece. one at a time, so
+    // if the bank is deep enough to finish this piece too it stops there and the rest
+    // stays banked for the one after — nothing is ever lost, just deferred.
+    async applyBanked(onComplete){
+      let spent = 0;
+      while(this.banked > 0 && !this.pending && this.current){
+        this.banked--;
+        spent++;
+        await this.reveal(this.cellsPerCompletion(), onComplete);
+      }
+      return spent;
+    },
+    // re-points `current` at whatever progress.itemId says, for when state is replaced
+    // wholesale underneath us — undo can rewind past a "close" that switched pieces,
+    // and without this the panel would draw the old artwork with the new progress.
+    async resync(){
+      if(!this.manifest || !this.progress.itemId) return;
+      if(this.current && this.current.id === this.progress.itemId) return;
+      const entry = this.manifest[itemsField].find(e => e.id === this.progress.itemId);
+      if(entry) this.current = await loadItem(entry);
+    },
     // logs the finished piece to the permanent gallery and starts a new one; returns the finished item
     async closePending(){
       if(!this.pending) return null;
@@ -543,13 +597,14 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       await this.startNew();
       return finished;
     },
-    serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending }; },
+    serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending, banked: this.banked }; },
     restore(data){
       if(!data) return;
       this.progress = data.progress || { itemId:null, revealOrder:[], revealedCount:0 };
       this.collected = data.collected || [];
       this.cycleSeen = data.cycleSeen || [];
       this.pending = !!data.pending;
+      this.banked = data.banked || 0;
     },
   };
 }
@@ -631,6 +686,33 @@ function applyStateSnapshot(data){
   imageTrack.restore(data.image);
 }
 
+// ---------- undo ----------
+// a stack of whole-state snapshots, one per command that actually changed something.
+// whole-state rather than per-command inverse operations because it's the only way to
+// be sure "undo" is exact — a task's reveal progress, archive, and ids all move
+// together. session-only on purpose: persisting 20 copies of everything would bloat
+// localStorage, and undo is for the mistake you just made, not last week's.
+const UNDO_LIMIT = 20;
+let undoStack = [];
+
+function pushUndo(label, before){
+  if(before === JSON.stringify(buildStateSnapshot())) return;   // command was a no-op — nothing worth undoing
+  undoStack.push({ label, before });
+  if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+}
+
+async function cmd_undo(){
+  if(undoStack.length === 0){ print('nothing to undo', 'info'); return; }
+  const entry = undoStack.pop();
+  applyStateSnapshot(JSON.parse(entry.before));
+  applyTheme();
+  applySplit();
+  await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
+  saveState();
+  renderPanel();
+  print(`undid "${entry.label}" — ${tasks.length} task(s) in the list.`, 'ok');
+}
+
 async function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -709,9 +791,13 @@ function buildArtworkScene(art, progress){
       const ch = rows[r][c];
       if(ch === ' '){ line += ' '; continue; }
       const idx = r * width + c;
+      // unrevealed cells are blank, not placeholder dots: dots traced the artwork's
+      // whole silhouette before you'd earned any of it, which gave away the picture
+      // and took the surprise out of the reveal. rows stay padded to the full width,
+      // so the block keeps its size as it fills in.
       line += revealed.has(idx)
         ? `<span style="color:var(--amber)">${escapeHtml(ch)}</span>`
-        : `<span style="color:var(--line)">·</span>`;
+        : ' ';
     }
     html += line + '\n';
   }
@@ -792,12 +878,17 @@ function fitImageFrame(container, art){
 }
 
 // ---------- fullscreen "display" ----------
-// shows the current image's live reveal state (not the pristine source file)
-// stretched as large as the screen allows, same contain/no-upscale rules as
-// the in-panel view. exits on escape or on click, per the user's request.
+// shows the current piece's live reveal state (not the pristine source file)
+// stretched as large as the screen allows. works for both tracks: images keep the
+// contain/no-upscale rules of the in-panel view, ascii art is scaled up by measuring
+// its natural size and transforming to fit. exits on escape/enter/space or a click.
+const FULLSCREEN_EXIT_KEYS = ['Escape', 'Enter', ' '];
 let fullscreenEl = null, fullscreenResizeHandler = null;
 function handleFullscreenKey(e){
-  if(e.key === 'Escape') closeFullscreen();
+  if(FULLSCREEN_EXIT_KEYS.includes(e.key)){
+    e.preventDefault();                                  // space would otherwise scroll the page behind the overlay
+    closeFullscreen();
+  }
 }
 function closeFullscreen(){
   if(!fullscreenEl) return;
@@ -807,35 +898,76 @@ function closeFullscreen(){
   document.removeEventListener('keydown', handleFullscreenKey);
   cmdInput.focus();
 }
-function openFullscreen(art, progress){
+// both openers build their own content, then hand the finished layout function here
+// so the exit wiring (click, keys, resize, focus) lives in exactly one place.
+function mountFullscreen(innerHTML){
+  // tear down any overlay that's already up first. without this, a second "display"
+  // orphans the first one: it stays in the DOM, only the newest is tracked, so no
+  // key or click can ever remove it and the screen is stuck black.
+  closeFullscreen();
+  fullscreenEl = document.createElement('div');
+  fullscreenEl.id = 'fullscreen-overlay';
+  fullscreenEl.innerHTML = innerHTML;
+  document.body.appendChild(fullscreenEl);
+  return fullscreenEl;
+}
+function wireFullscreen(layout){
+  layout();
+  fullscreenResizeHandler = layout;
+  window.addEventListener('resize', fullscreenResizeHandler);
+  fullscreenEl.addEventListener('click', closeFullscreen);
+  // the exit-key listener goes on *after* the current event finishes. "display" is
+  // normally run by pressing Enter, and that keydown is still bubbling up toward
+  // document at this point — a listener added to an ancestor mid-propagation still
+  // receives the event in flight, so attaching synchronously let the very Enter that
+  // opened the overlay close it again on the same keystroke. (harmless back when
+  // Escape was the only exit key; a self-cancel the moment Enter became one.)
+  setTimeout(() => {
+    if(fullscreenEl) document.addEventListener('keydown', handleFullscreenKey);
+  }, 0);
+  cmdInput.blur();
+}
+function openImageFullscreen(art, progress){
   const total = art.cols * art.rows;
   const revealed = new Set(progress.revealOrder.slice(0, progress.revealedCount));
   let tiles = '';
   for(let i = 0; i < total; i++){
     tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
   }
-  fullscreenEl = document.createElement('div');
-  fullscreenEl.id = 'fullscreen-overlay';
-  fullscreenEl.innerHTML =
+  mountFullscreen(
     `<div class="image-frame">` +
       `<img class="image-base" src="image_art/${art.file}" alt="${escapeHtml(art.name)}">` +
       `<div class="tile-grid" style="grid-template-columns:repeat(${art.cols},1fr);grid-template-rows:repeat(${art.rows},1fr)">${tiles}</div>` +
-    `</div>`;
-  document.body.appendChild(fullscreenEl);
-
+    `</div>`
+  );
   const frame = fullscreenEl.querySelector('.image-frame');
   const img = fullscreenEl.querySelector('.image-base');
-  const layout = fitFrameToAvail(frame, img, art, () => ({ w: window.innerWidth, h: window.innerHeight }));
-  fullscreenResizeHandler = layout;
-  window.addEventListener('resize', fullscreenResizeHandler);
-  fullscreenEl.addEventListener('click', closeFullscreen);
-  document.addEventListener('keydown', handleFullscreenKey);
-  cmdInput.blur();
+  wireFullscreen(fitFrameToAvail(frame, img, art, () => ({ w: window.innerWidth, h: window.innerHeight })));
+}
+// ascii is shown at its true size — the glyphs stay exactly as big as they are in
+// the panel, because their size *is* the artwork: blowing them up turns crisp
+// characters into soft giant letters and loses the texture the piece is made of.
+// so fullscreen only means "centered on a black screen, with nothing else around
+// it". the single exception is a piece too big to fit, which is scaled down just
+// enough to touch the edges — shrinking keeps the character grid readable, where
+// enlarging would have nothing to gain. measured rather than computed from a
+// character aspect ratio, which would drift with the font.
+function openAsciiFullscreen(art, progress){
+  mountFullscreen(`<div class="ascii-fullscreen">${buildArtworkScene(art, progress)}</div>`);
+  const holder = fullscreenEl.querySelector('.ascii-fullscreen');
+  wireFullscreen(() => {
+    holder.style.transform = 'none';                     // measure at natural size
+    const rect = holder.getBoundingClientRect();
+    if(!rect.width || !rect.height) return;
+    const scale = Math.min(1, window.innerWidth / rect.width, window.innerHeight / rect.height);
+    holder.style.transform = scale < 1 ? `scale(${scale})` : 'none';
+  });
 }
 function cmd_display(){
-  if(displayMode !== 'image'){ print('display only shows images — switch with: mode image', 'err'); return; }
-  if(!imageTrack.current){ print('the image collection is still loading...', 'info'); return; }
-  openFullscreen(imageTrack.current, imageTrack.progress);
+  const track = activeTrack();
+  if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
+  if(displayMode === 'image') openImageFullscreen(track.current, track.progress);
+  else openAsciiFullscreen(track.current, track.progress);
 }
 
 function renderPanel(){
@@ -927,45 +1059,73 @@ function splitIds(idsStr){
   return out;
 }
 
-const HELP_TEXT =
-`commands:
-  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)
+// the help screen is generated from this table rather than hand-spaced, because
+// hand-spacing drifts: the descriptions had crept out to four different columns
+// (55/56/57/58) as commands were added over time. one source of truth, padding
+// computed, so a new command can't misalign the block.
+const COMMANDS = [
+  { usage: 'add "task title" [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]', desc: 'add a new task' },
+  { usage: 'start <id[,id...]|all>', desc: 'mark task(s) active' },
+  { usage: 'done <id[,id...]|all>', desc: 'complete task(s) — moves them to the archive' },
+  { usage: 'rm <id[,id...]|1-4|all>', desc: 'delete task(s)  (also: remove, delete)' },
+  { usage: 'undo', desc: 'undo the last command that changed anything' },
+  { usage: 'priority <id[,id...]|all> <high|med|low>', desc: 'change priority' },
+  { usage: 'due <id[,id...]|all> <YYYY-MM-DD|none>', desc: 'set or clear a due date' },
+  { usage: 'tag <id[,id...]|all> add <tag>', desc: 'add a tag to task(s)' },
+  { usage: 'tag <id[,id...]|all> rm <tag>', desc: 'remove a tag from task(s)' },
+  { usage: 'tag <id[,id...]|all> set <tag1,tag2,...>', desc: "replace all of task(s)' tags" },
+  { usage: 'tags', desc: 'list every tag in use' },
+  { usage: 'project add <name>', desc: 'create a project' },
+  { usage: 'project rm <name>', desc: 'delete a project' },
+  { usage: 'project set <id[,id...]|all> <name|none>', desc: 'assign task(s) to a project' },
+  { usage: 'project list', desc: 'list all projects (or: projects)' },
+  { usage: 'list [all|pending|active] [-proj name] [-t tag]', desc: 'show tasks as text (excludes archived)' },
+  { usage: 'archive [-proj name] [-t tag]', desc: 'show completed/archived tasks' },
+  { usage: 'gallery', desc: 'list your collected artworks' },
+  { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
+  { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
+  { usage: 'split [on|off]', desc: 'keep the task list pinned above the terminal',
+    extra: ['(drag the divider between them to resize)'] },
+  { usage: 'switch [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
+    extra: ['(nightmode/daymode also work)'] },
+  { usage: 'image', desc: "info on the current piece (whichever mode you're in)" },
+  { usage: 'image next', desc: 'skip to a new piece (no credit for it)' },
+  { usage: 'image reveal', desc: 'cheat: instantly finish revealing it' },
+  { usage: 'image hide', desc: 'cheat: re-mask it back to 0%' },
+  { usage: 'close', desc: 'once complete: save it + start a new one' },
+  { usage: 'download', desc: 'once complete: save the file to your computer' },
+  { usage: 'display', desc: 'fullscreen the current piece — ascii or image, however',
+    extra: ['much of it is revealed  (esc, enter, space or click to exit)'] },
+  { usage: 'stats', desc: 'task summary' },
+  { usage: 'export', desc: 'download a backup of all your tasks + progress' },
+  { usage: 'import', desc: 'restore tasks + progress from a backup file' },
+  { usage: 'clear', desc: 'clear the terminal' },
+  { usage: 'help', desc: 'show this list' },
+];
 
-  add "task title" [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]
-                                                         add a new task
-  start <id[,id...]|all>                               mark task(s) active
-  done <id[,id...]|all>                                 complete task(s) — moves them to the archive
-  rm <id[,id...]|1-4|all>                               delete task(s)  (also: remove, delete)
-  priority <id[,id...]|all> <high|med|low>              change priority
-  due <id[,id...]|all> <YYYY-MM-DD|none>                set or clear a due date
-  tag <id[,id...]|all> add <tag>                        add a tag to task(s)
-  tag <id[,id...]|all> rm <tag>                         remove a tag from task(s)
-  tag <id[,id...]|all> set <tag1,tag2,...>              replace all of task(s)' tags
-  tags                                                  list every tag in use
-  project add <name>                                    create a project
-  project rm <name>                                     delete a project
-  project set <id[,id...]|all> <name|none>              assign task(s) to a project
-  project list                                          list all projects (or: projects)
-  list [all|pending|active] [-proj name] [-t tag]       show tasks as text (excludes archived)
-  archive [-proj name] [-t tag]                         show completed/archived tasks
-  gallery                                               list your collected artworks
-  gallery show <name>                                   reprint a collected artwork in full
-  mode [ascii|image]                                    show or switch the reveal mode
-  split [on|off]                                        keep the task list pinned above the terminal
-                                                        (drag the divider between them to resize)
-  switch [amber|night|day|solar|nord]                   show or switch the color theme (nightmode/daymode also work)
-  image                                                  info on the current piece (whichever mode you're in)
-  image next                                             skip to a new piece (no credit for it)
-  image reveal                                           cheat: instantly finish revealing it
-  image hide                                             cheat: re-mask it back to 0%
-  close                                                  once complete: save it + start a new one
-  download                                                once complete: save the file to your computer
-  display                                                fullscreen the current image, however much is revealed so far (esc or click to exit)
-  stats                                                  task summary
-  export                                                  download a backup of all your tasks + progress
-  import                                                  restore tasks + progress from a backup file
-  clear                                                  clear the terminal
-  help                                                   show this list`;
+// usages longer than this get their description on the next line instead of
+// pushing every other description off to the right.
+const HELP_MAX_USAGE = 46;
+function buildHelpText(){
+  const fitting = COMMANDS.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
+  const col = Math.max(...fitting) + 2;
+  const lines = [
+    'commands:',
+    '  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)',
+    '',
+  ];
+  COMMANDS.forEach(c => {
+    if(c.usage.length > col - 2){
+      lines.push('  ' + c.usage);
+      lines.push('  ' + ' '.repeat(col) + c.desc);
+    } else {
+      lines.push('  ' + c.usage.padEnd(col) + c.desc);
+    }
+    (c.extra || []).forEach(e => lines.push('  ' + ' '.repeat(col) + e));
+  });
+  return lines.join('\n');
+}
+const HELP_TEXT = buildHelpText();
 
 function parseFlags(tokens){
   const args = { _: [] };
@@ -1026,9 +1186,37 @@ function cmd_start(idsStr){
   if(changed){ saveState(); renderPanel(); }
 }
 
+// ---------- guard rails ----------
+// "rm all" used to be a single keystroke away from wiping everything, with no
+// confirmation and no way back. two independent safety nets now: anything sweeping
+// enough asks first, and every state-changing command is undoable afterwards.
+const CONFIRM_THRESHOLD = 3;                              // affect more tasks than this and you get asked
+let pendingConfirm = null;                                // { label, run } — the next line typed answers it
+
+function askConfirm(question, label, run){
+  pendingConfirm = { label, run };
+  print(question, 'err');
+  print('type "yes" to go ahead — anything else cancels.', 'info');
+}
+
+// how many tasks a selection actually resolves to, so the prompt can name a real
+// number ("delete 12 tasks?") instead of echoing what you typed ("delete all?").
+function resolveTargets(ids){
+  return ids.map(findTask).filter(Boolean);
+}
+
 async function cmd_done(idsStr){
   const ids = splitIds(idsStr);
   if(ids.length === 0){ print('done needs a task id, e.g. done 3 or done 3,5,6', 'err'); return; }
+  const targets = resolveTargets(ids);
+  if(targets.length > CONFIRM_THRESHOLD){
+    askConfirm(`complete all ${targets.length} of these tasks and move them to the archive?`, `done ${idsStr}`, () => performDone(ids));
+    return;
+  }
+  return performDone(ids);
+}
+
+async function performDone(ids){
   let changed = false;
   for(const idStr of ids){
     const t = findTask(idStr);
@@ -1041,10 +1229,9 @@ async function cmd_done(idsStr){
     tasks = tasks.filter(x => x.id !== t.id);
     archive.push(t);
     const track = activeTrack();
-    if(track.current && track.pending){
-      print(`(the current ${displayMode} piece is waiting for you — type "close" or "download")`, 'info');
-    } else if(track.current){
-      await track.reveal(track.cellsPerCompletion(), art => printCompletionPrompt(art));
+    const outcome = await track.creditCompletion(art => printCompletionPrompt(art));
+    if(outcome === 'banked'){
+      print(`(${track.banked} completion${track.banked === 1 ? '' : 's'} banked for your next piece — type "close" or "download" to start it)`, 'info');
     }
   }
   if(changed){ saveState(); renderPanel(); }
@@ -1053,6 +1240,15 @@ async function cmd_done(idsStr){
 function cmd_rm(idsStr){
   const ids = splitIds(idsStr);
   if(ids.length === 0){ print('rm needs a task id, e.g. rm 3 or rm 3,5,6', 'err'); return; }
+  const targets = resolveTargets(ids);
+  if(targets.length > CONFIRM_THRESHOLD){
+    askConfirm(`delete ${targets.length} tasks? they don't go to the archive — they're gone.`, `rm ${idsStr}`, () => performRm(ids));
+    return;
+  }
+  performRm(ids);
+}
+
+function performRm(ids){
   let changed = false;
   ids.forEach(idStr => {
     const t = findTask(idStr);
@@ -1384,6 +1580,8 @@ async function cmd_image(sub, ...rest){
     const was = track.current.name;
     await track.startNew();
     print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
+    const spent = await track.applyBanked(art => printCompletionPrompt(art));
+    if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
     saveState(); renderPanel();
     return;
   }
@@ -1411,6 +1609,8 @@ async function cmd_close(){
   if(!track.pending){ print('nothing to close right now', 'err'); return; }
   const finished = await track.closePending();
   print(`closed "${finished.name}" — added to your collection. now revealing "${track.current.name}".`, 'ok');
+  const spent = await track.applyBanked(art => printCompletionPrompt(art));
+  if(spent) print(`...and spent ${spent} banked completion${spent === 1 ? '' : 's'} on it right away.`, 'ok');
   saveState(); renderPanel();
 }
 
@@ -1485,17 +1685,46 @@ function cmd_gallery(sub, ...rest){
   print('usage: gallery [list|show <name>]', 'err');
 }
 
-function handleCommand(raw){
-  const tokens = tokenize(raw.trim());
+// commands that can change saved state. each one gets a snapshot taken before it
+// runs, kept only if the state actually ended up different (pushUndo checks). view
+// preferences (mode/split/switch) are deliberately left out — they're one keystroke
+// to reverse, and cluttering the undo stack with them would bury the real mistakes.
+const MUTATING = new Set(['add','start','done','rm','remove','delete','priority','due','tag','project','import','close','image']);
+
+async function handleCommand(raw){
+  const trimmed = raw.trim();
+
+  // a pending confirmation owns the next line you type — it's an answer, not a
+  // command. the undo snapshot is taken here rather than when the question was
+  // asked, since that's the moment anything actually changes.
+  if(pendingConfirm){
+    const { label, run } = pendingConfirm;
+    pendingConfirm = null;
+    if(!/^(y|yes)$/i.test(trimmed)){ print('cancelled — nothing changed.', 'info'); return; }
+    const before = JSON.stringify(buildStateSnapshot());
+    await run();
+    pushUndo(label, before);
+    return;
+  }
+
+  const tokens = tokenize(trimmed);
   if(tokens.length === 0) return;
   const cmd = tokens[0].toLowerCase();
   const rest = tokens.slice(1);
 
+  const before = MUTATING.has(cmd) ? JSON.stringify(buildStateSnapshot()) : null;
+  await dispatch(cmd, rest);
+  // if the command ended by *asking* something, it hasn't changed anything yet —
+  // its snapshot gets taken above when the answer arrives.
+  if(before !== null && !pendingConfirm) pushUndo(trimmed, before);
+}
+
+function dispatch(cmd, rest){
   switch(cmd){
     case 'help': print(HELP_TEXT); break;
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'start': cmd_start(rest[0]); break;
-    case 'done': cmd_done(rest[0]); break;
+    case 'done': return cmd_done(rest[0]);
     case 'rm': case 'remove': case 'delete': cmd_rm(rest[0]); break;
     case 'priority': cmd_priority(rest[0], rest[1]); break;
     case 'due': cmd_due(rest[0], rest[1]); break;
@@ -1509,9 +1738,10 @@ function handleCommand(raw){
     case 'mode': cmd_mode(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
     case 'switch': cmd_switch(rest[0]); break;
-    case 'image': cmd_image(rest[0], ...rest.slice(1)); break;
-    case 'close': cmd_close(); break;
-    case 'download': cmd_download(); break;
+    case 'image': return cmd_image(rest[0], ...rest.slice(1));
+    case 'close': return cmd_close();
+    case 'undo': return cmd_undo();
+    case 'download': return cmd_download();
     case 'display': cmd_display(); break;
     case 'stats': cmd_stats(); break;
     case 'export': cmd_export(); break;
@@ -1530,7 +1760,7 @@ cmdInput.addEventListener('keydown', (e)=>{
       printEcho(val);
       history.push(val);
       histIdx = history.length;
-      handleCommand(val);
+      handleCommand(val).catch(err => print(`something went wrong: ${err.message}`, 'err'));
     }
     cmdInput.value = '';
   } else if(e.key === 'ArrowUp'){
