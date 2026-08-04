@@ -5,6 +5,7 @@
 <title>Momentum - yet another task manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="art-data.js"></script>
 <style>
   /* "amber" — the original look, and the default/fallback for any unrecognized data-theme value */
   :root{
@@ -14,7 +15,7 @@
     --text-dim:    #a8926f;
     --text-main:   #e8dcc0;
     --amber:       #d9a441;
-    --accent:      #6b9b6e;
+      --accent:      #6b9b6e;
     --accent-dim:  #4a6b4d;
     --error:       #c96a5a;
   }
@@ -306,6 +307,18 @@ function shuffledIndices(n){
 // hosts that don't expose directory listings (most production static hosts)
 // simply fail the discovery fetch, and loadManifest() falls back to reading
 // manifest.json as a plain, complete list, exactly as before.
+//
+// none of this works when the page is opened directly as a file:// URL —
+// browsers refuse fetch()/XHR against local files entirely, for both the
+// directory listing and manifest.json itself. art-data.js (see art-data.js
+// header + build_art_data.py) is a pre-baked snapshot of exactly what
+// discovery would have produced, loaded as a plain <script> tag instead of
+// fetched, which file:// pages *are* allowed to do. loadManifest() below
+// still tries live discovery first (so serving over http keeps auto-picking
+// up new files with zero build step, per the comment above), and only falls
+// back to that snapshot when discovery fails — which is always, under
+// file://. opening the html file directly needs one command first, whenever
+// ascii_art/ or image_art/ have changed: python3 build_art_data.py
 function humanizeName(stem){
   const words = stem.split(/[-_\s]+/).filter(Boolean);
   if(!words.length) return stem;
@@ -317,20 +330,43 @@ async function fetchDirListing(url){
   const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
   return Array.from(doc.querySelectorAll('a[href]'))
     .map(a => a.getAttribute('href'))
-    .filter(href => href && href !== '../' && !href.startsWith('?') && !href.includes('://'));
+    .filter(href => href && !href.startsWith('?') && !href.includes('://'));
 }
-async function discoverFiles(baseUrl, extensions, prefix){
-  prefix = prefix || '';
-  const hrefs = await fetchDirListing(baseUrl);
-  let files = [];
-  for(const href of hrefs){
-    if(href.endsWith('/')){
-      files = files.concat(await discoverFiles(baseUrl + href, extensions, prefix + href));
-    } else if(extensions.some(ext => href.toLowerCase().endsWith(ext))){
-      files.push(prefix + decodeURIComponent(href));
+// directory-listing HTML isn't standardized and formats vary a lot between dev
+// servers: python's http.server emits relative hrefs with a trailing slash on
+// folders ("nature/", "manifest.json"), while servers built on "serve-index"
+// (the live-server npm package, and VS Code's Live Server extension, which
+// appears to use the same or a compatible listing format) emit *absolute*
+// paths with *no* trailing slash on folders, plus "up"/breadcrumb links back
+// to the parent folder and site root — including a bare href="/" that (like
+// any folder link) ends in "/", so a naive "ends with slash = recurse into
+// it" check follows it straight back to a listing containing that same "/"
+// link again, forever. resolving every href against the current listing's own
+// URL and only following ones that land strictly *inside* the folder this
+// walk started from sidesteps the format differences entirely and can't walk
+// back out toward the root; the visited set is a second backstop against any
+// other kind of link cycle (e.g. a symlink loop) doing the same thing.
+async function discoverFiles(baseUrl, extensions){
+  const topBase = new URL(baseUrl, location.href).href;
+  const visited = new Set([topBase]);
+  async function walk(dirUrl){
+    const hrefs = await fetchDirListing(dirUrl);
+    let files = [];
+    for(const href of hrefs){
+      const resolved = new URL(href, dirUrl).href;
+      if(!resolved.startsWith(topBase) || resolved === topBase || visited.has(resolved)) continue;
+      const relPath = decodeURIComponent(resolved.slice(topBase.length)).replace(/\/$/, '');
+      const isDir = href.endsWith('/') || !/\.[^./]+$/.test(relPath);
+      if(isDir){
+        visited.add(resolved);
+        files = files.concat(await walk(resolved.endsWith('/') ? resolved : resolved + '/'));
+      } else if(extensions.some(ext => relPath.toLowerCase().endsWith(ext))){
+        files.push(relPath);
+      }
     }
+    return files;
   }
-  return files;
+  return walk(topBase);
 }
 async function discoverManifest({ baseDir, extensions, manifestUrl, itemsField, defaultExtra }){
   const files = await discoverFiles(baseDir, extensions);
@@ -365,7 +401,7 @@ async function discoverManifest({ baseDir, extensions, manifestUrl, itemsField, 
 // permanent gallery and start a new one (picked so nothing repeats until every
 // entry in the manifest has had a turn). this factory is shared by both so a
 // third mode later is just another instantiation, not a new system.
-function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, loadItem, totalCellsFor, defaultExtra }){
+function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataKey, loadItem, totalCellsFor, defaultExtra }){
   return {
     manifest: null,
     current: null,                                        // loaded item, shape depends on loadItem
@@ -375,12 +411,22 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, loadI
     pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
 
     async loadManifest(){
+      // live discovery first: when served over http this picks up newly dropped-in
+      // files immediately, no rebuild step (see the comment above). it always fails
+      // under file:// (and on static hosts with no directory listing), so falling
+      // through to the art-data.js snapshot — and, failing that, a plain manifest.json
+      // fetch — is the normal path in those cases, not an error case.
       try{
         this.manifest = await discoverManifest({ baseDir, extensions, manifestUrl, itemsField, defaultExtra });
-      }catch(e){
-        const res = await fetch(manifestUrl);
-        this.manifest = await res.json();
+        return;
+      }catch(e){ /* fall through to the baked snapshot / plain manifest.json below */ }
+      const baked = window.ART_DATA && window.ART_DATA[dataKey];
+      if(baked && Array.isArray(baked[itemsField]) && baked[itemsField].length){
+        this.manifest = { [itemsField]: baked[itemsField] };
+        return;
       }
+      const res = await fetch(manifestUrl);
+      this.manifest = await res.json();
     },
     pickNextEntry(){
       const items = this.manifest[itemsField];
@@ -452,8 +498,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, loadI
 // artworks live as plain text files under ascii_art/, indexed by ascii_art/manifest.json,
 // so new ones can be dropped in without touching this code.
 async function loadArtworkFile(entry){
-  const res = await fetch('ascii_art/' + entry.file);
-  const text = await res.text();
+  const text = entry.content !== undefined ? entry.content : await (await fetch('ascii_art/' + entry.file)).text();
   const rawRows = text.replace(/\r\n/g, '\n').split('\n');
   while(rawRows.length && rawRows[rawRows.length - 1] === '') rawRows.pop();
   const width = Math.max(1, ...rawRows.map(r => r.length));
@@ -474,6 +519,7 @@ const asciiTrack = createRevealTrack({
   extensions: ['.txt'],
   manifestUrl: 'ascii_art/manifest.json',
   itemsField: 'artworks',
+  dataKey: 'ascii',
   loadItem: loadArtworkFile,
   totalCellsFor: item => item.cellIndices.length,
 });
@@ -494,6 +540,7 @@ const imageTrack = createRevealTrack({
   extensions: ['.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif'],
   manifestUrl: 'image_art/manifest.json',
   itemsField: 'images',
+  dataKey: 'image',
   loadItem: loadImageEntry,
   totalCellsFor: item => item.cols * item.rows,
   defaultExtra: { grid: { cols: 6, rows: 4 } },
@@ -517,16 +564,13 @@ async function loadState(){
     }
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
-  if(location.protocol === 'file:'){
-    collectionLoadError = 'opened as a local file — the art collection can\'t load this way. serve this folder over http instead: run "python3 -m http.server" in it, then open the http:// address it prints.';
+  try{
+    await Promise.all([asciiTrack.init(), imageTrack.init()]);
+  }catch(e){
+    collectionLoadError = location.protocol === 'file:'
+      ? 'could not load the art collection — art-data.js is missing or out of date. run "python3 build_art_data.py" next to this file, then reopen it.'
+      : 'could not load the art collection — make sure ascii_art/ and image_art/ are being served alongside this page.';
     print(collectionLoadError, 'err');
-  } else {
-    try{
-      await Promise.all([asciiTrack.init(), imageTrack.init()]);
-    }catch(e){
-      collectionLoadError = 'could not load the art collection — make sure ascii_art/ and image_art/ are being served alongside this page.';
-      print(collectionLoadError, 'err');
-    }
   }
   renderPanel();
   if(tasks.length){
@@ -1187,10 +1231,17 @@ async function cmd_download(){
   const art = track.current;
   try{
     if(displayMode === 'image'){
-      const res = await fetch('image_art/' + art.file);
-      const blob = await res.blob();
+      // a direct <a download> to the file's own path, not a fetch()+blob round trip —
+      // fetch() of a local file is blocked outright when this page is opened via
+      // file:// (see art-data.js), but the browser's native download of a
+      // same-origin/local resource works either way.
       const ext = art.file.split('.').pop();
-      triggerDownload(blob, `${slugify(art.name)}.${ext}`);
+      const a = document.createElement('a');
+      a.href = 'image_art/' + art.file;
+      a.download = `${slugify(art.name)}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } else {
       const blob = new Blob([art.rows.join('\n')], { type:'text/plain' });
       triggerDownload(blob, `${slugify(art.name)}.txt`);

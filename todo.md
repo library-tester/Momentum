@@ -1,4 +1,5 @@
 # to do
+- id number left from checkbox, not below
 - collect better ascii graphics (big ones) and images (like your own ones)
 - find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
 
@@ -47,7 +48,16 @@ git push
 
 python3 -m http.server 8000
 
+# if you add/remove/rename files in ascii_art/ or image_art/
+# and want double-clicking momentum.html (no server) to see them:
+python3 build_art_data.py
+
 # done
+x get it to work offline again -> generate art-data.js (python3 build_art_data.py) and have
+  momentum.html load it via <script src> instead of fetch(); browsers block fetch()/XHR of
+  local files under file://, but not <script src>/<img src> to local files, so this is the
+  one case that genuinely can't be avoided rather than a bug — running the http server still
+  works exactly as before and doesn't need this step, since fetch() works fine over http.
 x remove anything to do with garden from this application and think maybe of another application title
 x make it so images are displayed a little bigger so they better fit the screen. Especially vertical oriented images should almost fill the available space so they impress the viewer once they are fully revealed. 
 x images should be placed and displayed from the top left corner as starting point, not in the middle of their frame
