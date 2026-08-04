@@ -1,10 +1,7 @@
 # to do
-- id number left from checkbox, not below
+- checkboxes are reduntant, use just ids on your 
 - collect better ascii graphics (big ones) and images (like your own ones)
 - find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
-
-# to do, user management
-- ask claude about user management, and ask for a prompt for claude code. the site should be usable for other users once it gets online, every user needs persistent data storage of this tasks and projects, the state of the task manager etc.
 
 # to do, designs
 - better daymode, better color palette
@@ -30,6 +27,9 @@ x instead of ascii graphics try it with images, revealing them part by part in a
 - make display also work with ascii graphics
 - i want a much cleaner look of the list. to achieve this remove priority functionality completely, as well as project functionality, due functionality
 
+# to do, user management
+- ask claude about user management, and ask for a prompt for claude code. the site should be usable for other users once it gets online, every user needs persistent data storage of this tasks and projects, the state of the task manager etc.
+
 # ressources
 - https://asciiart.website/browse.php
 - https://www.asciiart.eu/ascii-art-dictionary?utm_source=chatgpt.com
@@ -53,6 +53,18 @@ python3 -m http.server 8000
 python3 build_art_data.py
 
 # done
+x split view: "split on" / "split off" pins the task list in its own pane above the terminal
+  on the left side, so the list is always visible. drag the divider between them to give the
+  list more or less room; the position (and on/off) is saved with everything else.
+x nicer list: framed with ─── rules above/below (sized to the content), dim rules + summary
+  so the task titles are the only thing at full brightness and pop to the front
+x [id] replaces the checkbox in list + archive, always visible and right-aligned so titles
+  stay in a column. no checkbox needed: everything in the list is by definition not done yet,
+  done ones are in the archive. active tasks get an [active] tag on the details line, which is
+  the only thing the old [~] said that an id doesn't. (the interactive "remove" picker that
+  briefly replaced this is gone again — remove/rm/delete all just take ids: 3 | 1,3,4 | 2-5 | all)
+x id number left from checkbox, not below -> and only prints the second line (tags/priority/
+  project/due) when there's actually something in it, so a plain task is one line, not two
 x get it to work offline again -> generate art-data.js (python3 build_art_data.py) and have
   momentum.html load it via <script src> instead of fetch(); browsers block fetch()/XHR of
   local files under file://, but not <script src>/<img src> to local files, so this is the

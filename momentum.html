@@ -202,8 +202,57 @@
     min-width:280px;
     border-right:1px solid var(--line);
   }
+  /* split view: the task list gets its own pane above the terminal, so it stays on
+     screen while you type. both the pane and the divider are display:none until
+     body.split is set, which keeps the default single-pane layout byte-identical. */
+  #list-pane{
+    display:none;
+    flex:0 0 38%;
+    overflow-y:auto;
+    padding:12px 20px;
+    font-size:13px;
+    line-height:1.5;
+    min-height:0;
+  }
+  body.split #list-pane{ display:block; }
+  #list-pane .line{ white-space:pre-wrap; }
+  #list-pane .err{ color:var(--error); }
+  #list-pane .info{ color:var(--text-dim); }
+  .pane-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:6px;
+    color:var(--amber);
+    font-size:12px;
+    letter-spacing:1px;
+  }
+  .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
+  #split-divider{
+    display:none;
+    flex:0 0 7px;
+    position:relative;
+    cursor:row-resize;
+    background:var(--bg-panel);
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  body.split #split-divider{ display:block; }
+  #split-divider::after{
+    content:"";
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    width:40px; height:1px;
+    background:var(--text-dim);
+    opacity:0.55;
+  }
+  #split-divider:hover::after{ background:var(--amber); opacity:1; }
+  body.dragging{ user-select:none; cursor:row-resize; }
   #output{
     flex:1;
+    min-height:0;
     overflow-y:auto;
     padding:12px 20px;
     font-size:13px;
@@ -233,8 +282,8 @@
     font-size:13px;
   }
   ::selection{ background:var(--accent-dim); }
-  #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar{ width:8px; }
-  #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar, #list-pane::-webkit-scrollbar{ width:8px; }
+  #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb, #list-pane::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
 </style>
 </head>
 <body>
@@ -246,6 +295,8 @@
 
 <div id="main">
   <div id="term-wrap">
+    <div id="list-pane"></div>
+    <div id="split-divider" title="drag to resize the list"></div>
     <div id="output"></div>
     <div id="input-row">
       <span id="prompt">$</span>
@@ -268,9 +319,18 @@ const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
 let theme = 'amber';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
+let splitOn = false;                                     // split view: task list pinned above the terminal instead of only appearing when you type "list"
+let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
+const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
 
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', theme);
+}
+
+function applySplit(){
+  document.body.classList.toggle('split', splitOn);
+  document.getElementById('list-pane').style.flexBasis = `${splitRatio}%`;
+  if(splitOn) renderListPane();
 }
 
 const STORAGE_KEY = 'momentum-tasks-v1';
@@ -552,7 +612,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, nextId, projects, displayMode, theme,
+    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -565,6 +625,8 @@ function applyStateSnapshot(data){
   projects = data.projects || [];
   displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
+  splitOn = !!data.splitOn;
+  splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   asciiTrack.restore(data.ascii);
   imageTrack.restore(data.image);
 }
@@ -575,6 +637,7 @@ async function loadState(){
     if(raw) applyStateSnapshot(JSON.parse(raw));
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
+  applySplit();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
   }catch(e){
@@ -776,6 +839,9 @@ function cmd_display(){
 }
 
 function renderPanel(){
+  // every task mutation already ends in renderPanel(), so hanging the split-view
+  // pane's refresh off it is what keeps the always-visible list actually current.
+  if(splitOn) renderListPane();
   const g = document.getElementById('reveal-panel');
   const track = activeTrack();
   if(!track.current){
@@ -885,6 +951,8 @@ const HELP_TEXT =
   gallery                                               list your collected artworks
   gallery show <name>                                   reprint a collected artwork in full
   mode [ascii|image]                                    show or switch the reveal mode
+  split [on|off]                                        keep the task list pinned above the terminal
+                                                        (drag the divider between them to resize)
   switch [amber|night|day|solar|nord]                   show or switch the color theme (nightmode/daymode also work)
   image                                                  info on the current piece (whichever mode you're in)
   image next                                             skip to a new piece (no credit for it)
@@ -1147,6 +1215,33 @@ function detailFields(t, extra){
   return fields;
 }
 
+// the id *is* the marker now — there's no checkbox, since everything still in the
+// list is by definition not done yet (finishing a task moves it to the archive).
+// ids are right-aligned to the widest one so titles stay in a straight column.
+// shared by the "list" command and the split-view pane so both read identically.
+function buildTaskRows(list){
+  const idWidth = Math.max(...list.map(t => String(t.id).length));
+  const indent = ' '.repeat(idWidth + 5);
+  const rows = [];
+  list.forEach(t=>{
+    const overdue = isOverdue(t);
+    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, cls: overdue ? 'err' : undefined });
+    const fields = detailFields(t, overdue ? ['[OVERDUE]'] : []);
+    if(t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
+    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: overdue ? 'err' : 'info' });
+  });
+  return rows;
+}
+
+function taskSummaryLine(list){
+  const activeCount = list.filter(t => t.status === 'active').length;
+  const overdueCount = list.filter(isOverdue).length;
+  const parts = [`${list.length} task${list.length === 1 ? '' : 's'}`];
+  if(activeCount) parts.push(`${activeCount} active`);
+  if(overdueCount) parts.push(`${overdueCount} overdue`);
+  return parts.join(' · ');
+}
+
 function cmd_list(tokens){
   const { status, proj, tag } = parseListArgs(tokens || []);
   let list = tasks;
@@ -1160,27 +1255,25 @@ function cmd_list(tokens){
     list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
   }
   if(list.length === 0){ print('nothing here.', 'info'); return; }
+  printFramed(buildTaskRows(list), `  ${taskSummaryLine(list)}`);
+}
 
-  // the id *is* the marker now — there's no checkbox, since everything still in the
-  // list is by definition not done yet (finishing a task moves it to the archive).
-  // ids are right-aligned to the widest one so titles stay in a straight column.
-  const idWidth = Math.max(...list.map(t => String(t.id).length));
-  const indent = ' '.repeat(idWidth + 5);
-  const rows = [];
-  list.forEach(t=>{
-    const overdue = isOverdue(t);
-    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, cls: overdue ? 'err' : undefined });
-    const fields = detailFields(t, overdue ? ['[OVERDUE]'] : []);
-    if(t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
-    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: overdue ? 'err' : 'info' });
-  });
-
-  const activeCount = list.filter(t => t.status === 'active').length;
-  const overdueCount = list.filter(isOverdue).length;
-  const parts = [`${list.length} task${list.length === 1 ? '' : 's'}`];
-  if(activeCount) parts.push(`${activeCount} active`);
-  if(overdueCount) parts.push(`${overdueCount} overdue`);
-  printFramed(rows, `  ${parts.join(' · ')}`);
+// the always-visible list in split view. deliberately unfiltered — it's the
+// standing picture of everything outstanding, while "list -proj x" stays the way
+// to ask a narrower question in the terminal below it.
+function renderListPane(){
+  const pane = document.getElementById('list-pane');
+  if(!pane) return;
+  if(tasks.length === 0){
+    pane.innerHTML =
+      `<div class="pane-head">TASKS <span>nothing yet</span></div>` +
+      `<div class="line info">no tasks yet — add one:  add "organize your desk"</div>`;
+    return;
+  }
+  const rows = buildTaskRows(tasks).map(r =>
+    `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
+  ).join('');
+  pane.innerHTML = `<div class="pane-head">TASKS <span>${escapeHtml(taskSummaryLine(tasks))}</span></div>` + rows;
 }
 
 function cmd_archive(...tokens){
@@ -1220,6 +1313,23 @@ function cmd_mode(arg){
   displayMode = arg;
   print(`switched to ${arg} mode`, 'ok');
   saveState(); renderPanel();
+}
+
+function cmd_split(arg){
+  if(!arg){
+    print(`split view is ${splitOn ? 'on' : 'off'}  (turn it on/off with: split on | split off)`, 'info');
+    return;
+  }
+  arg = arg.toLowerCase();
+  if(!['on','off'].includes(arg)){ print('usage: split on|off', 'err'); return; }
+  const want = arg === 'on';
+  if(want === splitOn){ print(`split view is already ${arg}`, 'info'); return; }
+  splitOn = want;
+  applySplit();
+  print(splitOn
+    ? 'split view on — your task list now stays put above the terminal. drag the divider between them to resize it.'
+    : 'split view off — back to the full-height terminal.', 'ok');
+  saveState();
 }
 
 function cmd_switch(arg){
@@ -1397,6 +1507,7 @@ function handleCommand(raw){
     case 'archive': cmd_archive(...rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
+    case 'split': cmd_split(rest[0]); break;
     case 'switch': cmd_switch(rest[0]); break;
     case 'image': cmd_image(rest[0], ...rest.slice(1)); break;
     case 'close': cmd_close(); break;
@@ -1432,6 +1543,38 @@ cmdInput.addEventListener('keydown', (e)=>{
   }
 });
 document.body.addEventListener('click', ()=> cmdInput.focus());
+
+// ---------- split-view divider ----------
+// drag it to trade height between the pinned list and the terminal. the position
+// is kept as a percentage of the left column rather than pixels, so it holds its
+// proportions when the window resizes, and it's saved with the rest of the state
+// so the layout you set is the layout you get back next time.
+const dividerEl = document.getElementById('split-divider');
+dividerEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault();                                    // don't start a text selection while dragging
+  const wrap = document.getElementById('term-wrap');
+  const pane = document.getElementById('list-pane');
+  dividerEl.setPointerCapture(e.pointerId);              // keep receiving moves even when the cursor outruns the 7px divider
+  document.body.classList.add('dragging');
+
+  const onMove = (ev) => {
+    const rect = wrap.getBoundingClientRect();
+    if(!rect.height) return;
+    const pct = ((ev.clientY - rect.top) / rect.height) * 100;
+    splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct));
+    pane.style.flexBasis = `${splitRatio}%`;
+  };
+  const onEnd = () => {
+    dividerEl.removeEventListener('pointermove', onMove);
+    dividerEl.removeEventListener('pointerup', onEnd);
+    dividerEl.removeEventListener('pointercancel', onEnd);
+    document.body.classList.remove('dragging');
+    saveState();
+  };
+  dividerEl.addEventListener('pointermove', onMove);
+  dividerEl.addEventListener('pointerup', onEnd);
+  dividerEl.addEventListener('pointercancel', onEnd);
+});
 
 // ---------- boot ----------
 print('welcome to Momentum. type "help" to see what you can do.', 'info');
