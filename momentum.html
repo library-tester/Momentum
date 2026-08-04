@@ -548,20 +548,31 @@ const imageTrack = createRevealTrack({
 
 function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack; }
 
+// shared between saveState (-> localStorage) and cmd_export (-> downloadable file),
+// so "back up your tasks" is always exactly what "restore your tasks" expects.
+function buildStateSnapshot(){
+  return {
+    tasks, archive, nextId, projects, displayMode, theme,
+    ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
+  };
+}
+// shared between loadState (localStorage) and cmd_import (a backup file) — same
+// shape either way, so importing a file behaves exactly like a fresh page load.
+function applyStateSnapshot(data){
+  tasks = data.tasks || [];
+  archive = data.archive || [];
+  nextId = data.nextId || 1;
+  projects = data.projects || [];
+  displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
+  theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
+  asciiTrack.restore(data.ascii);
+  imageTrack.restore(data.image);
+}
+
 async function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-    if(raw){
-      const data = JSON.parse(raw);
-      tasks = data.tasks || [];
-      archive = data.archive || [];
-      nextId = data.nextId || 1;
-      projects = data.projects || [];
-      displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
-      theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
-      asciiTrack.restore(data.ascii);
-      imageTrack.restore(data.image);
-    }
+    if(raw) applyStateSnapshot(JSON.parse(raw));
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
   try{
@@ -582,11 +593,44 @@ async function loadState(){
 }
 function saveState(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      tasks, archive, nextId, projects, displayMode, theme,
-      ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
-    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStateSnapshot()));
   }catch(e){ print('warning: could not save progress', 'err'); }
+}
+
+// manual backup/restore — a safety net for whenever localStorage doesn't stick
+// around (a new browser profile, a new Codespace, private browsing, etc.):
+// localStorage lives in the browser, tied to the exact origin you loaded the
+// page from, not in this project's files, so nothing server-side can prevent
+// that. "export" now, "import" later is the reliable workaround.
+function cmd_export(){
+  const blob = new Blob([JSON.stringify(buildStateSnapshot(), null, 2)], { type:'application/json' });
+  const stamp = new Date().toISOString().slice(0, 10);
+  triggerDownload(blob, `momentum-backup-${stamp}.json`);
+  print(`exported ${tasks.length} task(s) + ${archive.length} archived — save this file somewhere safe.`, 'ok');
+}
+
+function cmd_import(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data || !Array.isArray(data.tasks)) throw new Error('not a momentum backup file');
+        applyStateSnapshot(data);
+        saveState(); renderPanel(); cmd_list([]);
+        print(`imported ${tasks.length} task(s) + ${archive.length} archived from "${file.name}".`, 'ok');
+      }catch(e){
+        print(`could not import "${file.name}" — it doesn't look like a momentum backup file.`, 'err');
+      }
+    };
+    reader.readAsText(file);
+  });
+  input.click();
 }
 
 // ---------- rendering ----------
@@ -825,7 +869,7 @@ const HELP_TEXT =
                                                          add a new task
   start <id[,id...]|all>                               mark task(s) active
   done <id[,id...]|all>                                 complete task(s) — moves them to the archive
-  rm <id[,id...]|1-4|all>                               delete task(s)
+  rm <id[,id...]|1-4|all>                               delete task(s)  (also: remove, delete)
   priority <id[,id...]|all> <high|med|low>              change priority
   due <id[,id...]|all> <YYYY-MM-DD|none>                set or clear a due date
   tag <id[,id...]|all> add <tag>                        add a tag to task(s)
@@ -850,6 +894,8 @@ const HELP_TEXT =
   download                                                once complete: save the file to your computer
   display                                                fullscreen the current image, however much is revealed so far (esc or click to exit)
   stats                                                  task summary
+  export                                                  download a backup of all your tasks + progress
+  import                                                  restore tasks + progress from a backup file
   clear                                                  clear the terminal
   help                                                   show this list`;
 
@@ -1073,7 +1119,33 @@ function parseListArgs(tokens){
   return out;
 }
 
-const STATUS_MARK = { pending:'[ ]', active:'[~]', done:'[✓]' };
+// list/archive all print the same shape: a rule, the rows, a rule, then a
+// dim one-line summary. the rule is sized to the widest row rather than fixed, so
+// it hugs the content instead of overrunning (and wrapping in) a narrow terminal
+// pane. rules and summary are dim on purpose — the task titles are the only thing
+// at full brightness, so they're what your eye lands on first.
+const FRAME_MIN = 30, FRAME_MAX = 66;
+function printFramed(rows, summary){
+  const widths = rows.map(r => r.text.length);
+  if(summary) widths.push(summary.length);
+  const rule = '─'.repeat(Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths))));
+  print(rule, 'info');
+  rows.forEach(r => print(r.text, r.cls));
+  print(rule, 'info');
+  if(summary) print(summary, 'info');
+}
+
+// the [priority] [project] [tag] [due] line that hangs under a task — returned
+// separately so callers can skip printing a second line when there's nothing in it.
+function detailFields(t, extra){
+  const fields = [];
+  if(t.priority) fields.push(`[${t.priority}]`);
+  if(t.project) fields.push(`[${t.project}]`);
+  if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
+  if(t.due) fields.push(`[due:${t.due}]`);
+  (extra || []).forEach(f => fields.push(f));
+  return fields;
+}
 
 function cmd_list(tokens){
   const { status, proj, tag } = parseListArgs(tokens || []);
@@ -1089,18 +1161,26 @@ function cmd_list(tokens){
   }
   if(list.length === 0){ print('nothing here.', 'info'); return; }
 
+  // the id *is* the marker now — there's no checkbox, since everything still in the
+  // list is by definition not done yet (finishing a task moves it to the archive).
+  // ids are right-aligned to the widest one so titles stay in a straight column.
+  const idWidth = Math.max(...list.map(t => String(t.id).length));
+  const indent = ' '.repeat(idWidth + 5);
+  const rows = [];
   list.forEach(t=>{
     const overdue = isOverdue(t);
-    const mark = STATUS_MARK[t.status] || '[ ]';
-    print(`${mark} ${t.title}`, overdue ? 'err' : undefined);
-    const fields = [`[${t.id}]`];
-    if(t.priority) fields.push(`[${t.priority}]`);
-    if(t.project) fields.push(`[${t.project}]`);
-    if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
-    if(t.due) fields.push(`[due:${t.due}]`);
-    if(overdue) fields.push('[OVERDUE]');
-    print(`    ${fields.join(' ')}`, overdue ? 'err' : 'info');
+    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, cls: overdue ? 'err' : undefined });
+    const fields = detailFields(t, overdue ? ['[OVERDUE]'] : []);
+    if(t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
+    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: overdue ? 'err' : 'info' });
   });
+
+  const activeCount = list.filter(t => t.status === 'active').length;
+  const overdueCount = list.filter(isOverdue).length;
+  const parts = [`${list.length} task${list.length === 1 ? '' : 's'}`];
+  if(activeCount) parts.push(`${activeCount} active`);
+  if(overdueCount) parts.push(`${overdueCount} overdue`);
+  printFramed(rows, `  ${parts.join(' · ')}`);
 }
 
 function cmd_archive(...tokens){
@@ -1113,16 +1193,15 @@ function cmd_archive(...tokens){
   }
   if(list.length === 0){ print('the archive is empty.', 'info'); return; }
 
+  const idWidth = Math.max(...list.map(t => String(t.id).length));
+  const indent = ' '.repeat(idWidth + 5);
+  const rows = [];
   list.forEach(t=>{
-    print(`[✓] ${t.title}`);
-    const fields = [`[${t.id}]`];
-    if(t.priority) fields.push(`[${t.priority}]`);
-    if(t.project) fields.push(`[${t.project}]`);
-    if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
-    if(t.due) fields.push(`[due:${t.due}]`);
-    if(t.completedAt) fields.push(`[completed:${new Date(t.completedAt).toLocaleDateString()}]`);
-    print(`    ${fields.join(' ')}`, 'info');
+    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}` });
+    const fields = detailFields(t, t.completedAt ? [`[completed:${new Date(t.completedAt).toLocaleDateString()}]`] : []);
+    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: 'info' });
   });
+  printFramed(rows, `  ${list.length} completed`);
 }
 
 function cmd_stats(){
@@ -1307,7 +1386,7 @@ function handleCommand(raw){
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'start': cmd_start(rest[0]); break;
     case 'done': cmd_done(rest[0]); break;
-    case 'rm': case 'delete': cmd_rm(rest[0]); break;
+    case 'rm': case 'remove': case 'delete': cmd_rm(rest[0]); break;
     case 'priority': cmd_priority(rest[0], rest[1]); break;
     case 'due': cmd_due(rest[0], rest[1]); break;
     case 'tag': cmd_tag(rest[0], rest[1], rest[2]); break;
@@ -1324,6 +1403,8 @@ function handleCommand(raw){
     case 'download': cmd_download(); break;
     case 'display': cmd_display(); break;
     case 'stats': cmd_stats(); break;
+    case 'export': cmd_export(); break;
+    case 'import': cmd_import(); break;
     case 'clear': outputEl.innerHTML = ''; break;
     default: print(`unknown command "${cmd}" — try "help"`, 'err');
   }
