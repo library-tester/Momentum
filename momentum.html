@@ -426,6 +426,11 @@ function applyStatLine(){
 
 const STORAGE_KEY = 'momentum-tasks-v1';
 const LEGACY_STORAGE_KEY = 'garden-tasks-v1';  // fall back to pre-rename saves so existing task lists aren't lost
+// three small keys, separate from STORAGE_KEY on purpose: none of this is app data,
+// so none of it belongs in what "undo"/"import"/"export" read or write.
+const AUTOBACKUP_KEY = 'momentum-autobackup-v1';    // rolling history — see pushAutoBackup/cmd_recover
+const LAST_EXPORT_KEY = 'momentum-last-export-v1';  // for the "you haven't exported in a while" nudge
+const FIRST_SEEN_KEY = 'momentum-first-seen-v1';    // that nudge's fallback baseline if you've never exported at all
 
 function isOverdue(t){
   if(!t.due || t.status === 'done') return false;
@@ -1015,6 +1020,7 @@ async function loadState(){
     print(collectionLoadError, 'err');
   }
   printStaleSnapshotNotice();
+  printExportNudge();
   renderPanel();
   if(tasks.length){
     print(`— ${tasks.length} task(s) loaded —`, 'info');
@@ -1025,8 +1031,39 @@ async function loadState(){
 }
 function saveState(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStateSnapshot()));
+    const snapshot = buildStateSnapshot();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    pushAutoBackup(snapshot);
   }catch(e){ print('warning: could not save progress', 'err'); }
+}
+
+// ---------- automatic rolling backup ----------
+// a second safety net alongside undo: undo is session-only and only covers the
+// mistake you just made (see its own comment), so it can't help if the *browser*
+// is what loses the state — a wiped localStorage, a new profile, a private window.
+// keeping the last few full snapshots under their own key means there's still
+// something to fall back to even then, without you having to have remembered to
+// export first. still lives in the same localStorage origin, though — this is not
+// the durable, leaves-the-browser copy that "export" is (see printExportNudge).
+const AUTOBACKUP_LIMIT = 10;
+function loadAutoBackups(){
+  try{
+    const entries = JSON.parse(localStorage.getItem(AUTOBACKUP_KEY) || '[]');
+    return Array.isArray(entries) ? entries : [];
+  }catch(e){ return []; }
+}
+function pushAutoBackup(snapshot){
+  // failure here is silent, not printed like saveState()'s own — if the primary
+  // write above failed too, that's already been reported once; a second warning
+  // about the bonus copy on top of it would just be noise on top of a problem the
+  // user already knows about. if only this one fails (primary fine, quota tight),
+  // staying quiet matches this app's habit of keeping secondary systems gentle.
+  try{
+    const entries = loadAutoBackups();
+    entries.push({ at: Date.now(), data: snapshot });
+    while(entries.length > AUTOBACKUP_LIMIT) entries.shift();
+    localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify(entries));
+  }catch(e){ /* quota exceeded or storage unavailable — this backup is a bonus, not critical */ }
 }
 
 // manual backup/restore — a safety net for whenever localStorage doesn't stick
@@ -1038,7 +1075,34 @@ function cmd_export(){
   const blob = new Blob([JSON.stringify(buildStateSnapshot(), null, 2)], { type:'application/json' });
   const stamp = new Date().toISOString().slice(0, 10);
   triggerDownload(blob, `momentum-backup-${stamp}.json`);
+  markExported();
   print(`exported ${tasks.length} task(s) + ${archive.length} archived — save this file somewhere safe.`, 'ok');
+}
+function markExported(){
+  try{ localStorage.setItem(LAST_EXPORT_KEY, String(Date.now())); }catch(e){ /* the export itself already succeeded; missing this timestamp only means the nudge below might fire again sooner than strictly necessary */ }
+}
+// import doesn't call this — having a file to import from proves that file exists,
+// not that the *current* state (which may have moved on since) is saved anywhere.
+// only an actual export resets the clock.
+const EXPORT_NUDGE_DAYS = 7;
+function printExportNudge(){
+  if(tasks.length + archive.length === 0) return;          // nothing worth nagging about backing up yet
+  let lastExportAt = null;
+  try{ const raw = localStorage.getItem(LAST_EXPORT_KEY); if(raw) lastExportAt = parseInt(raw, 10); }catch(e){ /* treat as never exported */ }
+  // no export on record: fall back to "first time this app was ever opened" rather
+  // than nudging immediately on task #1 — a brand new user hasn't gone a while
+  // without exporting yet, they just haven't had the chance to.
+  let firstSeenAt = lastExportAt;
+  if(!firstSeenAt){
+    try{
+      firstSeenAt = parseInt(localStorage.getItem(FIRST_SEEN_KEY), 10) || null;
+      if(!firstSeenAt){ firstSeenAt = Date.now(); localStorage.setItem(FIRST_SEEN_KEY, String(firstSeenAt)); }
+    }catch(e){ firstSeenAt = Date.now(); }
+  }
+  const daysSince = (Date.now() - firstSeenAt) / (24 * 60 * 60 * 1000);
+  if(daysSince < EXPORT_NUDGE_DAYS) return;
+  const whenTxt = lastExportAt ? `your last export was ${new Date(lastExportAt).toLocaleDateString()}` : "you've never exported a backup";
+  print(`note: ${whenTxt} — type "export" to save an offline copy of your tasks. (there's also an automatic in-browser backup — see "recover" — but that disappears along with everything else if this browser's site data ever gets cleared; export is the one copy that actually leaves the browser.)`, 'info');
 }
 
 function cmd_import(){
@@ -1066,6 +1130,43 @@ function cmd_import(){
     reader.readAsText(file);
   });
   input.click();
+}
+
+// restores from the rolling backup pushAutoBackup() has been keeping — the
+// recovery half of the safety net item 21 asked for. always confirmed, unlike
+// import: choosing a file via the native picker is already a deliberate multi-step
+// action that works as its own confirmation, but typing "recover 2" is one quick
+// command that could land by mistake, and unconditionally replaces everything
+// currently in the app the moment it does.
+function cmd_recover(arg){
+  const entries = loadAutoBackups();
+  if(!arg || arg.toLowerCase() === 'list'){
+    if(entries.length === 0){ print('no automatic backups yet — they build up as you use the app (see "export" for a backup you can make right now instead).', 'info'); return; }
+    print('automatic backups, most recent first — "recover <n>" restores one:');
+    entries.slice().reverse().forEach((e, i) => {
+      const taskCount = (e.data.tasks || []).length, archCount = (e.data.archive || []).length;
+      print(`  ${i + 1}. ${new Date(e.at).toLocaleString()}  —  ${taskCount} task${taskCount === 1 ? '' : 's'}, ${archCount} archived`);
+    });
+    return;
+  }
+  const ordered = entries.slice().reverse();
+  const n = parseInt(arg, 10);
+  if(!Number.isInteger(n) || n < 1 || n > ordered.length){
+    print(`usage: recover [list|<n>]  (currently ${ordered.length} backup${ordered.length === 1 ? '' : 's'} — "recover list" to see them)`, 'err');
+    return;
+  }
+  const chosen = ordered[n - 1];
+  askConfirm(
+    `restore the automatic backup from ${new Date(chosen.at).toLocaleString()}? this replaces everything currently here — tasks, archive, reveal progress — with what was saved back then.`,
+    `recover ${n}`,
+    async () => {
+      applyStateSnapshot(chosen.data);
+      applyTheme(); applySplit(); applyTitle(); applyStatLine();
+      await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
+      saveState(); renderPanel(); cmd_list([]);
+      print(`restored the backup from ${new Date(chosen.at).toLocaleString()}.`, 'ok');
+    }
+  );
 }
 
 // ---------- rendering ----------
@@ -1471,6 +1572,10 @@ const COMMANDS = [
   { usage: 'stats', desc: 'task summary' },
   { usage: 'export', desc: 'download a backup of all your tasks + progress' },
   { usage: 'import', desc: 'restore tasks + progress from a backup file' },
+  { usage: 'recover [list|<n>]', desc: 'restore an automatic in-browser backup',
+    extra: ['(a bonus safety net alongside export, not a replacement for it —',
+            'it lives in this browser and is lost along with everything else',
+            'if its site data ever gets cleared)'] },
   { usage: 'clear', desc: 'clear the terminal' },
   { usage: 'help', desc: 'show this list' },
 ];
@@ -2299,7 +2404,7 @@ function cmd_gallery(sub, ...rest){
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
 // listed by canonical name only — aliases are resolved away before this is consulted.
-const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide','block']);
+const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','recover','close','next','reveal','hide','block']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -2367,6 +2472,7 @@ function dispatch(cmd, rest){
     case 'stats': cmd_stats(); break;
     case 'export': cmd_export(); break;
     case 'import': cmd_import(); break;
+    case 'recover': cmd_recover(rest[0]); break;
     case 'clear': outputEl.innerHTML = ''; break;
     default: print(`unknown command "${cmd}" — try "help"`, 'err');
   }

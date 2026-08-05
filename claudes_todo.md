@@ -11,8 +11,6 @@ D. Robustness
 
 20. Add a .gitignore. There's none, and your exported backup is sitting untracked at backup/momentum-backup-2026-08-04.json. I'd ignore __pycache__/ and decide deliberately whether backups belong in git (I'd say yes, actually — it's the durable copy of your tasks).
 
-21. Auto-export safety net. Given the persistence problem, the app could keep the last N states in a second localStorage key and nudge you to export if you haven't in a while.
-
 E. Bigger bets (worth discussing before building)
 22. The simplification you already wrote down — "remove priority, project, due functionality completely." This is the single biggest change available: it would delete roughly 200 lines, collapse add's flag parsing to nothing, and make every task a clean one-liner. I'd stage it: hide those fields from display first, confirm you don't miss them for a week, then delete the code. I'd rather not rip it out irreversibly on day one.
 
@@ -22,7 +20,6 @@ E. Bigger bets (worth discussing before building)
 
 25. Multi-user / server persistence — your user-management todo. Real scope: a small backend, accounts, per-user state. Worth planning properly rather than bolting on, and it would also permanently solve the localStorage loss.
 
-If you want a recommended first batch: items 1, 2, 3, 4 — one genuine reward-system bug, one data-loss risk, and two quick wins straight off your own list. Say which numbers you want and I'll implement them.
 
 
 DONE
@@ -197,3 +194,23 @@ x 19. Handle broken/missing image files. If a manifest entry points at a deleted
     hits the manifest size, rather than silently hammering through every entry in a
     loop — a real load anywhere resets the count, so one bad file doesn't poison
     later ones that are actually fine.)
+
+x 21. Auto-export safety net. Given the persistence problem, the app could keep the last N states in a second localStorage key and nudge you to export if you haven't in a while.
+   (2026-08-05: two independent pieces, both storing outside STORAGE_KEY on purpose —
+    neither is app data, so neither belongs in what undo/import/export read or
+    write.
+    1) Rolling in-browser backup: every saveState() also pushes the full snapshot
+       onto a second key, capped at the last 10. New command "recover [list|<n>]"
+       lists them (newest first, with a task/archived count and timestamp per
+       entry) and restores one — always confirmed (unlike import, where picking a
+       file via the native dialog already works as its own confirmation; a single
+       quick "recover 2" doesn't have that same built-in friction), and undoable
+       like everything else that goes through askConfirm.
+    2) Export nudge: "export" now stamps a last-exported timestamp. On boot, if
+       there's at least one task and it's been 7+ days since that timestamp (or
+       since the app was first ever opened, if you've never exported at all — not
+       immediately on task #1), one gentle info-line note suggests running
+       "export", and mentions that "recover" is a bonus, not a substitute — it
+       lives in the same browser storage that can vanish with everything else if
+       site data ever gets cleared, so it doesn't survive the thing export is
+       actually insurance against.)
