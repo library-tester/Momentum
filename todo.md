@@ -1,11 +1,14 @@
 # to do
-- block size and count should be editable.
+x block size and count should be editable.
 x checkboxes are reduntant, use just ids on your 
+x display in day design: the image displayed should have black background not white one 
 - collect better ascii graphics (big ones) and images (like your own ones)
+
+# to do, designs and themes
 - remove designs you dont like
-- remove very small and very big
 
 # to do, optional
+- remove very small and very big
 - check the site on a smartphone and adjust as necessary
 - find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
 - reduce the bload of commands and try to simplify them

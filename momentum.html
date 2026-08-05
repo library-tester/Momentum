@@ -203,6 +203,16 @@
     z-index:1000;
     cursor:pointer;
   }
+  /* .image-frame/.tile normally follow the theme (var(--bg-panel)/var(--bg-dark)),
+     which is the right call inside the reveal panel — but fullscreen is a themeless
+     black stage by design (the overlay above is always #000, in every theme), and
+     day theme's --bg-panel is white: without this, the letterboxing around the
+     photo and every still-uncovered tile flash white inside what's supposed to be
+     a black fullscreen frame. pinned to #000 to match the overlay exactly, not to
+     var(--bg-dark), since a couple of themes (day being the extreme case) don't
+     have a black to give it. */
+  #fullscreen-overlay .image-frame{ background:#000; }
+  #fullscreen-overlay .tile{ background:#000; box-shadow: inset 0 0 0 1px #000; }
   /* ascii keeps its real glyph size (see openAsciiFullscreen) — the grid centering
      above places it, and scaling from the centre means an oversized piece shrinks
      toward the middle instead of drifting off one edge */
@@ -356,6 +366,7 @@ const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
 let theme = 'amber';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
+let brokenImageStreak = 0;                                // consecutive images that failed to load, auto-skipping — see handleImageLoadError
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
@@ -459,6 +470,13 @@ function shuffledIndices(n){
 // back to that snapshot when discovery fails — which is always, under
 // file://. opening the html file directly needs one command first, whenever
 // ascii_art/ or image_art/ have changed: python3 build_art_data.py
+//
+// forgetting that step is easy to miss, because it never breaks anything while
+// you're serving the app — only the *next* time it's opened as file://, quietly
+// showing the old set with no error. detectStaleSnapshot() below closes that gap:
+// whenever live discovery does succeed, it's compared against art-data.js right
+// there, and loadState() prints a gentle note if discovery found files the
+// snapshot has never heard of.
 function humanizeName(stem){
   const words = stem.split(/[-_\s]+/).filter(Boolean);
   if(!words.length) return stem;
@@ -534,6 +552,20 @@ async function discoverManifest({ baseDir, extensions, manifestUrl, itemsField, 
   return { [itemsField]: items };
 }
 
+// compares a live-discovered file list against the pre-baked art-data.js snapshot
+// for the same track, looking only for files discovery found that the snapshot has
+// never heard of — the "you added art and forgot to rebuild" case (item 18). the
+// reverse (a file the snapshot has but discovery didn't find, i.e. something was
+// deleted) is a different, already-tracked problem — missing/broken art files —
+// and not what this check is for, so it's deliberately left alone here.
+function detectStaleSnapshot(discoveredItems, dataKey, itemsField){
+  const baked = window.ART_DATA && window.ART_DATA[dataKey];
+  if(!baked || !Array.isArray(baked[itemsField])) return null;   // no snapshot to be stale relative to
+  const bakedFiles = new Set(baked[itemsField].map(e => e.file));
+  const newFiles = discoveredItems.map(e => e.file).filter(f => !bakedFiles.has(f));
+  return newFiles.length ? { newFiles, generatedAt: window.ART_DATA.generatedAt || null } : null;
+}
+
 // ---------- generic collectible reveal track ----------
 // both the ascii-art system and the image system are the same state machine:
 // load a manifest of entries, load the current entry's content, reveal a random
@@ -550,6 +582,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     cycleSeen: [],                                         // ids picked in the current pass, so nothing repeats until everyone's had a turn
     pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
     banked: 0,                                             // completions earned while pending, waiting to be spent on the next piece
+    staleSnapshot: null,                                   // set when live discovery found files art-data.js doesn't know about — see loadManifest
 
     async loadManifest(){
       // live discovery first: when served over http this picks up newly dropped-in
@@ -559,6 +592,11 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       // fetch — is the normal path in those cases, not an error case.
       try{
         this.manifest = await discoverManifest({ baseDir, extensions, manifestUrl, itemsField, defaultExtra });
+        // only meaningful here, in the branch where discovery actually succeeded:
+        // that's the one moment this app can see both "what's really on disk" and
+        // "what art-data.js thinks is on disk" at once, so it's the only place a
+        // staleness check is even possible.
+        this.staleSnapshot = detectStaleSnapshot(this.manifest[itemsField], dataKey, itemsField);
         return;
       }catch(e){ /* fall through to the baked snapshot / plain manifest.json below */ }
       const baked = window.ART_DATA && window.ART_DATA[dataKey];
@@ -945,6 +983,20 @@ async function cmd_undo(){
   print(`undid "${entry.label}" — ${tasks.length} task(s) in the list.`, 'ok');
 }
 
+// a gentle, one-line heads-up rather than an error: the app is working fine either
+// way (live discovery is what's actually driving it right now), this is purely
+// about the *other* way of running it — file:// — quietly showing an old set the
+// next time someone opens it that way.
+function printStaleSnapshotNotice(){
+  const parts = [];
+  if(asciiTrack.staleSnapshot) parts.push(`${asciiTrack.staleSnapshot.newFiles.length} ascii file${asciiTrack.staleSnapshot.newFiles.length === 1 ? '' : 's'}`);
+  if(imageTrack.staleSnapshot) parts.push(`${imageTrack.staleSnapshot.newFiles.length} image file${imageTrack.staleSnapshot.newFiles.length === 1 ? '' : 's'}`);
+  if(!parts.length) return;
+  const generatedAt = (asciiTrack.staleSnapshot || imageTrack.staleSnapshot).generatedAt;
+  const builtTxt = generatedAt ? ` (built ${new Date(generatedAt).toLocaleString()})` : '';
+  print(`note: art-data.js${builtTxt} doesn't know about ${parts.join(' and ')} you've added — run "python3 build_art_data.py" so the offline (file://) copy of this app picks them up too.`, 'info');
+}
+
 async function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -962,6 +1014,7 @@ async function loadState(){
       : 'could not load the art collection — make sure ascii_art/ and image_art/ are being served alongside this page.';
     print(collectionLoadError, 'err');
   }
+  printStaleSnapshotNotice();
   renderPanel();
   if(tasks.length){
     print(`— ${tasks.length} task(s) loaded —`, 'info');
@@ -1095,6 +1148,33 @@ function fitFrameToAvail(frame, img, art, getAvail){
   return layout;
 }
 
+// a manifest entry pointing at a file that's been deleted (or never existed) shows
+// up as nothing more than the browser's own broken-image icon sitting inside the
+// tile frame, with no indication why — and the reveal tiles on top of it still
+// "work" in the sense that they animate away, giving no hint anything is wrong.
+// rather than sit there broken, this treats it as unplayable and moves straight to
+// the next piece, the same way "next" does, with a printed reason so it's not a
+// silent jump. brokenImageStreak guards against every image in the manifest being
+// broken at once (a misconfigured image_art/, say) turning this into a silent
+// infinite loop — it caps at one skip attempt per image in the manifest, then
+// stops and says so plainly instead of hammering the network forever. a
+// successful load anywhere resets it, so one bad file doesn't poison the count
+// against images that load fine later.
+async function handleImageLoadError(art){
+  brokenImageStreak++;
+  print(`could not load "${art.name}" — image_art/${art.file} is missing or unreadable.`, 'err');
+  const manifestSize = (imageTrack.manifest && imageTrack.manifest.images && imageTrack.manifest.images.length) || 1;
+  if(brokenImageStreak >= manifestSize){
+    print(`that's every image in the collection failing to load — stopping here instead of skipping forever. check that the files under image_art/ actually exist, then reload.`, 'err');
+    return;
+  }
+  print('skipping to the next piece...', 'info');
+  await imageTrack.startNew();
+  const spent = await imageTrack.applyBanked(a => printCompletionPrompt(a));
+  if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
+  saveState(); renderPanel();
+}
+
 let imageResizeObserver = null;
 function fitImageFrame(container, art){
   const stage = container.querySelector('.image-stage');
@@ -1102,6 +1182,11 @@ function fitImageFrame(container, art){
   const img = container.querySelector('.image-base');
   if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
   if(!stage || !frame || !img) return;
+
+  // each render creates a fresh <img>, so this is re-wired every time rather than
+  // once — there's no stale listener to worry about, but also no way to skip it.
+  img.onerror = () => handleImageLoadError(art);
+  img.onload = () => { brokenImageStreak = 0; };
 
   const layout = fitFrameToAvail(frame, img, art, () => {
     const cs = getComputedStyle(stage);
@@ -1179,6 +1264,14 @@ function openImageFullscreen(art, progress){
   );
   const frame = fullscreenEl.querySelector('.image-frame');
   const img = fullscreenEl.querySelector('.image-base');
+  // the panel's own <img> (see fitImageFrame) is normally what catches a broken
+  // file first, on the very first render — this is mainly a safety net for the
+  // narrow race where the file gets deleted between that successful load and
+  // opening fullscreen. closing the overlay first matters here in a way it doesn't
+  // for the panel: the terminal where the message and the skip land is hidden
+  // behind the fullscreen black screen, so leaving it up would print an
+  // explanation nobody can see.
+  img.onerror = () => { closeFullscreen(); handleImageLoadError(art); };
   wireFullscreen(fitFrameToAvail(frame, img, art, () => ({ w: window.innerWidth, h: window.innerHeight })));
 }
 // ascii is shown at its true size — the glyphs stay exactly as big as they are in
@@ -1350,6 +1443,7 @@ const COMMANDS = [
   { usage: 'project list', desc: 'list all projects (or: projects)' },
   { usage: 'list [all|pending|active] [-proj name] [-t tag]', desc: 'show tasks as text (excludes archived)' },
   { usage: 'archive [-proj name] [-t tag]', desc: 'show completed/archived tasks' },
+  { usage: 'find <text>', desc: 'search titles + tags, pending/active and archive together' },
   { usage: 'gallery', desc: 'list your collected artworks' },
   { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
@@ -1733,19 +1827,43 @@ function detailFields(t, extra){
 // the id *is* the marker now — there's no checkbox, since everything still in the
 // list is by definition not done yet (finishing a task moves it to the archive).
 // ids are right-aligned to the widest one so titles stay in a straight column.
-// shared by the "list" command and the split-view pane so both read identically.
-function buildTaskRows(list){
+// shared by "list", the split-view pane, and "find" (the only caller that passes
+// archivedIds — a Set of ids drawn from the archive, mixed in alongside pending/
+// active ones, since ids are unique across both: a task lives in exactly one of
+// the two arrays at a time).
+function buildTaskRows(list, archivedIds){
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const indent = ' '.repeat(idWidth + 5);
   const rows = [];
   list.forEach(t=>{
-    const overdue = isOverdue(t);
+    const archived = !!(archivedIds && archivedIds.has(t.id));
+    const overdue = !archived && isOverdue(t);
     rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, cls: overdue ? 'err' : undefined });
-    const fields = detailFields(t, overdue ? ['[OVERDUE]'] : []);
-    if(t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
+    const extra = overdue ? ['[OVERDUE]'] : [];
+    if(archived) extra.push('[archived]');
+    const fields = detailFields(t, extra);
+    if(!archived && t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
     if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: overdue ? 'err' : 'info' });
   });
   return rows;
+}
+
+// meaningful order instead of pure insertion order: overdue first (they're the
+// ones actually costing you something by sitting there), then active tasks (the
+// ones you've already started), then by priority. each tier only breaks ties left
+// by the one before it — a low-priority overdue task still outranks a high-priority
+// task that isn't overdue, since "overdue" is the more urgent fact about it. sort()
+// is stable in every engine this app runs in, so tasks tied on all three keys keep
+// their original (insertion) order rather than shuffling on every render.
+const PRIORITY_RANK = { high: 0, med: 1, low: 2 };
+function taskSortKey(t){
+  return [isOverdue(t) ? 0 : 1, t.status === 'active' ? 0 : 1, t.priority ? PRIORITY_RANK[t.priority] : 3];
+}
+function sortForDisplay(list){
+  return [...list].sort((a, b) => {
+    const ka = taskSortKey(a), kb = taskSortKey(b);
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+  });
 }
 
 function taskSummaryLine(list){
@@ -1770,7 +1888,28 @@ function cmd_list(tokens){
     list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
   }
   if(list.length === 0){ print('nothing here.', 'info'); return; }
-  printFramed(buildTaskRows(list), `  ${taskSummaryLine(list)}`);
+  printFramed(buildTaskRows(sortForDisplay(list)), `  ${taskSummaryLine(list)}`);
+}
+
+// searches both pending/active and archived tasks at once — the point of a search
+// is not remembering where you put something, so unlike "list" it doesn't stop at
+// the archive boundary. title and tags are both checked (a tag is text you chose
+// too); case-insensitive substring, not a fuzzy match, so it stays predictable once
+// you have enough tasks that scanning by eye stopped working.
+function cmd_find(tokens){
+  const query = (tokens || []).join(' ').trim();
+  if(!query){ print('find needs something to search for, e.g. find groceries', 'err'); return; }
+  const q = query.toLowerCase();
+  const matches = t => t.title.toLowerCase().includes(q) || (t.tags||[]).some(tag => tag.toLowerCase().includes(q));
+  const activeHits = tasks.filter(matches);
+  const archivedHits = archive.filter(matches);
+  const total = activeHits.length + archivedHits.length;
+  if(total === 0){ print(`no tasks matching "${query}"`, 'info'); return; }
+
+  const archivedIds = new Set(archivedHits.map(t => t.id));
+  const summary = `  ${total} match${total === 1 ? '' : 'es'} for "${query}"` +
+    (archivedHits.length ? `  (${activeHits.length} active/pending, ${archivedHits.length} archived)` : '');
+  printFramed(buildTaskRows([...activeHits, ...archivedHits], archivedIds), summary);
 }
 
 // the always-visible list in split view. deliberately unfiltered — it's the
@@ -1785,7 +1924,7 @@ function renderListPane(){
       `<div class="line info">no tasks yet — add one:  add "organize your desk"</div>`;
     return;
   }
-  const rows = buildTaskRows(tasks).map(r =>
+  const rows = buildTaskRows(sortForDisplay(tasks)).map(r =>
     `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
   ).join('');
   pane.innerHTML = `<div class="pane-head">TASKS <span>${escapeHtml(taskSummaryLine(tasks))}</span></div>` + rows;
@@ -2208,6 +2347,7 @@ function dispatch(cmd, rest){
     case 'projects': cmd_project('list'); break;
     case 'list': cmd_list(rest); break;
     case 'archive': cmd_archive(...rest); break;
+    case 'find': cmd_find(rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;

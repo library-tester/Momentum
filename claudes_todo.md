@@ -1,3 +1,32 @@
+
+
+C. Design and UX improvements
+?- 12. Responsive layout. There are no media queries at all, and the two panes have 280px + 240px minimums — so on a phone the app is unusable. Add a breakpoint that stacks the art panel above the terminal below ~700px.
+
+- 13. Show relative age on tasks. You already store createdAt and never display it. [3d ago] on the details line quietly creates useful pressure on stale tasks.
+
+- 16. Streak tracking + a completion heatmap. This is the biggest motivational addition and fits the project's stated purpose better than any feature currently in it: "you've completed tasks 6 days running." You already store completedAt on every archived task, so the data is sitting there unused.
+
+D. Robustness
+
+20. Add a .gitignore. There's none, and your exported backup is sitting untracked at backup/momentum-backup-2026-08-04.json. I'd ignore __pycache__/ and decide deliberately whether backups belong in git (I'd say yes, actually — it's the durable copy of your tasks).
+
+21. Auto-export safety net. Given the persistence problem, the app could keep the last N states in a second localStorage key and nudge you to export if you haven't in a while.
+
+E. Bigger bets (worth discussing before building)
+22. The simplification you already wrote down — "remove priority, project, due functionality completely." This is the single biggest change available: it would delete roughly 200 lines, collapse add's flag parsing to nothing, and make every task a clean one-liner. I'd stage it: hide those fields from display first, confirm you don't miss them for a week, then delete the code. I'd rather not rip it out irreversibly on day one.
+
+23. A tiny test suite. I've been testing your app each round by extracting the script and driving it in jsdom, then throwing that away. Committing it as test.js (~100 lines, node test.js) would make regressions visible — the multi-task reveal bug in item 1 is exactly the kind of thing a test catches.
+
+24. Document the commands in the README. It's 7 lines and doesn't mention a single command; help only exists once you're already running.
+
+25. Multi-user / server persistence — your user-management todo. Real scope: a small backend, accounts, per-user state. Worth planning properly rather than bolting on, and it would also permanently solve the localStorage loss.
+
+If you want a recommended first batch: items 1, 2, 3, 4 — one genuine reward-system bug, one data-loss risk, and two quick wins straight off your own list. Say which numbers you want and I'll implement them.
+
+
+DONE
+
 A. Real bugs I found  — ALL THREE DONE (2026-08-04)
 x 1. Completing several tasks at once silently throws away reward progress.
 In momentum.html:1043-1048, done 1,2,3 reveals art for task 1, but if that completes the piece, tasks 2 and 3 just print "waiting for you" and their reveal credit vanishes. For an app whose entire premise is "every completed task earns reward progress," that's the one thing that must never leak. Fix: bank the unspent reveals and apply them to the next piece after close.
@@ -99,35 +128,72 @@ x (your request, 2026-08-05) Title bar toggle, then a statline toggle for the
    and the split-view pane's empty state) are restored to
    add one:  add "organize your desk"`.
 
-C. Design and UX improvements
-12. Responsive layout. There are no media queries at all, and the two panes have 280px + 240px minimums — so on a phone the app is unusable. Add a breakpoint that stacks the art panel above the terminal below ~700px.
+x (your request, 2026-08-05) "add" no longer requires quotes around the title.
+   add hello world and add "hello world" now give the identical task. Every
+   non-flag token joins the title in order — "add buy milk -p high" still parses
+   -p as a flag and gives the title "buy milk", and a flag can even come before the
+   title ("add -p high urgent fix"). The one edge case: a title that happens to
+   contain a literal "-p"/"-d"/"-t"/"-proj" token unquoted would get mistaken for
+   that flag — quoting still works and is the way around it, just no longer
+   required for the common case.
 
-13. Show relative age on tasks. You already store createdAt and never display it. [3d ago] on the details line quietly creates useful pressure on stale tasks.
+x 14. A rename command. There's currently no way to fix a typo in a task title short of delete-and-retype.
+   (2026-08-05: "rename <id> "new title"" — one task at a time, deliberately. A
+    multi-id target like "rename 3,5 x" is rejected outright rather than silently
+    parseInt-ing down to just #3, which is what would otherwise happen. The new
+    title can be quoted or not — unquoted words get rejoined, not truncated to the
+    first token. Undoable, like the other single-task edits (priority/due/tag).)
 
-14. A rename command. There's currently no way to fix a typo in a task title short of delete-and-retype.
+x 15. Text search — find groceries. Once you have 40 tasks, scanning is the bottleneck.
+   (2026-08-05: "find <text>" — one command, not a list flag. Matches title and tags
+    (case-insensitive substring), and deliberately searches pending/active *and*
+    archive together in one pass, since not remembering whether you already finished
+    the thing you're looking for is exactly the situation search is for. The summary
+    line breaks out the active/pending vs. archived counts, and archived rows are
+    marked [archived] so it's never ambiguous which list a hit came from. Read-only,
+    not undo-tracked. buildTaskRows() picked up an optional archivedIds param to
+    support the mixed active+archived listing — backward compatible, every existing
+    caller still passes just the one argument.)
 
-15. Text search — find groceries / list -s report. Once you have 40 tasks, scanning is the bottleneck.
+x 17. Sort the list meaningfully — overdue first, then active, then by priority. Right now it's pure insertion order.
+   (2026-08-05: three-key stable sort — overdue, then active, then priority
+    (high/med/low/none) — applied to both "list" and the always-on split-view pane.
+    Each tier only breaks ties the previous one left standing: a low-priority
+    overdue task still outranks a high-priority task that isn't overdue, since being
+    overdue is the more urgent fact. Ties on all three keys keep insertion order
+    (a stable sort, not a coin flip). Filters ("list active", "-proj", "-t") apply
+    first as before — sorting only reorders whatever survives the filter, doesn't
+    change what's in it. Deliberately left "find" and "archive" unsorted — out of
+    scope for this item, and a different kind of list (relevance / completion log)
+    where insertion order is arguably still the right default.)
 
-16. Streak tracking + a completion heatmap. This is the biggest motivational addition and fits the project's stated purpose better than any feature currently in it: "you've completed tasks 6 days running." You already store completedAt on every archived task, so the data is sitting there unused.
+x 18. Detect a stale art-data.js. If you add art and forget python3 build_art_data.py, the offline app silently shows the old set. A build timestamp + a gentle notice when served-mode discovery finds files the snapshot doesn't know about would close that trap.
+   (2026-08-05: build_art_data.py now stamps a generatedAt timestamp into
+    art-data.js. The only moment this app can actually see both "what's really on
+    disk" and "what art-data.js thinks is on disk" is the instant live discovery
+    (served mode) succeeds, so that's exactly where the check runs: discovered files
+    are diffed against the baked snapshot per track (ascii/image checked
+    independently), and if discovery found anything the snapshot doesn't know about,
+    loadState() prints one gentle info-line note naming the count, the build
+    timestamp, and the fix ("run python3 build_art_data.py"). Deliberately not an
+    error — the app is working fine either way, live discovery is what's actually
+    driving it; this is purely a heads-up about the *other* way of running it
+    (file://) quietly going stale. No note at all when there's no art-data.js to
+    compare against (never built one) or when discovery matches it exactly — silence
+    is the correct answer in both of those, not a false alarm. Deliberately doesn't
+    flag the reverse case (a file the snapshot has that discovery didn't find) —
+    that's a deleted file, which is item 19's problem, not this one's.
+    art-data.js was regenerated so it isn't itself the thing that's now stale.)
 
-17. Sort the list meaningfully — overdue first, then active, then by priority. Right now it's pure insertion order.
-
-D. Robustness
-18. Detect a stale art-data.js. If you add art and forget python3 build_art_data.py, the offline app silently shows the old set. A build timestamp + a gentle notice when served-mode discovery finds files the snapshot doesn't know about would close that trap.
-
-19. Handle broken/missing image files. If a manifest entry points at a deleted file you get a broken-image icon inside the tile frame with no explanation. An onerror fallback should say so and skip to the next piece.
-
-20. Add a .gitignore. There's none, and your exported backup is sitting untracked at backup/momentum-backup-2026-08-04.json. I'd ignore __pycache__/ and decide deliberately whether backups belong in git (I'd say yes, actually — it's the durable copy of your tasks).
-
-21. Auto-export safety net. Given the persistence problem, the app could keep the last N states in a second localStorage key and nudge you to export if you haven't in a while.
-
-E. Bigger bets (worth discussing before building)
-22. The simplification you already wrote down — "remove priority, project, due functionality completely." This is the single biggest change available: it would delete roughly 200 lines, collapse add's flag parsing to nothing, and make every task a clean one-liner. I'd stage it: hide those fields from display first, confirm you don't miss them for a week, then delete the code. I'd rather not rip it out irreversibly on day one.
-
-23. A tiny test suite. I've been testing your app each round by extracting the script and driving it in jsdom, then throwing that away. Committing it as test.js (~100 lines, node test.js) would make regressions visible — the multi-task reveal bug in item 1 is exactly the kind of thing a test catches.
-
-24. Document the commands in the README. It's 7 lines and doesn't mention a single command; help only exists once you're already running.
-
-25. Multi-user / server persistence — your user-management todo. Real scope: a small backend, accounts, per-user state. Worth planning properly rather than bolting on, and it would also permanently solve the localStorage loss.
-
-If you want a recommended first batch: items 1, 2, 3, 4 — one genuine reward-system bug, one data-loss risk, and two quick wins straight off your own list. Say which numbers you want and I'll implement them.
+x 19. Handle broken/missing image files. If a manifest entry points at a deleted file you get a broken-image icon inside the tile frame with no explanation. An onerror fallback should say so and skip to the next piece.
+   (2026-08-05: the reveal panel's <img> and the fullscreen "display" overlay's own
+    <img> both got an onerror handler — handleImageLoadError() — that prints which
+    file couldn't load and then calls the same startNew()/applyBanked() sequence
+    "next" uses to move on, so a broken file behaves like you chose to skip it, not
+    like the app is stuck. Fullscreen closes itself first, since the message would
+    otherwise print behind a black overlay nobody can see. Guarded against a
+    misconfigured image_art/ making every image fail: brokenImageStreak counts
+    consecutive failures and stops (with a plain "check the files" message) once it
+    hits the manifest size, rather than silently hammering through every entry in a
+    loop — a real load anywhere resets the count, so one bad file doesn't poison
+    later ones that are actually fine.)

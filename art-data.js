@@ -3,6 +3,7 @@
 // ascii_art/ or image_art/, so momentum.html also works offline
 // (opened directly as a file://, with no server running).
 window.ART_DATA = {
+  "generatedAt": "2026-08-05T14:21:57.465588+00:00",
   "ascii": {
     "artworks": [
       {

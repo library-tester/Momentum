@@ -10,6 +10,7 @@ Usage: python3 build_art_data.py
 """
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -95,6 +96,13 @@ def main():
     )
 
     art_data = {
+        # read by momentum.html to detect when this snapshot has drifted from what's
+        # actually on disk: if you're serving the app over http (where it can list
+        # the folders live) and that live listing turns up files this snapshot
+        # doesn't know about, it's a sign you added art and forgot to rerun this
+        # script — the offline (file://) copy would silently keep showing the old
+        # set. the notice names this timestamp so you know how out of date it is.
+        'generatedAt': datetime.now(timezone.utc).isoformat(),
         'ascii': {'artworks': ascii_entries},
         'image': {'images': image_entries},
     }
