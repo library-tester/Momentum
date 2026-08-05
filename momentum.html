@@ -349,9 +349,42 @@ const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
 let theme = 'amber';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
-let splitOn = false;                                     // split view: task list pinned above the terminal instead of only appearing when you type "list"
+let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
+
+// how big the image reveal blocks are, set by "block size <tier>". tiers are a
+// target *block count*, not a target pixel size — an earlier version measured
+// blocks in source-image pixels, but that fell apart on this project's own SVG
+// pieces: a viewBox-only SVG with no width/height attribute reports a tiny,
+// arbitrary "natural size" (a browser fallback, often 300x150) that has nothing to
+// do with how detailed the artwork actually is, so a fixed px target produced a
+// near-empty grid on exactly the images it was meant to divide finely. block count
+// only needs the image's *aspect ratio* to lay out square-ish blocks, and aspect
+// ratio survives that fallback intact even when the absolute numbers don't.
+// null means medium: leave the image on the grid its manifest entry declares,
+// rather than a computed count, since manifest grids already sit in a medium-ish
+// range (this project's own images run 20-40 blocks). medium isn't listed in the
+// tier table below — it's the null case. full is a hard special case in
+// resolveGrid (always exactly 1x1) rather than n:1 run through the usual
+// square-block formula, which can drift off 1 block on a skewed aspect ratio.
+const BLOCK_SIZE_TIERS = {
+  full:      { n: 1,   label: 'full — one block; a single completed task reveals it' },
+  verybig:   { n: 4,   label: 'very big' },
+  big:       { n: 10,  label: 'big' },
+  small:     { n: 100, label: 'small' },
+  verysmall: { n: 300, label: 'very small' },
+};
+let blockSizePref = { n: BLOCK_SIZE_TIERS.small.n };     // default: small. null | { n: <target block count> }
+const GRID_MAX_CELLS = 2500;                             // one <div> per block; past this the DOM cost stops being free
+const GRID_MAX_SIDE = 100;
+
+// how many blocks one completed task uncovers, set by "block count <n>". direct,
+// not derived from a piece's declared revealTasks — set once, it holds for every
+// image regardless of how many blocks that image has. null = leave each piece on
+// its own manifest pace.
+const BLOCK_COUNT_MAX = 20;
+let blockCountOverride = 10;                             // default: 10 blocks per completed task
 
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', theme);
@@ -491,7 +524,7 @@ async function discoverManifest({ baseDir, extensions, manifestUrl, itemsField, 
 // permanent gallery and start a new one (picked so nothing repeats until every
 // entry in the manifest has had a turn). this factory is shared by both so a
 // third mode later is just another instantiation, not a new system.
-function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataKey, loadItem, totalCellsFor, defaultExtra }){
+function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataKey, loadItem, totalCellsFor, defaultExtra, progressExtra, regrid, syncItem, perTaskOverride }){
   return {
     manifest: null,
     current: null,                                        // loaded item, shape depends on loadItem
@@ -530,11 +563,11 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     async startNew(){
       const entry = this.pickNextEntry();
       this.current = await loadItem(entry);
-      this.progress = {
+      this.progress = Object.assign({
         itemId: this.current.id,
         revealOrder: shuffledIndices(totalCellsFor(this.current)),
         revealedCount: 0,
-      };
+      }, progressExtra ? progressExtra(this.current) : null);
       this.pending = false;
     },
     async init(){
@@ -544,7 +577,13 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
         this.current = await loadItem(entry);
         const total = totalCellsFor(this.current);
         if(!Array.isArray(this.progress.revealOrder) || this.progress.revealOrder.length !== total){
-          this.progress.revealOrder = shuffledIndices(total);   // source file changed size since last save
+          // the cell count moved under us — either the source file changed, or the
+          // grid preference did (a "grid" command run in an earlier session, or an
+          // import from a save made under a different one). regrid, where the track
+          // knows how, keeps the picture; otherwise the old reshuffle stands.
+          const rescued = regrid && regrid(this.progress, this.current, this.pending);
+          if(rescued) Object.assign(this.progress, rescued);
+          else this.progress.revealOrder = shuffledIndices(total);
         }
         this.progress.revealedCount = Math.min(this.progress.revealedCount || 0, total);
         return;
@@ -552,8 +591,21 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       await this.startNew();
     },
     totalCells(){ return totalCellsFor(this.current); },
+    // how many cells one completed task uncovers. perTaskOverride (image track only —
+    // see "block count") is a direct value that replaces the usual derivation from
+    // revealTasks entirely, so it holds steady across images with different totals
+    // rather than scaling with them.
     cellsPerCompletion(){
+      if(perTaskOverride && perTaskOverride()) return Math.min(perTaskOverride(), this.totalCells());
       return Math.max(1, Math.ceil(this.totalCells() / (this.current.revealTasks || 6)));
+    },
+    // tasks-to-fully-reveal as actually shown to the user: the piece's own declared
+    // value normally, but derived from the override when one is active (revealTasks
+    // itself isn't touched, so switching the override off cleanly restores the
+    // manifest's number rather than whatever this last computed to).
+    tasksToFullyReveal(){
+      if(perTaskOverride && perTaskOverride()) return Math.ceil(this.totalCells() / this.cellsPerCompletion());
+      return this.current.revealTasks;
     },
     // reveals n more cells; once full, freezes as "pending" instead of auto-advancing —
     // the caller (close/download) decides when to actually move on.
@@ -592,11 +644,18 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     // re-points `current` at whatever progress.itemId says, for when state is replaced
     // wholesale underneath us — undo can rewind past a "close" that switched pieces,
     // and without this the panel would draw the old artwork with the new progress.
+    // the loaded item also carries settings that live in the snapshot (the reveal
+    // grid, the pace), so syncItem pulls those back too: here the restored progress
+    // is the authority and the item follows it. (that's the opposite of init(),
+    // where a *preference* changed and the saved progress is what has to adapt —
+    // different direction because a rewind must reproduce exactly what you had.)
     async resync(){
       if(!this.manifest || !this.progress.itemId) return;
-      if(this.current && this.current.id === this.progress.itemId) return;
-      const entry = this.manifest[itemsField].find(e => e.id === this.progress.itemId);
-      if(entry) this.current = await loadItem(entry);
+      if(!this.current || this.current.id !== this.progress.itemId){
+        const entry = this.manifest[itemsField].find(e => e.id === this.progress.itemId);
+        if(entry) this.current = await loadItem(entry);
+      }
+      if(syncItem && this.current) syncItem(this.current, this.progress);
     },
     // logs the finished piece to the permanent gallery and starts a new one; returns the finished item
     async closePending(){
@@ -651,10 +710,139 @@ const asciiTrack = createRevealTrack({
 // ---------- image track ----------
 // images live under image_art/, indexed by image_art/manifest.json. each entry declares
 // a reveal grid (cols x rows); completing tasks pops that many "cube" tiles off the image.
+
+// the source file's pixel dimensions, needed to give "block size" a stable meaning —
+// a target px-per-block only means the same thing across images once it's measured
+// against each one's real resolution, rather than assumed from the manifest grid,
+// which for auto-discovered files is just a 6x4 default that says nothing about the
+// photo's shape. cached because it costs a decode, and answered with a 3:2 guess if
+// the file won't load at all, so a broken image degrades to a slightly-off grid
+// instead of a hang.
+const DEFAULT_DIMS = { w: 900, h: 600 };
+const IMAGE_DIMS_TIMEOUT = 3000;
+const imageDimsCache = {};
+function imageDims(file){
+  if(imageDimsCache[file]) return Promise.resolve(imageDimsCache[file]);
+  return new Promise(resolve => {
+    const img = new Image();
+    let settled = false;
+    // the guess from a timeout isn't cached — a slow decode that eventually
+    // succeeds should give the real numbers next time, unlike a genuine error.
+    const done = (dims, cache) => { if(settled) return; settled = true; if(cache) imageDimsCache[file] = dims; resolve(dims); };
+    img.onload = () => done(img.naturalWidth && img.naturalHeight
+      ? { w: img.naturalWidth, h: img.naturalHeight } : DEFAULT_DIMS, true);
+    img.onerror = () => done(DEFAULT_DIMS, true);
+    setTimeout(() => done(DEFAULT_DIMS, false), IMAGE_DIMS_TIMEOUT);
+    img.src = 'image_art/' + file;
+  });
+}
+
+// a saved/imported preference is untrusted input like everything else in a restored
+// snapshot — anything that isn't exactly one of the real tiers falls back to null
+// ("medium" — use the manifest grid).
+function sanitizeBlockSizePref(p){
+  if(!p || typeof p !== 'object' || !Number.isFinite(p.n)) return null;
+  return Object.values(BLOCK_SIZE_TIERS).some(t => t.n === p.n) ? { n: p.n } : null;
+}
+
+function clampGrid(cols, rows){
+  cols = Math.max(1, Math.round(cols) || 1);
+  rows = Math.max(1, Math.round(rows) || 1);
+  // scale both axes down together first, so the shape of the grid you asked for
+  // survives being cut down to size. capping each side first instead would take a
+  // 400x250 request to 100x100 — square blocks turned into slabs, which is exactly
+  // the thing the count/size modes exist to avoid.
+  if(cols * rows > GRID_MAX_CELLS){
+    const k = Math.sqrt(GRID_MAX_CELLS / (cols * rows));
+    cols = Math.max(1, Math.floor(cols * k));
+    rows = Math.max(1, Math.floor(rows * k));
+  }
+  return { cols: Math.min(GRID_MAX_SIDE, cols), rows: Math.min(GRID_MAX_SIDE, rows) };
+}
+
+// turns the stored block-size preference into a concrete grid for one specific
+// image. cols is chosen so cols x rows lands as close to the target count as whole
+// blocks allow, with cols/rows matching the image's real aspect ratio (so blocks
+// come out square-ish rather than stretched); rows is derived from cols rather than
+// rounded independently, which is what keeps the product on target.
+async function resolveGrid(entry){
+  const declared = entry.grid && entry.grid.cols && entry.grid.rows
+    ? { cols: entry.grid.cols, rows: entry.grid.rows }
+    : { cols: 6, rows: 4 };                                // manifest entry with no grid — don't crash, just use the house default
+  if(!blockSizePref) return clampGrid(declared.cols, declared.rows);
+  if(blockSizePref.n === 1) return { cols: 1, rows: 1 };   // "full": always exactly one block, whatever the aspect ratio
+  const dims = await imageDims(entry.file);
+  const aspect = (dims.w / dims.h) || 1;
+  const cols = Math.max(1, Math.round(Math.sqrt(blockSizePref.n * aspect)));
+  return clampGrid(cols, blockSizePref.n / cols);
+}
+
+// ---------- regridding a piece that's already part-revealed ----------
+// changing the grid must not throw away what you've uncovered. the revealed area is
+// treated as a *region of the image*, not as a set of tile numbers: every new block
+// is scored by how much of it the old revealed region covers (exact rectangle
+// intersection — both grids are regular), then the most-covered blocks are the ones
+// that come up revealed. so the picture you're looking at stays the picture you're
+// looking at; only the resolution of the mask changes.
+//
+// how many blocks end up revealed is set by area, not by count: the revealed
+// *fraction* is preserved and rounded to the nearest whole block of the new grid.
+// two guards on that rounding:
+//   - progress that rounds down to zero is kept at one block. this app's one
+//     inviolable rule is that earned reveal never silently vanishes (see the banked-
+//     completions logic above), and "you regridded and your 2% disappeared" is that
+//     same leak wearing a different hat.
+//   - a piece that wasn't finished can't come out finished. completing a piece is
+//     something tasks do; a display setting rounding up to 100% would hand out a
+//     gallery entry nobody earned. it stops one block short instead.
+function remapReveal(progress, from, to, wasComplete){
+  const oldTotal = from.cols * from.rows, newTotal = to.cols * to.rows;
+  const revealedOld = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+
+  const coverage = new Array(newTotal).fill(0);
+  for(let nr = 0; nr < to.rows; nr++){
+    const y0 = nr / to.rows, y1 = (nr + 1) / to.rows;
+    // only the old rows this new row actually touches
+    const r0 = Math.floor(y0 * from.rows), r1 = Math.min(from.rows - 1, Math.ceil(y1 * from.rows) - 1);
+    for(let nc = 0; nc < to.cols; nc++){
+      const x0 = nc / to.cols, x1 = (nc + 1) / to.cols;
+      const c0 = Math.floor(x0 * from.cols), c1 = Math.min(from.cols - 1, Math.ceil(x1 * from.cols) - 1);
+      let covered = 0;
+      for(let orr = r0; orr <= r1; orr++){
+        const oy0 = orr / from.rows, oy1 = (orr + 1) / from.rows;
+        const oh = Math.min(y1, oy1) - Math.max(y0, oy0);
+        if(oh <= 0) continue;
+        for(let oc = c0; oc <= c1; oc++){
+          if(!revealedOld.has(orr * from.cols + oc)) continue;
+          const ox0 = oc / from.cols, ox1 = (oc + 1) / from.cols;
+          const ow = Math.min(x1, ox1) - Math.max(x0, ox0);
+          if(ow > 0) covered += ow * oh;
+        }
+      }
+      coverage[nr * to.cols + nc] = covered * newTotal;    // as a fraction of one new block
+    }
+  }
+
+  const fraction = oldTotal ? progress.revealedCount / oldTotal : 0;
+  let keep = Math.round(fraction * newTotal);
+  if(progress.revealedCount > 0 && keep < 1) keep = 1;
+  if(!wasComplete && keep >= newTotal) keep = newTotal - 1;
+  if(wasComplete) keep = newTotal;
+  keep = Math.min(newTotal, Math.max(0, keep));
+
+  // most-covered blocks first so the revealed region lands where it was; the random
+  // tiebreak keeps equally-covered blocks (and the whole untouched remainder) from
+  // uncovering in a readable left-to-right sweep later on.
+  const order = shuffledIndices(newTotal).sort((a, b) => coverage[b] - coverage[a]);
+  return { revealOrder: order, revealedCount: keep, grid: { cols: to.cols, rows: to.rows } };
+}
+
 async function loadImageEntry(entry){
+  const grid = await resolveGrid(entry);
   return {
     id: entry.id, name: entry.name, category: entry.category, file: entry.file,
-    cols: entry.grid.cols, rows: entry.grid.rows,
+    cols: grid.cols, rows: grid.rows,
+    declaredGrid: entry.grid && entry.grid.cols ? { cols: entry.grid.cols, rows: entry.grid.rows } : { cols: 6, rows: 4 },
     revealTasks: entry.revealTasks || 6,
   };
 }
@@ -668,6 +856,16 @@ const imageTrack = createRevealTrack({
   loadItem: loadImageEntry,
   totalCellsFor: item => item.cols * item.rows,
   defaultExtra: { grid: { cols: 6, rows: 4 } },
+  // the grid each saved revealOrder was numbered against — without it, a reload
+  // under a changed grid preference has no way to know where the revealed blocks were.
+  progressExtra: item => ({ grid: { cols: item.cols, rows: item.rows } }),
+  regrid: (progress, item, pending) => (progress.grid && progress.grid.cols)
+    ? remapReveal(progress, progress.grid, { cols: item.cols, rows: item.rows }, pending)
+    : null,
+  syncItem: (item, progress) => {
+    if(progress.grid && progress.grid.cols){ item.cols = progress.grid.cols; item.rows = progress.grid.rows; }
+  },
+  perTaskOverride: () => blockCountOverride,
 });
 
 function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack; }
@@ -677,6 +875,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 function buildStateSnapshot(){
   return {
     tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio,
+    blockSizePref, blockCountOverride,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -691,6 +890,9 @@ function applyStateSnapshot(data){
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
   splitOn = !!data.splitOn;
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
+  blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
+  blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
+    ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
   asciiTrack.restore(data.ascii);
   imageTrack.restore(data.image);
 }
@@ -771,11 +973,14 @@ function cmd_import(){
     const file = input.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try{
         const data = JSON.parse(reader.result);
         if(!data || !Array.isArray(data.tasks)) throw new Error('not a momentum backup file');
         applyStateSnapshot(data);
+        // same wholesale replacement undo does, so the same repair: the backup names
+        // the piece and grid it was saved with, and the loaded art has to follow.
+        await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
         saveState(); renderPanel(); cmd_list([]);
         print(`imported ${tasks.length} task(s) + ${archive.length} archived from "${file.name}".`, 'ok');
       }catch(e){
@@ -1133,6 +1338,11 @@ const COMMANDS = [
   { usage: 'next', desc: 'skip to a new piece (no credit for it)' },
   { usage: 'reveal', desc: 'cheat: instantly finish revealing it' },
   { usage: 'hide', desc: 'cheat: re-mask it back to 0%' },
+  { usage: 'block size [<tier>]', desc: 'show or set the image reveal block size',
+    extra: ['tiers: very small, small, medium, big, very big, full  (one block)',
+            'a part-uncovered image keeps what you uncovered — same region,',
+            'redrawn at the new block size  (image mode only)'] },
+  { usage: 'block count [<1-20>|auto]', desc: 'blocks uncovered per completed task  (image mode only)' },
   { usage: 'close', desc: 'once complete: save it + start a new one' },
   { usage: 'download', desc: 'once complete: save the file to your computer' },
   { usage: 'display', desc: 'blow up the current piece — ascii or image, however',
@@ -1637,7 +1847,8 @@ function cmd_art(){
   const unit = displayMode === 'image' ? 'tiles' : 'characters';
   const pct = total ? Math.round(track.progress.revealedCount / total * 100) : 0;
   const pendingTxt = track.pending ? '  —  COMPLETE, waiting on close/download' : '';
-  print(`[${displayMode}] ${track.current.name}  —  ${track.progress.revealedCount}/${total} ${unit} (${pct}%)  —  category:${track.current.category || '-'}  —  ${track.current.revealTasks} tasks to fully reveal${pendingTxt}`);
+  const gridTxt = displayMode === 'image' ? `  —  grid ${track.current.cols}x${track.current.rows}` : '';
+  print(`[${displayMode}] ${track.current.name}  —  ${track.progress.revealedCount}/${total} ${unit} (${pct}%)${gridTxt}  —  category:${track.current.category || '-'}  —  ${track.tasksToFullyReveal()} tasks to fully reveal${pendingTxt}`);
 }
 async function cmd_next(){
   const track = activeTrack();
@@ -1667,6 +1878,114 @@ function cmd_hide(){
   track.pending = false;
   print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
   saveState(); renderPanel();
+}
+
+// ---------- reveal grid ----------
+// how big the blocks are and how many there are are the same setting seen from two
+// sides — cols x rows fixes both — so this is one command with three notations
+// rather than three commands that could disagree with each other.
+// ---------- block size / block count ----------
+// "block <size|count> ..." — two settings for how the image reveal is divided up.
+// size is how many blocks the image is cut into (six named tiers, computed per
+// image); count is how many blocks one completed task uncovers. both are
+// image-only: ascii uncovers character by character and has no block grid to tune.
+function cmd_block(sub, args){
+  sub = (sub || '').toLowerCase();
+  if(sub === 'size') return cmd_blockSize(args);
+  if(sub === 'count') return cmd_blockCount(args[0]);
+  print('usage: block size <tier>  |  block count <n>', 'err');
+}
+
+function describeBlockSize(){
+  if(!blockSizePref) return 'medium (the manifest default)';
+  const tier = Object.values(BLOCK_SIZE_TIERS).find(t => t.n === blockSizePref.n);
+  return tier ? tier.label : `custom (${blockSizePref.n} blocks)`;
+}
+async function printBlockSizeInfo(art){
+  const dims = await imageDims(art.file);
+  const total = art.cols * art.rows;
+  const srcW = Math.round(dims.w / art.cols), srcH = Math.round(dims.h / art.rows);
+  print(`block size: ${describeBlockSize()}  —  ${art.cols}x${art.rows} grid  —  ${total} block${total === 1 ? '' : 's'}  —  each ${srcW}x${srcH}px of the source image`);
+}
+// names come in with or without a space/hyphen ("very small", "very-small",
+// "verysmall") — collapsing that before matching means the tokenizer splitting
+// "very small" into two words costs nothing extra here.
+function cmd_blockSize(args){
+  if(displayMode !== 'image'){
+    print('block size is an image-mode setting — ascii art uncovers character by character, so it has no blocks. switch with "mode image".', 'err');
+    return;
+  }
+  const track = imageTrack;
+  if(!track.current){ print('the image collection is still loading...', 'info'); return; }
+  const art = track.current;
+  if(!args.length) return printBlockSizeInfo(art);
+
+  const norm = args.join(' ').toLowerCase().replace(/[\s-]+/g, '');
+  let pref;
+  if(['medium','auto','reset','default'].includes(norm)) pref = null;
+  else if(BLOCK_SIZE_TIERS[norm]) pref = { n: BLOCK_SIZE_TIERS[norm].n };
+  else { print('usage: block size <very small|small|medium|big|very big|full>', 'err'); return; }
+
+  return applyBlockSize(pref, art, track);
+}
+async function applyBlockSize(pref, art, track){
+  const wasPref = blockSizePref;
+  blockSizePref = pref;
+  const from = { cols: art.cols, rows: art.rows };
+  const to = await resolveGrid({ file: art.file, grid: art.declaredGrid });
+  if(to.cols === from.cols && to.rows === from.rows){
+    // the preference can move without this particular image moving with it — "big"
+    // and this image's own manifest grid can land on the same numbers. saying only
+    // "nothing to change" would be a lie by omission the moment the next image loads.
+    if(JSON.stringify(wasPref) !== JSON.stringify(blockSizePref)){
+      saveState();
+      print(`this image was already ${from.cols}x${from.rows}, so it looks unchanged — but block size is now ${describeBlockSize()}, and other images will follow it.`, 'ok');
+    } else {
+      print(`block size is already ${describeBlockSize()} — nothing to change`, 'info');
+    }
+    return;
+  }
+
+  const beforeCount = track.progress.revealedCount, beforeTotal = from.cols * from.rows;
+  art.cols = to.cols; art.rows = to.rows;
+  Object.assign(track.progress, remapReveal(track.progress, from, to, track.pending));
+  saveState(); renderPanel();
+
+  const afterTotal = to.cols * to.rows;
+  const pct = (n, d) => d ? Math.round(n / d * 100) : 0;
+  print(`block size: ${describeBlockSize()}  —  ${from.cols}x${from.rows} → ${to.cols}x${to.rows}  (${beforeTotal} → ${afterTotal} blocks)`, 'ok');
+  if(beforeCount > 0){
+    print(`kept what you'd uncovered: ${beforeCount}/${beforeTotal} (${pct(beforeCount, beforeTotal)}%) → ${track.progress.revealedCount}/${afterTotal} (${pct(track.progress.revealedCount, afterTotal)}%) — same region, new block size`, 'info');
+  }
+}
+
+function cmd_blockCount(arg){
+  if(displayMode !== 'image'){
+    print('block count is an image-mode setting — ascii art uncovers character by character, so it has no blocks. switch with "mode image".', 'err');
+    return;
+  }
+  const track = imageTrack;
+  if(!track.current){ print('the image collection is still loading...', 'info'); return; }
+  const describe = () => {
+    const per = track.cellsPerCompletion();
+    const src = blockCountOverride ? 'your setting, for every image' : "this image's own pace, from the manifest";
+    print(`${per} block${per === 1 ? '' : 's'} uncovered per completed task  —  ${track.tasksToFullyReveal()} tasks to fully reveal "${track.current.name}"  (${src})`);
+  };
+  if(!arg){ describe(); return; }
+
+  arg = arg.toLowerCase();
+  let next;
+  if(/^(auto|reset|off|manifest|default)$/.test(arg)) next = null;
+  else if(/^\d+$/.test(arg) && +arg >= 1) next = Math.min(BLOCK_COUNT_MAX, +arg);
+  else { print(`usage: block count <1-${BLOCK_COUNT_MAX}> | auto`, 'err'); return; }
+  if(/^\d+$/.test(arg) && +arg > BLOCK_COUNT_MAX){
+    print(`capped at ${BLOCK_COUNT_MAX} — past that one task clears too much of the image at once`, 'info');
+  }
+
+  blockCountOverride = next;
+  saveState(); renderPanel();
+  print(next ? `block count set: ${next} block${next === 1 ? '' : 's'} per completed task` : "block count back to each image's own pace", 'ok');
+  describe();
 }
 
 async function cmd_close(){
@@ -1755,7 +2074,7 @@ function cmd_gallery(sub, ...rest){
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
 // listed by canonical name only — aliases are resolved away before this is consulted.
-const MUTATING = new Set(['add','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide']);
+const MUTATING = new Set(['add','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide','block']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -1810,6 +2129,7 @@ function dispatch(cmd, rest){
     case 'next': return cmd_next();
     case 'reveal': return cmd_reveal();
     case 'hide': cmd_hide(); break;
+    case 'block': return cmd_block(rest[0], rest.slice(1));
     case 'close': return cmd_close();
     case 'undo': return cmd_undo();
     case 'download': return cmd_download();
