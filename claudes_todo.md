@@ -16,8 +16,6 @@ E. Bigger bets (worth discussing before building)
 
 23. A tiny test suite. I've been testing your app each round by extracting the script and driving it in jsdom, then throwing that away. Committing it as test.js (~100 lines, node test.js) would make regressions visible — the multi-task reveal bug in item 1 is exactly the kind of thing a test catches.
 
-24. Document the commands in the README. It's 7 lines and doesn't mention a single command; help only exists once you're already running.
-
 25. Multi-user / server persistence — your user-management todo. Real scope: a small backend, accounts, per-user state. Worth planning properly rather than bolting on, and it would also permanently solve the localStorage loss.
 
 
@@ -214,3 +212,18 @@ x 21. Auto-export safety net. Given the persistence problem, the app could keep 
        lives in the same browser storage that can vanish with everything else if
        site data ever gets cleared, so it doesn't survive the thing export is
        actually insurance against.)
+
+x 24. Document the commands in the README. It's 7 lines and doesn't mention a single command; help only exists once you're already running.
+   (2026-08-05: rewrote it from 7 lines to a full guide — pitch, quick start, an
+    explanation of the reward loop (including the banking rule and the no-repeats
+    cycle), a five-minute walkthrough, the complete command reference grouped into
+    six tables, keyboard/shortcuts, adding your own art (both the server and
+    file:// paths, plus manifest.json overrides), the three-layer backup story
+    (undo → recover → export, in ascending durability), project structure, and a
+    short design-notes section for the decisions that aren't obvious from outside.
+    Every command in the tables and every example in the walkthrough was executed
+    against the real app first and matches its actual output.
+    NOT added: screenshots or a demo GIF. This app is almost entirely about what
+    it looks like while it works, so the README is genuinely weaker without them —
+    but they're binary assets that have to be recorded from a running instance,
+    which isn't something to fake. Two <!-- --> placeholders mark the spots.)

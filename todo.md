@@ -2,6 +2,8 @@
 x block size and count should be editable.
 x checkboxes are reduntant, use just ids on your 
 x display in day design: the image displayed should have black background not white one 
+- create the README
+- add gitignore and remove unecessary files
 - collect better ascii graphics (big ones) and images (like your own ones)
 
 # to do, designs and themes
