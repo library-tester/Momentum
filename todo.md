@@ -1,31 +1,20 @@
 # to do
-- checkboxes are reduntant, use just ids on your 
+- block size and count should be editable.
+x checkboxes are reduntant, use just ids on your 
 - collect better ascii graphics (big ones) and images (like your own ones)
-- find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
-
-# to do, designs
-- better daymode, better color palette
 - remove designs you dont like
+- remove very small and very big
 
 # to do, optional
-- a task should be displayed in one line, tags etc. should get to their end
-- the scrolling bar in nightmode, just color its border, let the filling empty black color
-- add a command to intialize fullscreen in the browser, like clicking F11
-- bug: in help file is not everything on a vertical line
+- check the site on a smartphone and adjust as necessary
+- find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
 - reduce the bload of commands and try to simplify them
-- think of some shortcuts of commands, instead of display -d for example
-- remove these visible points that show in yet to be seen ascii graphics
 - test the application extensively (look for bugs, anything annoying)
 - get feedback by AI regarding the whole design and functionality
 - download leads to save as instead of immediately downloading
 - add a mode where you get a complete image every task
-x instead of ascii graphics try it with images, revealing them part by part in a cubic way 
-- add different themes
 - learn git management
-- scrolling bar in darkmode annoying, other color maybe
-- on display: enter also leaves it as well as space, exits the fullscreen display
-- make display also work with ascii graphics
-- i want a much cleaner look of the list. to achieve this remove priority functionality completely, as well as project functionality, due functionality
+
 
 # to do, user management
 - ask claude about user management, and ask for a prompt for claude code. the site should be usable for other users once it gets online, every user needs persistent data storage of this tasks and projects, the state of the task manager etc.
@@ -53,6 +42,14 @@ python3 -m http.server 8000
 python3 build_art_data.py
 
 # done
+x think of some shortcuts of commands, instead of display -d for example
+x remove these visible points that show in yet to be seen ascii graphics
+x instead of ascii graphics try it with images, revealing them part by part in a cubic way 
+x add different themes
+x scrolling bar in darkmode annoying, other color maybe
+x on display: enter also leaves it as well as space, exits the fullscreen display
+x make display also work with ascii graphics
+x i want a much cleaner look of the list. to achieve this remove priority functionality completely, as well as project functionality, due functionality
 x split view: "split on" / "split off" pins the task list in its own pane above the terminal
   on the left side, so the list is always visible. drag the divider between them to give the
   list more or less room; the position (and on/off) is saved with everything else.

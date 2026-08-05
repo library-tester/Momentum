@@ -89,12 +89,19 @@
     color:var(--amber);
   }
   header .title span{ color:var(--accent); }
+  body.no-title header .title{ display:none; }
+  /* the banner's own top padding goes with it, so hiding it isn't just a blank gap */
+  body.no-title header{ padding-top:8px; }
   header .stats{
     margin-top:4px;
     font-size:12px;
     color:var(--text-dim);
     letter-spacing:0.5px;
   }
+  body.no-statline header .stats{ display:none; }
+  /* only one of the two lines gone still needs the header's own padding; both gone
+     means nothing is left in it, so the bar (and its border) collapses entirely */
+  body.no-title.no-statline header{ display:none; }
   #main{
     flex:1;
     display:flex;
@@ -349,6 +356,8 @@ const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
 let theme = 'amber';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
+let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
+let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
@@ -394,6 +403,14 @@ function applySplit(){
   document.body.classList.toggle('split', splitOn);
   document.getElementById('list-pane').style.flexBasis = `${splitRatio}%`;
   if(splitOn) renderListPane();
+}
+
+function applyTitle(){
+  document.body.classList.toggle('no-title', !titleOn);
+}
+
+function applyStatLine(){
+  document.body.classList.toggle('no-statline', !statLineOn);
 }
 
 const STORAGE_KEY = 'momentum-tasks-v1';
@@ -874,7 +891,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio,
+    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn,
     blockSizePref, blockCountOverride,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -890,6 +907,8 @@ function applyStateSnapshot(data){
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
   splitOn = !!data.splitOn;
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
+  titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
+  statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
@@ -918,6 +937,8 @@ async function cmd_undo(){
   applyStateSnapshot(JSON.parse(entry.before));
   applyTheme();
   applySplit();
+  applyTitle();
+  applyStatLine();
   await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
   saveState();
   renderPanel();
@@ -931,6 +952,8 @@ async function loadState(){
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
   applySplit();
+  applyTitle();
+  applyStatLine();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
   }catch(e){
@@ -1331,6 +1354,8 @@ const COMMANDS = [
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'split [on|off]', desc: 'keep the task list pinned above the terminal',
     extra: ['(drag the divider between them to resize)'] },
+  { usage: 'title [on|off]', desc: 'show or hide the "MOMENTUM" title bar' },
+  { usage: 'statline [on|off]', desc: 'show or hide the "N total · N completed · ..." summary line' },
   { usage: 'switch [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
     extra: ['(nightmode/daymode also work)'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
@@ -1798,6 +1823,43 @@ function cmd_split(arg){
   saveState();
 }
 
+function cmd_title(arg){
+  if(!arg){
+    print(`title bar is ${titleOn ? 'on' : 'off'}  (turn it on/off with: title on | title off)`, 'info');
+    return;
+  }
+  arg = arg.toLowerCase();
+  if(!['on','off'].includes(arg)){ print('usage: title on|off', 'err'); return; }
+  const want = arg === 'on';
+  if(want === titleOn){ print(`title bar is already ${arg}`, 'info'); return; }
+  titleOn = want;
+  applyTitle();
+  print(titleOn
+    ? 'title bar on.'
+    : 'title bar off — a bit more room for the terminal.', 'ok');
+  saveState();
+}
+
+// separate from "stats" (which prints a one-off summary into the terminal log) —
+// this is the always-visible "N total · N completed · ..." line under the title,
+// a display preference in the same family as title/split.
+function cmd_statline(arg){
+  if(!arg){
+    print(`stat line is ${statLineOn ? 'on' : 'off'}  (turn it on/off with: statline on | statline off)`, 'info');
+    return;
+  }
+  arg = arg.toLowerCase();
+  if(!['on','off'].includes(arg)){ print('usage: statline on|off', 'err'); return; }
+  const want = arg === 'on';
+  if(want === statLineOn){ print(`stat line is already ${arg}`, 'info'); return; }
+  statLineOn = want;
+  applyStatLine();
+  print(statLineOn
+    ? 'stat line on.'
+    : 'stat line off — a bit more room for the terminal.', 'ok');
+  saveState();
+}
+
 function cmd_switch(arg){
   if(!arg){ print(`current theme: ${theme}  (switch with: switch <${THEMES.join('|')}>, or the classic switch nightmode|daymode)`, 'info'); return; }
   const target = THEME_ALIASES[arg.toLowerCase()] || arg.toLowerCase();
@@ -2124,6 +2186,8 @@ function dispatch(cmd, rest){
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
+    case 'title': cmd_title(rest[0]); break;
+    case 'statline': cmd_statline(rest[0]); break;
     case 'switch': cmd_switch(rest[0]); break;
     case 'art': cmd_art(); break;
     case 'next': return cmd_next();
