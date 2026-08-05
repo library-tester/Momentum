@@ -305,6 +305,15 @@
   ::selection{ background:var(--accent-dim); }
   #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar, #list-pane::-webkit-scrollbar{ width:8px; }
   #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb, #list-pane::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  /* night mode's --line is pure red — filling the whole thumb with it is a slab of
+     red down the side of the screen. an outline reads as the same "alert" accent
+     without becoming the loudest thing in the UI: black fill, red border only. */
+  :root[data-theme="night"] #output::-webkit-scrollbar-thumb,
+  :root[data-theme="night"] #reveal-panel::-webkit-scrollbar-thumb,
+  :root[data-theme="night"] #list-pane::-webkit-scrollbar-thumb{
+    background:var(--bg-dark);
+    border:1px solid var(--line);
+  }
 </style>
 </head>
 <body>
