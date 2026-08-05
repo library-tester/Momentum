@@ -970,6 +970,37 @@ function cmd_display(){
   else openAsciiFullscreen(track.current, track.progress);
 }
 
+// ---------- real browser fullscreen ----------
+// a different thing from "display": that one enlarges the artwork inside the page,
+// this is the F11 equivalent — the whole app, no browser chrome, terminal included.
+// nothing here awaits before calling requestFullscreen, deliberately: browsers only
+// grant it while the keystroke that ran the command still counts as user activation,
+// and an await would spend that. state is read live from the document rather than
+// tracked in a variable, since escape/F11 can leave fullscreen behind our back.
+function isBrowserFullscreen(){
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+function cmd_fullscreen(arg){
+  const el = document.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if(!request || !exit){ print('this browser has no fullscreen api — use F11 instead', 'err'); return; }
+  arg = (arg || '').toLowerCase();
+  if(arg && !['on','off'].includes(arg)){ print('usage: fullscreen [on|off]  (no argument toggles)', 'err'); return; }
+  const now = isBrowserFullscreen();
+  const want = arg ? arg === 'on' : !now;                  // bare "fullscreen" toggles
+  if(want === now){ print(`already ${now ? 'fullscreen' : 'windowed'}`, 'info'); return; }
+  // the prefixed versions return undefined instead of a promise, hence the wrap.
+  Promise.resolve(want ? request.call(el) : exit.call(document)).then(
+    () => print(want
+      ? 'fullscreen on — press esc, or type "fullscreen off", to come back.'
+      : 'fullscreen off.', 'ok'),
+    () => print(want
+      ? 'the browser refused fullscreen — some only allow it from F11 or a click'
+      : 'could not leave fullscreen', 'err')
+  );
+}
+
 function renderPanel(){
   // every task mutation already ends in renderPanel(), so hanging the split-view
   // pane's refresh off it is what keeps the always-visible list actually current.
@@ -1088,20 +1119,36 @@ const COMMANDS = [
     extra: ['(drag the divider between them to resize)'] },
   { usage: 'switch [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
     extra: ['(nightmode/daymode also work)'] },
-  { usage: 'image', desc: "info on the current piece (whichever mode you're in)" },
-  { usage: 'image next', desc: 'skip to a new piece (no credit for it)' },
-  { usage: 'image reveal', desc: 'cheat: instantly finish revealing it' },
-  { usage: 'image hide', desc: 'cheat: re-mask it back to 0%' },
+  { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
+    extra: ['(also: image — same command either way)'] },
+  { usage: 'next', desc: 'skip to a new piece (no credit for it)' },
+  { usage: 'reveal', desc: 'cheat: instantly finish revealing it' },
+  { usage: 'hide', desc: 'cheat: re-mask it back to 0%' },
   { usage: 'close', desc: 'once complete: save it + start a new one' },
   { usage: 'download', desc: 'once complete: save the file to your computer' },
-  { usage: 'display', desc: 'fullscreen the current piece — ascii or image, however',
+  { usage: 'display', desc: 'blow up the current piece — ascii or image, however',
     extra: ['much of it is revealed  (esc, enter, space or click to exit)'] },
+  { usage: 'fullscreen [on|off]', desc: 'put the whole app fullscreen, like F11  (esc to leave)' },
   { usage: 'stats', desc: 'task summary' },
   { usage: 'export', desc: 'download a backup of all your tasks + progress' },
   { usage: 'import', desc: 'restore tasks + progress from a backup file' },
   { usage: 'clear', desc: 'clear the terminal' },
   { usage: 'help', desc: 'show this list' },
 ];
+
+// one-letter shortcuts for the commands typed most often. these are rewrites of
+// what you typed, applied before anything else looks at the command name — so a
+// shortcut can never drift into being a second implementation of the command.
+// close gets 'x' rather than 'c' because 'clear' wanted 'c' first and is typed far
+// more often; 'hide' has no letter — it's the rarest of the three reveal-cheats
+// and 'h' reads as "help" on reflex, so it's safer left unassigned.
+const SHORTCUTS = { a:'add', d:'done', l:'list', s:'split', g:'gallery', u:'undo', n:'next', r:'reveal', x:'close', f:'fullscreen', c:'clear' };
+// longer spellings of the same commands, kept working out of habit/compatibility.
+// they're not advertised as shortcuts; the command they resolve to says "also: ..."
+// in its own help line.
+const SPELLINGS = { remove:'rm', delete:'rm', image:'art' };
+const ALIASES = { ...SHORTCUTS, ...SPELLINGS };
+function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 
 // usages longer than this get their description on the next line instead of
 // pushing every other description off to the right.
@@ -1123,6 +1170,10 @@ function buildHelpText(){
     }
     (c.extra || []).forEach(e => lines.push('  ' + ' '.repeat(col) + e));
   });
+  // printed from the same map dispatch uses, so the advertised shortcuts are
+  // exactly the ones that work.
+  lines.push('');
+  lines.push('  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '));
   return lines.join('\n');
 }
 const HELP_TEXT = buildHelpText();
@@ -1539,9 +1590,11 @@ function cmd_switch(arg){
   saveState();
 }
 
-// "image ..." acts on whichever track is currently active (ascii or image) — same
+// "art ..." acts on whichever track is currently active (ascii or image) — same
 // command regardless of mode, per the user's own framing: it just targets whatever
-// you're currently looking at.
+// you're currently looking at. it's called "art" rather than "image" precisely
+// because of that: "image reveal" while in ascii mode read as a mode mismatch when
+// it was really doing the right thing. "image" still works as an alias.
 function printCompletionPrompt(art){
   const kind = displayMode === 'image' ? 'Image' : 'Artwork';
   print(`${kind} completed! "${art.name}" is fully revealed.`, 'ok');
@@ -1563,45 +1616,48 @@ function triggerDownload(blob, filename){
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function cmd_image(sub, ...rest){
-  sub = (sub || 'info').toLowerCase();
+// "art" only reports status now — next/reveal/hide used to be sub-commands of it
+// ("art next", "art reveal", "art hide") but that made three of the most-typed
+// commands in the app three keystrokes longer than they needed to be, so they're
+// top-level commands of their own. all four still act on whichever track (ascii or
+// image) is currently active.
+function cmd_art(){
   const track = activeTrack();
   if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
   const total = track.totalCells();
   const unit = displayMode === 'image' ? 'tiles' : 'characters';
-
-  if(sub === 'info'){
-    const pct = total ? Math.round(track.progress.revealedCount / total * 100) : 0;
-    const pendingTxt = track.pending ? '  —  COMPLETE, waiting on close/download' : '';
-    print(`[${displayMode}] ${track.current.name}  —  ${track.progress.revealedCount}/${total} ${unit} (${pct}%)  —  category:${track.current.category || '-'}  —  ${track.current.revealTasks} tasks to fully reveal${pendingTxt}`);
-    return;
-  }
-  if(sub === 'next'){
-    const was = track.current.name;
-    await track.startNew();
-    print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
-    const spent = await track.applyBanked(art => printCompletionPrompt(art));
-    if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
-    saveState(); renderPanel();
-    return;
-  }
-  if(sub === 'reveal'){
-    if(track.pending){ print(`"${track.current.name}" is already fully revealed — type "close" or "download"`, 'err'); return; }
-    await track.reveal(total - track.progress.revealedCount, art => {
-      print('(cheat)', 'info');
-      printCompletionPrompt(art);
-    });
-    saveState(); renderPanel();
-    return;
-  }
-  if(sub === 'hide'){
-    track.progress.revealedCount = 0;
-    track.pending = false;
-    print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
-    saveState(); renderPanel();
-    return;
-  }
-  print('usage: image [info|next|reveal|hide]  (applies to whichever mode — ascii or image — you\'re currently in)', 'err');
+  const pct = total ? Math.round(track.progress.revealedCount / total * 100) : 0;
+  const pendingTxt = track.pending ? '  —  COMPLETE, waiting on close/download' : '';
+  print(`[${displayMode}] ${track.current.name}  —  ${track.progress.revealedCount}/${total} ${unit} (${pct}%)  —  category:${track.current.category || '-'}  —  ${track.current.revealTasks} tasks to fully reveal${pendingTxt}`);
+}
+async function cmd_next(){
+  const track = activeTrack();
+  if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
+  const was = track.current.name;
+  await track.startNew();
+  print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
+  const spent = await track.applyBanked(art => printCompletionPrompt(art));
+  if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
+  saveState(); renderPanel();
+}
+async function cmd_reveal(){
+  const track = activeTrack();
+  if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
+  const total = track.totalCells();
+  if(track.pending){ print(`"${track.current.name}" is already fully revealed — type "close" or "download"`, 'err'); return; }
+  await track.reveal(total - track.progress.revealedCount, art => {
+    print('(cheat)', 'info');
+    printCompletionPrompt(art);
+  });
+  saveState(); renderPanel();
+}
+function cmd_hide(){
+  const track = activeTrack();
+  if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
+  track.progress.revealedCount = 0;
+  track.pending = false;
+  print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
+  saveState(); renderPanel();
 }
 
 async function cmd_close(){
@@ -1689,7 +1745,8 @@ function cmd_gallery(sub, ...rest){
 // runs, kept only if the state actually ended up different (pushUndo checks). view
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
-const MUTATING = new Set(['add','start','done','rm','remove','delete','priority','due','tag','project','import','close','image']);
+// listed by canonical name only — aliases are resolved away before this is consulted.
+const MUTATING = new Set(['add','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -1709,7 +1766,9 @@ async function handleCommand(raw){
 
   const tokens = tokenize(trimmed);
   if(tokens.length === 0) return;
-  const cmd = tokens[0].toLowerCase();
+  // aliases collapse to the real command name here, before the undo bookkeeping and
+  // dispatch below — so "d 3", "done 3" and a future rename all take one path.
+  const cmd = resolveAlias(tokens[0].toLowerCase());
   const rest = tokens.slice(1);
 
   const before = MUTATING.has(cmd) ? JSON.stringify(buildStateSnapshot()) : null;
@@ -1725,7 +1784,7 @@ function dispatch(cmd, rest){
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'start': cmd_start(rest[0]); break;
     case 'done': return cmd_done(rest[0]);
-    case 'rm': case 'remove': case 'delete': cmd_rm(rest[0]); break;
+    case 'rm': cmd_rm(rest[0]); break;
     case 'priority': cmd_priority(rest[0], rest[1]); break;
     case 'due': cmd_due(rest[0], rest[1]); break;
     case 'tag': cmd_tag(rest[0], rest[1], rest[2]); break;
@@ -1738,11 +1797,15 @@ function dispatch(cmd, rest){
     case 'mode': cmd_mode(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
     case 'switch': cmd_switch(rest[0]); break;
-    case 'image': return cmd_image(rest[0], ...rest.slice(1));
+    case 'art': cmd_art(); break;
+    case 'next': return cmd_next();
+    case 'reveal': return cmd_reveal();
+    case 'hide': cmd_hide(); break;
     case 'close': return cmd_close();
     case 'undo': return cmd_undo();
     case 'download': return cmd_download();
     case 'display': cmd_display(); break;
+    case 'fullscreen': cmd_fullscreen(rest[0]); break;
     case 'stats': cmd_stats(); break;
     case 'export': cmd_export(); break;
     case 'import': cmd_import(); break;
