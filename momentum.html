@@ -1332,7 +1332,8 @@ function splitIds(idsStr){
 // (55/56/57/58) as commands were added over time. one source of truth, padding
 // computed, so a new command can't misalign the block.
 const COMMANDS = [
-  { usage: 'add "task title" [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]', desc: 'add a new task' },
+  { usage: 'add <task title> [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]', desc: 'add a new task  (quotes around the title are optional)' },
+  { usage: 'rename <id> "new title"', desc: 'fix a typo — one task at a time, no delete-and-retype' },
   { usage: 'start <id[,id...]|all>', desc: 'mark task(s) active' },
   { usage: 'done <id[,id...]|all>', desc: 'complete task(s) — moves them to the archive' },
   { usage: 'rm <id[,id...]|1-4|all>', desc: 'delete task(s)  (also: remove, delete)' },
@@ -1434,8 +1435,12 @@ function parseFlags(tokens){
 }
 
 function cmd_add(args){
-  const title = args._[0];
-  if(!title){ print('add needs a title, e.g. add "buy groceries"', 'err'); return; }
+  // quotes are optional: "add buy groceries" and "add "buy groceries"" both give
+  // one task titled "buy groceries" — every non-flag token joins the title, in the
+  // order they were typed, so a title only needs quoting when it contains a flag
+  // -like token it doesn't want mistaken for one (rare enough not to special-case).
+  const title = args._.join(' ');
+  if(!title){ print('add needs a title, e.g. add buy groceries', 'err'); return; }
   let priority = null, due = null, tags = [], project = null;
   if(args.p){
     const p = args.p.toLowerCase();
@@ -1463,6 +1468,25 @@ function cmd_add(args){
   const projTxt = project ? ` proj:${project}` : '';
   const tagsTxt = tags.length ? ` tags:${tags.join(',')}` : '';
   print(`added #${t.id} "${title}"${priTxt}${dueTxt}${projTxt}${tagsTxt}`, 'ok');
+  saveState(); renderPanel();
+}
+
+// unlike priority/due/tag, rename takes exactly one task — "rename 3,5 new title"
+// would give two unrelated tasks the identical title, which is never what's meant,
+// so multi-id syntax is rejected outright rather than silently doing the wrong
+// thing (parseInt on "3,5" would otherwise quietly resolve to just #3).
+function cmd_rename(idStr, newTitle){
+  if(!idStr){ print('rename needs a task id and a new title, e.g. rename 3 "buy milk"', 'err'); return; }
+  if(/[,-]/.test(idStr) || idStr.toLowerCase() === 'all'){
+    print('rename takes one task id at a time — e.g. rename 3 "buy milk"', 'err');
+    return;
+  }
+  const t = findTask(idStr);
+  if(!t){ print(`no task #${idStr}`, 'err'); return; }
+  if(!newTitle){ print('rename needs a new title, e.g. rename 3 "buy milk"', 'err'); return; }
+  const old = t.title;
+  t.title = newTitle;
+  print(`#${t.id} renamed: "${old}" → "${newTitle}"`, 'ok');
   saveState(); renderPanel();
 }
 
@@ -2136,7 +2160,7 @@ function cmd_gallery(sub, ...rest){
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
 // listed by canonical name only — aliases are resolved away before this is consulted.
-const MUTATING = new Set(['add','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide','block']);
+const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','close','next','reveal','hide','block']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -2172,6 +2196,7 @@ function dispatch(cmd, rest){
   switch(cmd){
     case 'help': print(HELP_TEXT); break;
     case 'add': cmd_add(parseFlags(rest)); break;
+    case 'rename': cmd_rename(rest[0], rest.slice(1).join(' ')); break;
     case 'start': cmd_start(rest[0]); break;
     case 'done': return cmd_done(rest[0]);
     case 'rm': cmd_rm(rest[0]); break;
