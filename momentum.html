@@ -370,6 +370,7 @@ let brokenImageStreak = 0;                                // consecutive images 
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "show age"
+let excludedImageFolders = [];                           // top-level image_art/ subfolders left out of the random pool — see "exclude"/"include"
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
@@ -599,7 +600,7 @@ function detectStaleSnapshot(discoveredItems, dataKey, itemsField){
 // permanent gallery and start a new one (picked so nothing repeats until every
 // entry in the manifest has had a turn). this factory is shared by both so a
 // third mode later is just another instantiation, not a new system.
-function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataKey, loadItem, totalCellsFor, defaultExtra, progressExtra, regrid, syncItem, perTaskOverride }){
+function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataKey, loadItem, totalCellsFor, defaultExtra, progressExtra, regrid, syncItem, perTaskOverride, filterPool }){
   return {
     manifest: null,
     current: null,                                        // loaded item, shape depends on loadItem
@@ -634,7 +635,13 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       this.manifest = await res.json();
     },
     pickNextEntry(){
-      const items = this.manifest[itemsField];
+      const all = this.manifest[itemsField];
+      // filterPool (image track only — see "exclude"/"include") narrows the pool
+      // before the cycle logic runs, so excluded folders never get a turn. falls
+      // back to the unfiltered list if that would leave nothing to pick from,
+      // rather than throwing — a stale/impossible exclusion shouldn't brick the app.
+      const filtered = filterPool ? filterPool(all) : all;
+      const items = filtered.length ? filtered : all;
       let pool = items.filter(e => !this.cycleSeen.includes(e.id));
       if(pool.length === 0){ this.cycleSeen = []; pool = items.slice(); }
       const entry = pool[Math.floor(Math.random() * pool.length)];
@@ -928,6 +935,15 @@ async function loadImageEntry(entry){
   };
 }
 
+// the top-level image_art/ subfolder a manifest entry lives in — read straight
+// from "file" rather than "category", since category can be (and in this
+// project's own manifest.json, is) overridden away from the real folder; the
+// "exclude"/"include" commands are about physical folders, so they need the
+// one field discovery never lets drift from disk.
+function imageFolderOf(entry){
+  return (entry && entry.file && entry.file.includes('/')) ? entry.file.split('/')[0] : '(root)';
+}
+
 const imageTrack = createRevealTrack({
   baseDir: 'image_art/',
   extensions: ['.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif'],
@@ -937,6 +953,7 @@ const imageTrack = createRevealTrack({
   loadItem: loadImageEntry,
   totalCellsFor: item => item.cols * item.rows,
   defaultExtra: { grid: { cols: 6, rows: 4 } },
+  filterPool: items => items.filter(e => !excludedImageFolders.includes(imageFolderOf(e))),
   // the grid each saved revealOrder was numbered against — without it, a reload
   // under a changed grid preference has no way to know where the revealed blocks were.
   progressExtra: item => ({ grid: { cols: item.cols, rows: item.rows } }),
@@ -956,7 +973,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 function buildStateSnapshot(){
   return {
     tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
-    blockSizePref, blockCountOverride,
+    blockSizePref, blockCountOverride, excludedImageFolders,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -974,6 +991,7 @@ function applyStateSnapshot(data){
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
   showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
+  excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
@@ -1584,6 +1602,8 @@ const COMMANDS = [
   { usage: 'gallery', desc: 'list your collected artworks' },
   { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
+  { usage: 'exclude [<numbers>]', desc: 'list image_art folders, or drop folder(s) from the random pool by number' },
+  { usage: 'include [<numbers>]', desc: 'list image_art folders (marking which are excluded), or bring folder(s) back' },
   { usage: 'split [on|off]', desc: 'keep the task list pinned above the terminal',
     extra: ['(drag the divider between them to resize)'] },
   { usage: 'title [on|off]', desc: 'show or hide the "MOMENTUM" title bar' },
@@ -2220,6 +2240,77 @@ function cmd_mode(arg){
   saveState(); renderPanel();
 }
 
+// ---------- image_art folder filtering ----------
+// every folder discovered under image_art/, alphabetical — the same order the
+// "exclude"/"include" numbers refer to, so a number always means the same
+// folder across both commands and across repeat listings in a session.
+function allImageFolders(){
+  const images = (imageTrack.manifest && imageTrack.manifest.images) || [];
+  return Array.from(new Set(images.map(imageFolderOf))).sort();
+}
+
+// "3,5" -> [3,5], "1-3" -> [1,2,3], out-of-range numbers are dropped rather
+// than erroring — same tolerance splitIds gives task-id ranges.
+function parseNumberSelection(str, max){
+  const out = [];
+  (str || '').split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)-(\d+)$/);
+    if(m){
+      let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if(a > b) [a, b] = [b, a];
+      for(let i = a; i <= b; i++) out.push(i);
+    } else {
+      const n = parseInt(tok, 10);
+      if(Number.isFinite(n)) out.push(n);
+    }
+  });
+  return out.filter(n => n >= 1 && n <= max);
+}
+
+// the shared listing both bare "include" and bare "exclude" show — doubles as
+// the "which folders are included" status view the numbers are picked from.
+function printImageFolderList(){
+  const folders = allImageFolders();
+  const includedCount = folders.filter(f => !excludedImageFolders.includes(f)).length;
+  const rows = folders.map((f, i) => {
+    const excluded = excludedImageFolders.includes(f);
+    return { text: `  ${String(i + 1).padStart(2)}. ${f}${excluded ? '  [excluded]' : ''}`, cls: excluded ? 'info' : undefined };
+  });
+  printFramed(rows, `  ${includedCount}/${folders.length} included  (exclude <numbers> | include <numbers>)`);
+}
+
+function cmd_include(tokens){
+  const folders = allImageFolders();
+  if(folders.length === 0){ print('no image folders found under image_art/.', 'info'); return; }
+  const raw = (tokens || []).join(' ').trim();
+  if(!raw){ printImageFolderList(); return; }
+  const nums = parseNumberSelection(raw, folders.length);
+  if(nums.length === 0){ print(`usage: include <numbers 1-${folders.length}>  (see "include" for the list)`, 'err'); return; }
+  const chosen = nums.map(n => folders[n - 1]);
+  const newlyIncluded = chosen.filter(f => excludedImageFolders.includes(f));
+  if(newlyIncluded.length === 0){ print('already included.', 'info'); return; }
+  excludedImageFolders = excludedImageFolders.filter(f => !chosen.includes(f));
+  print(`included: ${newlyIncluded.join(', ')}`, 'ok');
+  saveState();
+}
+
+function cmd_exclude(tokens){
+  const folders = allImageFolders();
+  if(folders.length === 0){ print('no image folders found under image_art/.', 'info'); return; }
+  const raw = (tokens || []).join(' ').trim();
+  if(!raw){ printImageFolderList(); return; }
+  const nums = parseNumberSelection(raw, folders.length);
+  if(nums.length === 0){ print(`usage: exclude <numbers 1-${folders.length}>  (see "exclude" for the list)`, 'err'); return; }
+  const chosen = nums.map(n => folders[n - 1]);
+  const stillIncluded = folders.filter(f => !excludedImageFolders.includes(f) && !chosen.includes(f));
+  if(stillIncluded.length === 0){ print("can't exclude every folder — at least one has to stay included.", 'err'); return; }
+  const newlyExcluded = chosen.filter(f => !excludedImageFolders.includes(f));
+  if(newlyExcluded.length === 0){ print('already excluded.', 'info'); return; }
+  excludedImageFolders = Array.from(new Set([...excludedImageFolders, ...chosen]));
+  print(`excluded: ${newlyExcluded.join(', ')}`, 'ok');
+  saveState();
+}
+
 function cmd_split(arg){
   if(!arg){
     print(`split view is ${splitOn ? 'on' : 'off'}  (turn it on/off with: split on | split off)`, 'info');
@@ -2623,6 +2714,8 @@ function dispatch(cmd, rest){
     case 'find': cmd_find(rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
+    case 'include': cmd_include(rest); break;
+    case 'exclude': cmd_exclude(rest); break;
     case 'split': cmd_split(rest[0]); break;
     case 'title': cmd_title(rest[0]); break;
     case 'statline': cmd_statline(rest[0]); break;
