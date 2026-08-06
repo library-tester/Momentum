@@ -243,14 +243,6 @@
     display:flex;
     flex-direction:column;
     min-width:280px;
-    border-right:1px solid var(--line);
-  }
-  /* the art view's only separator is this border, so mirroring has to move it to the
-     edge that now faces the art. (the tasks view overrides both away below — it has a
-     real divider element doing the job instead, which needs no help to flip.) */
-  body.mirrored #term-wrap{
-    border-right:none;
-    border-left:1px solid var(--line);
   }
   /* ---- layout slots ----
      there are two panels — the task list and the reward art — and two places to
@@ -291,18 +283,21 @@
     letter-spacing:1px;
   }
   .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
-  /* two dividers, one per axis. #split-divider is the horizontal one inside the left
-     column (stacked panel above / console below) and exists whenever split is on, in
-     either view. #col-divider is the vertical one between the left column and the
-     side panel; only the tasks view has it, since the art view's 45/55 column split
-     isn't draggable. */
+  /* two dividers, one per axis. #split-divider is the horizontal one inside the
+     console column (stacked panel above / console below) and only exists when split
+     is on. #col-divider is the vertical one between the console column and the side
+     panel, and — unlike split-divider — is always there: the column boundary is
+     draggable in both views, so it's also this divider's border doing the job the
+     old fixed-45%-with-a-border-on-term-wrap used to do in the art view. its own
+     border is symmetric (both sides), so mirroring the columns needs no extra rule
+     here the way it would for a border painted on just one side. */
   #split-divider, #col-divider{
-    display:none;
     flex:0 0 7px;
     position:relative;
     background:var(--bg-panel);
   }
   #split-divider{
+    display:none;
     cursor:row-resize;
     border-top:1px solid var(--line);
     border-bottom:1px solid var(--line);
@@ -313,7 +308,6 @@
     border-right:1px solid var(--line);
   }
   body.split #split-divider{ display:block; }
-  body.view-tasks #col-divider{ display:block; }
   #split-divider::after, #col-divider::after{
     content:"";
     position:absolute;
@@ -337,16 +331,12 @@
     display:flex;
     flex-direction:column;
   }
-  /* "view tasks" only has to change how the console column is sized and bounded —
-     which panel is on which side is handled by the slots above, not here. the column
-     boundary becomes draggable (#col-divider), so term-wrap drops the fixed 45% basis
-     and both borders, on either edge: the divider is the separator now, mirrored or
-     not. this sits after the mirrored rule above deliberately — equal specificity,
-     so being last is what lets it clear the border that rule just set. */
+  /* "view tasks" only has to change how the console column is sized — which panel is
+     on which side is handled by the slots above, not here. the column boundary is
+     draggable (#col-divider) in both views now, so this just drops the fixed 45%
+     basis that only ever made sense for the art view's column split. */
   body.view-tasks #term-wrap{
     flex:1 1 auto;
-    border-right:none;
-    border-left:none;
   }
   #output{
     flex:1;
@@ -436,14 +426,18 @@ let excludedImageFolders = [];                           // top-level image_art/
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
-// 'art'   — the original layout: terminal left, reveal panel right (split adds the list pane above the terminal)
-// 'tasks' — no reveal panel at all: console left, task list right. the reward system
-//           keeps running underneath (completions still credit reveal progress), it
-//           just isn't on screen — "art"/"display" still report and show it on demand.
+// 'art'   — the original layout: console left, reveal panel right (split adds the list pane above the console)
+// 'tasks' — console left, task list right instead. the reward system keeps running
+//           underneath either way (completions still credit reveal progress) — "art"/
+//           "display" still report and show it on demand even when it's not on screen.
 let viewMode = 'art';
 const VIEW_MODES = ['art', 'tasks'];
-let taskPaneRatio = 40;                                  // % of the window the task list takes in "view tasks" — its own value, so dragging one view's divider never disturbs the other's
-const TASKPANE_MIN = 15, TASKPANE_MAX = 70;
+// the side column's width is draggable in both views, via the same #col-divider —
+// but each view keeps its own ratio, so switching views and back doesn't disturb
+// whatever width you'd set for the other one.
+let taskPaneRatio = 40;                                  // % of the window the task list takes in "view tasks"
+let artPaneRatio = 55;                                   // % of the window the reveal panel takes in "view art" — the old fixed split, now just the default
+const SIDE_MIN = 15, SIDE_MAX = 70;
 let mirrored = false;                                    // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them
 
 // how big the image reveal blocks are, set by "block size <tier>". tiers are a
@@ -518,9 +512,7 @@ function applyView(){
   side.classList.add('slot-side'); side.classList.remove('slot-stacked');
 
   stacked.style.flex = `0 0 ${splitRatio}%`;
-  // the art view's column boundary is a fixed 45/55 with no divider; the tasks view's
-  // is draggable, so the side panel holds the exact width it was dragged to.
-  side.style.flex = tasksView ? `0 0 ${taskPaneRatio}%` : '1 1 55%';
+  side.style.flex = `0 0 ${tasksView ? taskPaneRatio : artPaneRatio}%`;
 
   if(listPaneVisible()) renderListPane();
 }
@@ -1080,7 +1072,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
-    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, mirrored,
+    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -1099,7 +1091,8 @@ function applyStateSnapshot(data){
   showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
   excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
   viewMode = VIEW_MODES.includes(data.viewMode) ? data.viewMode : 'art';   // undefined: a save from before the tasks view existed
-  taskPaneRatio = Number.isFinite(data.taskPaneRatio) ? Math.min(TASKPANE_MAX, Math.max(TASKPANE_MIN, data.taskPaneRatio)) : 40;
+  taskPaneRatio = Number.isFinite(data.taskPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.taskPaneRatio)) : 40;
+  artPaneRatio = Number.isFinite(data.artPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.artPaneRatio)) : 55;   // undefined: a save from before the art column was draggable
   mirrored = !!data.mirrored;                                              // undefined: a save from before mirroring existed — unmirrored, as it looked then
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
@@ -2987,16 +2980,19 @@ wireDivider(document.getElementById('split-divider'), 'row', (ev) => {
   pane.style.flex = `0 0 ${splitRatio}%`;
 });
 
-// the vertical one (tasks view only): trades width between the console column and
-// the side panel. it's the side panel's width being set, so the measurement runs
-// inward from whichever edge that panel is against — which mirroring flips.
+// the vertical one: trades width between the console column and the side panel, in
+// either view — it's the side panel's width being set, so the measurement runs
+// inward from whichever edge that panel is against, which mirroring flips. writes
+// to whichever ratio belongs to the current view, so dragging one view's divider
+// never disturbs the other's.
 wireDivider(document.getElementById('col-divider'), 'col', (ev) => {
   const rect = document.getElementById('main').getBoundingClientRect();
   const pane = document.querySelector('.slot-side');
   if(!rect.width || !pane) return;
   const span = mirrored ? ev.clientX - rect.left : rect.right - ev.clientX;
-  taskPaneRatio = Math.min(TASKPANE_MAX, Math.max(TASKPANE_MIN, (span / rect.width) * 100));
-  pane.style.flex = `0 0 ${taskPaneRatio}%`;
+  const pct = Math.min(SIDE_MAX, Math.max(SIDE_MIN, (span / rect.width) * 100));
+  if(viewMode === 'tasks') taskPaneRatio = pct; else artPaneRatio = pct;
+  pane.style.flex = `0 0 ${pct}%`;
 });
 
 // ---------- boot ----------
