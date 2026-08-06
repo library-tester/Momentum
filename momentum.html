@@ -109,14 +109,19 @@
     overflow:hidden;
     min-height:0;
   }
+  /* "mirror": swap which side each column is on. row-reverse flips the visual order
+     of #main's children without touching the DOM, so nothing moves between the two
+     columns — the side panel and the console column just trade edges. only the
+     horizontal arrangement flips; the stacked panel stays above the console. */
+  body.mirrored #main{ flex-direction:row-reverse; }
+  /* size (flex) and visibility (display) are not set here — they belong to whichever
+     slot this panel currently occupies; see the slot rules further down. */
   #reveal-panel{
-    flex:1 1 55%;
     overflow:auto;
     padding:18px 20px;
-    min-width:240px;
+    min-width:0;
     font-size:13px;
     line-height:1.15;
-    display:flex;
     flex-direction:column;
   }
   .artwork-title{
@@ -240,19 +245,38 @@
     min-width:280px;
     border-right:1px solid var(--line);
   }
-  /* split view: the task list gets its own pane above the terminal, so it stays on
-     screen while you type. both the pane and the divider are display:none until
-     body.split is set, which keeps the default single-pane layout byte-identical. */
+  /* the art view's only separator is this border, so mirroring has to move it to the
+     edge that now faces the art. (the tasks view overrides both away below — it has a
+     real divider element doing the job instead, which needs no help to flip.) */
+  body.mirrored #term-wrap{
+    border-right:none;
+    border-left:1px solid var(--line);
+  }
+  /* ---- layout slots ----
+     there are two panels — the task list and the reward art — and two places to
+     put them: "stacked", pinned above the console and toggled by "split", and
+     "side", the full-height column beside it. the view decides which panel goes
+     where: the art view keeps the art at the side and stacks the task list, the
+     tasks view swaps them. applyView() moves the elements and sets these classes,
+     which is what lets the sizing be written once against the slot instead of
+     twice against each panel.
+     flex-basis is assigned inline from the live ratio, so only grow/shrink and the
+     things that don't vary live here. */
+  .slot-side{ min-width:0; }
+  .slot-stacked{ min-height:0; }
+  #list-pane.slot-side, #list-pane.slot-stacked{ display:block; }
+  #reveal-panel.slot-side, #reveal-panel.slot-stacked{ display:flex; }
+  /* split off: nothing is pinned above the console, so the stacked slot and its
+     divider both go away and the console has the whole left column. */
+  body:not(.split) #list-pane.slot-stacked,
+  body:not(.split) #reveal-panel.slot-stacked,
+  body:not(.split) #split-divider{ display:none; }
   #list-pane{
-    display:none;
-    flex:0 0 38%;
     overflow-y:auto;
     padding:12px 20px;
     font-size:13px;
     line-height:1.5;
-    min-height:0;
   }
-  body.split #list-pane{ display:block; }
   #list-pane .line{ white-space:pre-wrap; }
   #list-pane .err{ color:var(--error); }
   #list-pane .info{ color:var(--text-dim); }
@@ -267,27 +291,63 @@
     letter-spacing:1px;
   }
   .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
-  #split-divider{
+  /* two dividers, one per axis. #split-divider is the horizontal one inside the left
+     column (stacked panel above / console below) and exists whenever split is on, in
+     either view. #col-divider is the vertical one between the left column and the
+     side panel; only the tasks view has it, since the art view's 45/55 column split
+     isn't draggable. */
+  #split-divider, #col-divider{
     display:none;
     flex:0 0 7px;
     position:relative;
-    cursor:row-resize;
     background:var(--bg-panel);
+  }
+  #split-divider{
+    cursor:row-resize;
     border-top:1px solid var(--line);
     border-bottom:1px solid var(--line);
   }
+  #col-divider{
+    cursor:col-resize;
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
+  }
   body.split #split-divider{ display:block; }
-  #split-divider::after{
+  body.view-tasks #col-divider{ display:block; }
+  #split-divider::after, #col-divider::after{
     content:"";
     position:absolute;
     left:50%; top:50%;
     transform:translate(-50%,-50%);
-    width:40px; height:1px;
     background:var(--text-dim);
     opacity:0.55;
   }
-  #split-divider:hover::after{ background:var(--amber); opacity:1; }
-  body.dragging{ user-select:none; cursor:row-resize; }
+  #split-divider::after{ width:40px; height:1px; }
+  #col-divider::after{ width:1px; height:40px; }
+  #split-divider:hover::after, #col-divider:hover::after{ background:var(--amber); opacity:1; }
+  body.dragging{ user-select:none; }
+  body.dragging-row{ cursor:row-resize; }
+  body.dragging-col{ cursor:col-resize; }
+  /* output + input move as one unit, so the whole console can be placed as a single
+     flex item — that's what lets the tasks view put it beside the list instead of
+     above it. in every other view this is just a transparent pass-through. */
+  #console{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  /* "view tasks" only has to change how the console column is sized and bounded —
+     which panel is on which side is handled by the slots above, not here. the column
+     boundary becomes draggable (#col-divider), so term-wrap drops the fixed 45% basis
+     and both borders, on either edge: the divider is the separator now, mirrored or
+     not. this sits after the mirrored rule above deliberately — equal specificity,
+     so being last is what lets it clear the border that rule just set. */
+  body.view-tasks #term-wrap{
+    flex:1 1 auto;
+    border-right:none;
+    border-left:none;
+  }
   #output{
     flex:1;
     min-height:0;
@@ -342,15 +402,18 @@
 
 <div id="main">
   <div id="term-wrap">
-    <div id="list-pane"></div>
-    <div id="split-divider" title="drag to resize the list"></div>
-    <div id="output"></div>
-    <div id="input-row">
-      <span id="prompt">$</span>
-      <input id="cmd" type="text" autocomplete="off" spellcheck="false" autofocus />
+    <div id="list-pane" class="slot-stacked"></div>
+    <div id="split-divider" title="drag to resize"></div>
+    <div id="console">
+      <div id="output"></div>
+      <div id="input-row">
+        <span id="prompt">$</span>
+        <input id="cmd" type="text" autocomplete="off" spellcheck="false" autofocus />
+      </div>
     </div>
   </div>
-  <div id="reveal-panel"></div>
+  <div id="col-divider" title="drag to resize"></div>
+  <div id="reveal-panel" class="slot-side"></div>
 </div>
 
 <script>
@@ -373,6 +436,15 @@ let excludedImageFolders = [];                           // top-level image_art/
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
+// 'art'   — the original layout: terminal left, reveal panel right (split adds the list pane above the terminal)
+// 'tasks' — no reveal panel at all: console left, task list right. the reward system
+//           keeps running underneath (completions still credit reveal progress), it
+//           just isn't on screen — "art"/"display" still report and show it on demand.
+let viewMode = 'art';
+const VIEW_MODES = ['art', 'tasks'];
+let taskPaneRatio = 40;                                  // % of the window the task list takes in "view tasks" — its own value, so dragging one view's divider never disturbs the other's
+const TASKPANE_MIN = 15, TASKPANE_MAX = 70;
+let mirrored = false;                                    // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them
 
 // how big the image reveal blocks are, set by "block size <tier>". tiers are a
 // target *block count*, not a target pixel size — an earlier version measured
@@ -411,10 +483,46 @@ function applyTheme(){
   document.documentElement.setAttribute('data-theme', theme);
 }
 
-function applySplit(){
+// each panel is on screen in two of the four (view x split) combinations: the one
+// where it's the side panel, plus the one where split pins it above the console.
+// everything that needs to know "is this thing actually visible right now" asks
+// here rather than testing splitOn, which is only ever half the answer.
+function listPaneVisible(){ return viewMode === 'tasks' || splitOn; }
+function revealPaneVisible(){ return viewMode === 'art' || splitOn; }
+
+// puts the two panels in their slots for the current view and sizes them. the art
+// view keeps the reward art at the side and stacks the task list above the console;
+// the tasks view swaps the pair, so whichever panel isn't the headline is the one
+// "split" pins above the prompt. one panel is never in both places at once —
+// they're single elements that get moved, not duplicated.
+function applyView(){
+  const tasksView = viewMode === 'tasks';
+  const listPane = document.getElementById('list-pane');
+  const revealPane = document.getElementById('reveal-panel');
+  const stacked = tasksView ? revealPane : listPane;
+  const side    = tasksView ? listPane   : revealPane;
+
+  document.body.classList.toggle('view-tasks', tasksView);
   document.body.classList.toggle('split', splitOn);
-  document.getElementById('list-pane').style.flexBasis = `${splitRatio}%`;
-  if(splitOn) renderListPane();
+  document.body.classList.toggle('mirrored', mirrored);
+
+  // only move a panel when it's actually in the wrong place: re-parenting tears
+  // down and rebuilds an element's rendering, which would restart the tile fade
+  // transitions on every unrelated render.
+  const wrap = document.getElementById('term-wrap');
+  const main = document.getElementById('main');
+  if(wrap.firstElementChild !== stacked) wrap.insertBefore(stacked, wrap.firstElementChild);
+  if(main.lastElementChild !== side) main.appendChild(side);
+
+  stacked.classList.add('slot-stacked'); stacked.classList.remove('slot-side');
+  side.classList.add('slot-side'); side.classList.remove('slot-stacked');
+
+  stacked.style.flex = `0 0 ${splitRatio}%`;
+  // the art view's column boundary is a fixed 45/55 with no divider; the tasks view's
+  // is draggable, so the side panel holds the exact width it was dragged to.
+  side.style.flex = tasksView ? `0 0 ${taskPaneRatio}%` : '1 1 55%';
+
+  if(listPaneVisible()) renderListPane();
 }
 
 function applyTitle(){
@@ -972,7 +1080,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
-    blockSizePref, blockCountOverride, excludedImageFolders,
+    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, mirrored,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -990,6 +1098,9 @@ function applyStateSnapshot(data){
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
   showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
   excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
+  viewMode = VIEW_MODES.includes(data.viewMode) ? data.viewMode : 'art';   // undefined: a save from before the tasks view existed
+  taskPaneRatio = Number.isFinite(data.taskPaneRatio) ? Math.min(TASKPANE_MAX, Math.max(TASKPANE_MIN, data.taskPaneRatio)) : 40;
+  mirrored = !!data.mirrored;                                              // undefined: a save from before mirroring existed — unmirrored, as it looked then
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
@@ -1017,7 +1128,7 @@ async function cmd_undo(){
   const entry = undoStack.pop();
   applyStateSnapshot(JSON.parse(entry.before));
   applyTheme();
-  applySplit();
+  applyView();
   applyTitle();
   applyStatLine();
   await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
@@ -1046,7 +1157,7 @@ async function loadState(){
     if(raw) applyStateSnapshot(JSON.parse(raw));
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
   applyTheme();
-  applySplit();
+  applyView();
   applyTitle();
   applyStatLine();
   try{
@@ -1199,7 +1310,7 @@ function cmd_recover(arg){
     `recover ${n}`,
     async () => {
       applyStateSnapshot(chosen.data);
-      applyTheme(); applySplit(); applyTitle(); applyStatLine();
+      applyTheme(); applyView(); applyTitle(); applyStatLine();
       await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
       saveState(); renderPanel(); cmd_list([]);
       print(`restored the backup from ${new Date(chosen.at).toLocaleString()}.`, 'ok');
@@ -1484,7 +1595,16 @@ function renderPanel(){
   reindexIds();
   // every task mutation already ends in renderPanel(), so hanging the split-view
   // pane's refresh off it is what keeps the always-visible list actually current.
-  if(splitOn) renderListPane();
+  if(listPaneVisible()) renderListPane();
+  // when the reveal panel is display:none (tasks view with split off), rendering into
+  // it would measure a zero-sized box (fitImageFrame) and observe an element that can
+  // never resize. skipped outright instead — whatever brings it back on screen
+  // ("view art", "split on") re-renders it.
+  if(!revealPaneVisible()){
+    if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
+    updateStats();
+    return;
+  }
   const g = document.getElementById('reveal-panel');
   const track = activeTrack();
   if(!track.current){
@@ -1613,8 +1733,12 @@ const COMMANDS = [
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'exclude [<numbers>]', desc: 'list image_art folders, or drop folder(s) from the random pool by number' },
   { usage: 'include [<numbers>]', desc: 'list image_art folders (marking which are excluded), or bring folder(s) back' },
-  { usage: 'split [on|off]', desc: 'keep the task list pinned above the terminal',
-    extra: ['(drag the divider between them to resize)'] },
+  { usage: 'view [art|tasks]', desc: 'which panel gets the right-hand column: the reward art, or your task list',
+    extra: ['(the tasks view\'s column boundary is draggable too)'] },
+  { usage: 'split [on|off]', desc: 'pin the *other* panel above the console — the task list in the art',
+    extra: ['view, the reward art in the tasks view',
+            '(drag the divider between them to resize)'] },
+  { usage: 'mirror [on|off]', desc: 'flip the two columns left-for-right  (no argument toggles)' },
   { usage: 'title [on|off]', desc: 'show or hide the "MOMENTUM" title bar' },
   { usage: 'statline [on|off]', desc: 'show or hide the "N total · N completed · ..." summary line' },
   { usage: 'show age [on|off]', desc: 'show or hide "[3d ago]" on the details line, based on when a task was added' },
@@ -2320,9 +2444,45 @@ function cmd_exclude(tokens){
   saveState();
 }
 
+// which panel gets the full-height column of its own. the other one is what
+// "split" pins above the console, so the two commands together cover all four
+// arrangements without either of them growing a third setting. which *edge* that
+// column is against is mirror's business, hence sideEdge/consoleEdge.
+function sideName(){ return viewMode === 'tasks' ? 'your task list' : 'the reward art'; }
+function stackedName(){ return viewMode === 'tasks' ? 'the reward art' : 'your task list'; }
+function sideEdge(){ return mirrored ? 'left' : 'right'; }
+function consoleEdge(){ return mirrored ? 'right' : 'left'; }
+function describeLayout(){
+  return `  ${sideName()} on the ${sideEdge()}, console on the ${consoleEdge()}`
+    + (splitOn ? `, ${stackedName()} above it.` : `. "split on" pins ${stackedName()} above the console.`);
+}
+
+function cmd_view(arg){
+  if(!arg){
+    print(`current view: ${viewMode}  (switch with: view art | view tasks)`, 'info');
+    print(describeLayout(), 'info');
+    return;
+  }
+  const target = arg.toLowerCase();
+  if(!VIEW_MODES.includes(target)){ print(`usage: view <${VIEW_MODES.join('|')}>`, 'err'); return; }
+  if(target === viewMode){ print(`already in the ${target} view`, 'info'); return; }
+  viewMode = target;
+  applyView();
+  renderPanel();      // the panel that just became visible was skipped while hidden — rebuild it
+  print(`view: ${viewMode} — ${sideName()} now has the ${sideEdge()}-hand column.`, 'ok');
+  print(describeLayout(), 'info');
+  if(!splitOn && viewMode === 'tasks'){
+    print('(the art keeps uncovering while it\'s off screen — "art" reports where it is, "display" shows it full-screen)', 'info');
+  }
+  saveState();
+}
+
+// pins whichever panel *isn't* in the right-hand column above the console — so what
+// it shows follows the view rather than being a second thing to keep track of.
 function cmd_split(arg){
   if(!arg){
     print(`split view is ${splitOn ? 'on' : 'off'}  (turn it on/off with: split on | split off)`, 'info');
+    print(`  in the ${viewMode} view it pins ${stackedName()} above the console.`, 'info');
     return;
   }
   arg = arg.toLowerCase();
@@ -2330,10 +2490,28 @@ function cmd_split(arg){
   const want = arg === 'on';
   if(want === splitOn){ print(`split view is already ${arg}`, 'info'); return; }
   splitOn = want;
-  applySplit();
+  applyView();
+  renderPanel();      // the panel that just appeared/vanished was skipped while hidden
   print(splitOn
-    ? 'split view on — your task list now stays put above the terminal. drag the divider between them to resize it.'
-    : 'split view off — back to the full-height terminal.', 'ok');
+    ? `split view on — ${stackedName()} now stays put above the console. drag the divider between them to resize it.`
+    : 'split view off — back to the full-height console.', 'ok');
+  saveState();
+}
+
+// swaps which side of the window each column is on. deliberately independent of
+// "view": that decides *which* panel gets its own column, this only decides which
+// edge that column sits against, so the two compose instead of multiplying into
+// four named layouts. bare "mirror" toggles, like "fullscreen".
+function cmd_mirror(arg){
+  arg = (arg || '').toLowerCase();
+  if(arg && !['on','off'].includes(arg)){ print('usage: mirror [on|off]  (no argument toggles)', 'err'); return; }
+  const want = arg ? arg === 'on' : !mirrored;
+  if(want === mirrored){ print(`already ${mirrored ? 'mirrored' : 'unmirrored'}`, 'info'); return; }
+  mirrored = want;
+  applyView();
+  print(mirrored
+    ? `mirrored — ${sideName()} is on the left now, the console on the right.`
+    : `unmirrored — ${sideName()} is back on the right.`, 'ok');
   saveState();
 }
 
@@ -2725,7 +2903,9 @@ function dispatch(cmd, rest){
     case 'mode': cmd_mode(rest[0]); break;
     case 'include': cmd_include(rest); break;
     case 'exclude': cmd_exclude(rest); break;
+    case 'view': cmd_view(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
+    case 'mirror': cmd_mirror(rest[0]); break;
     case 'title': cmd_title(rest[0]); break;
     case 'statline': cmd_statline(rest[0]); break;
     case 'show': cmd_show(rest); break;
@@ -2773,36 +2953,50 @@ cmdInput.addEventListener('keydown', (e)=>{
 });
 document.body.addEventListener('click', ()=> cmdInput.focus());
 
-// ---------- split-view divider ----------
-// drag it to trade height between the pinned list and the terminal. the position
-// is kept as a percentage of the left column rather than pixels, so it holds its
-// proportions when the window resizes, and it's saved with the rest of the state
-// so the layout you set is the layout you get back next time.
-const dividerEl = document.getElementById('split-divider');
-dividerEl.addEventListener('pointerdown', (e) => {
-  e.preventDefault();                                    // don't start a text selection while dragging
-  const wrap = document.getElementById('term-wrap');
-  const pane = document.getElementById('list-pane');
-  dividerEl.setPointerCapture(e.pointerId);              // keep receiving moves even when the cursor outruns the 7px divider
-  document.body.classList.add('dragging');
+// ---------- resize dividers ----------
+// both positions are kept as a percentage rather than pixels, so they hold their
+// proportions when the window resizes, and both are saved with the rest of the
+// state so the layout you set is the layout you get back next time.
+function wireDivider(el, axis, onDrag){
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();                                  // don't start a text selection while dragging
+    el.setPointerCapture(e.pointerId);                   // keep receiving moves even when the cursor outruns the 7px divider
+    document.body.classList.add('dragging', `dragging-${axis}`);
+    const onMove = (ev) => onDrag(ev);
+    const onEnd = () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onEnd);
+      el.removeEventListener('pointercancel', onEnd);
+      document.body.classList.remove('dragging', `dragging-${axis}`);
+      saveState();
+    };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onEnd);
+    el.addEventListener('pointercancel', onEnd);
+  });
+}
 
-  const onMove = (ev) => {
-    const rect = wrap.getBoundingClientRect();
-    if(!rect.height) return;
-    const pct = ((ev.clientY - rect.top) / rect.height) * 100;
-    splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct));
-    pane.style.flexBasis = `${splitRatio}%`;
-  };
-  const onEnd = () => {
-    dividerEl.removeEventListener('pointermove', onMove);
-    dividerEl.removeEventListener('pointerup', onEnd);
-    dividerEl.removeEventListener('pointercancel', onEnd);
-    document.body.classList.remove('dragging');
-    saveState();
-  };
-  dividerEl.addEventListener('pointermove', onMove);
-  dividerEl.addEventListener('pointerup', onEnd);
-  dividerEl.addEventListener('pointercancel', onEnd);
+// the horizontal one: trades height between the stacked panel and the console,
+// measured down from the top of the left column. whichever panel is stacked in the
+// current view is the one being resized, so this reads the slot, not a fixed id.
+wireDivider(document.getElementById('split-divider'), 'row', (ev) => {
+  const rect = document.getElementById('term-wrap').getBoundingClientRect();
+  const pane = document.querySelector('.slot-stacked');
+  if(!rect.height || !pane) return;
+  splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ((ev.clientY - rect.top) / rect.height) * 100));
+  pane.style.flex = `0 0 ${splitRatio}%`;
+});
+
+// the vertical one (tasks view only): trades width between the console column and
+// the side panel. it's the side panel's width being set, so the measurement runs
+// inward from whichever edge that panel is against — which mirroring flips.
+wireDivider(document.getElementById('col-divider'), 'col', (ev) => {
+  const rect = document.getElementById('main').getBoundingClientRect();
+  const pane = document.querySelector('.slot-side');
+  if(!rect.width || !pane) return;
+  const span = mirrored ? ev.clientX - rect.left : rect.right - ev.clientX;
+  taskPaneRatio = Math.min(TASKPANE_MAX, Math.max(TASKPANE_MIN, (span / rect.width) * 100));
+  pane.style.flex = `0 0 ${taskPaneRatio}%`;
 });
 
 // ---------- boot ----------
