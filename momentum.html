@@ -283,6 +283,26 @@
     letter-spacing:1px;
   }
   .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
+  /* the "this list is narrowed" badge: an outline in the same dim ink as the count
+     beside it, so it reads as a condition on the list without competing with the
+     task titles — which are the only thing in this pane that should be at full
+     brightness. it doesn't need to shout: the count next to it already says
+     "2 of 3 shown", and the two together are plenty to notice.
+     (it was a filled --amber chip first, which in day theme is a solid black slab
+     that drowns the pane — the same "loud accent as a fill" problem the night-mode
+     scrollbar thumb has, and the same fix: outline it instead.)
+     needs to out-specify ".pane-head span" above, hence the descendant selector.
+     margin-right:auto keeps it next to TASKS and still pushes the count right, so
+     the header stays two groups rather than three evenly-spread items. */
+  .pane-head .filter-badge{
+    color:var(--text-dim);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:0 5px;
+    letter-spacing:0.5px;
+    margin-right:auto;
+    white-space:nowrap;
+  }
   /* two dividers, one per axis. #split-divider is the horizontal one inside the
      console column (stacked panel above / console below) and only exists when split
      is on. #col-divider is the vertical one between the console column and the side
@@ -423,6 +443,11 @@ let titleOn = true;                                      // the "MOMENTUM — ye
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "show age"
 let excludedImageFolders = [];                           // top-level image_art/ subfolders left out of the random pool — see "exclude"/"include"
+// the standing filter on the always-visible task pane — same {status, proj, tag}
+// shape "list" parses its arguments into, set by "filter". a *view* preference, not
+// a query: "list" stays a one-off question that answers exactly what you asked it.
+const NO_FILTER = { status:'all', proj:null, tag:null };
+let paneFilter = { ...NO_FILTER };
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
@@ -1072,7 +1097,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
-    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored,
+    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -1090,6 +1115,12 @@ function applyStateSnapshot(data){
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
   showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
   excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
+  // rebuilt field by field rather than trusted wholesale: a saved filter is the one
+  // setting that can hide your tasks, so a malformed one has to fail open (show
+  // everything) instead of leaving the pane mysteriously empty.
+  paneFilter = data.paneFilter && !listArgsError(data.paneFilter)
+    ? { status: data.paneFilter.status, proj: data.paneFilter.proj || null, tag: data.paneFilter.tag || null }
+    : { ...NO_FILTER };
   viewMode = VIEW_MODES.includes(data.viewMode) ? data.viewMode : 'art';   // undefined: a save from before the tasks view existed
   taskPaneRatio = Number.isFinite(data.taskPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.taskPaneRatio)) : 40;
   artPaneRatio = Number.isFinite(data.artPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.artPaneRatio)) : 55;   // undefined: a save from before the art column was draggable
@@ -1735,7 +1766,9 @@ const COMMANDS = [
   { usage: 'project rm <name>', desc: 'delete a project' },
   { usage: 'project set <id[,id...]|all> <name|none>', desc: 'assign task(s) to a project' },
   { usage: 'project list', desc: 'list all projects (or: projects)' },
-  { usage: 'list [all|pending|active] [-proj name] [-t tag]', desc: 'show tasks as text (excludes archived)' },
+  { usage: 'list [all|pending|active] [-proj name] [-t tag]', desc: 'show tasks as text, once (excludes archived)' },
+  { usage: 'filter [<same arguments as list>|off]', desc: 'narrow the always-visible task pane and keep it that way',
+    extra: ['bare "filter" says what\'s applied; "filter off" clears it'] },
   { usage: 'archive [-proj name] [-t tag]', desc: 'show completed/archived tasks' },
   { usage: 'find <text>', desc: 'search titles + tags, pending/active and archive together' },
   { usage: 'gallery', desc: 'list your collected artworks' },
@@ -2122,6 +2155,39 @@ function parseListArgs(tokens){
   return out;
 }
 
+// ---------- what a filter spec means ----------
+// one definition of "which tasks does {status, proj, tag} select", shared by the
+// "list" command and the always-visible pane. they're two different surfaces onto
+// the same question, so keeping the predicate in one place is what stops them from
+// quietly disagreeing about what "-proj work" includes.
+function filterTasks(list, f){
+  let out = list;
+  if(f.status === 'pending' || f.status === 'active') out = out.filter(t => t.status === f.status);
+  if(f.proj) out = out.filter(t => t.project === f.proj);
+  if(f.tag){
+    const wanted = f.tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    out = out.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
+  }
+  return out;
+}
+// null when the spec is usable, otherwise the message to print. "done" gets its own
+// wording (and info, not err) because it's a reasonable thing to ask for — the
+// tasks exist, they just live in the archive now.
+function listArgsError(f){
+  if(f.status === 'done') return { text: 'completed tasks are archived — try the "archive" command', cls: 'info' };
+  if(!['all','pending','active'].includes(f.status)) return { text: `unknown filter "${f.status}" (use all|pending|active)`, cls: 'err' };
+  return null;
+}
+function isFilterActive(f){ return !!f && (f.status !== 'all' || !!f.proj || !!f.tag); }
+// compact, for the pane's badge and the command's own read-out
+function describeFilter(f){
+  const parts = [];
+  if(f.status !== 'all') parts.push(f.status);
+  if(f.proj) parts.push(`proj=${f.proj}`);
+  if(f.tag) parts.push(`tag=${f.tag}`);
+  return parts.join(' · ');
+}
+
 // list/archive all print the same shape: a rule, the rows, a rule, then a
 // dim one-line summary. the rule is sized to the widest row rather than fixed, so
 // it hugs the content instead of overrunning (and wrapping in) a narrow terminal
@@ -2206,29 +2272,78 @@ function sortForDisplay(list){
   });
 }
 
-function taskSummaryLine(list){
+// `total`, when given and larger than the list, turns the leading count into
+// "3 of 12 shown" — so any view that's hiding tasks says how many, rather than
+// silently looking like that's all there is.
+function taskSummaryLine(list, total){
   const activeCount = list.filter(t => t.status === 'active').length;
   const overdueCount = list.filter(isOverdue).length;
-  const parts = [`${list.length} task${list.length === 1 ? '' : 's'}`];
+  const hiding = total !== undefined && total !== list.length;
+  const parts = [hiding ? `${list.length} of ${total} shown` : `${list.length} task${list.length === 1 ? '' : 's'}`];
   if(activeCount) parts.push(`${activeCount} active`);
   if(overdueCount) parts.push(`${overdueCount} overdue`);
   return parts.join(' · ');
 }
 
+// a one-off question, answered exactly as asked — deliberately independent of the
+// pane's standing "filter", so you can look at everything without disturbing the
+// view you've set up. when the two disagree, the note below says so rather than
+// leaving you to wonder why the pane above shows fewer tasks than this listing.
 function cmd_list(tokens){
-  const { status, proj, tag } = parseListArgs(tokens || []);
-  let list = tasks;
-  if(status === 'pending') list = list.filter(t=>t.status==='pending');
-  else if(status === 'active') list = list.filter(t=>t.status==='active');
-  else if(status === 'done'){ print('completed tasks are archived — try the "archive" command', 'info'); return; }
-  else if(status !== 'all'){ print(`unknown filter "${status}" (use all|pending|active)`, 'err'); return; }
-  if(proj){ list = list.filter(t => t.project === proj); }
-  if(tag){
-    const wanted = tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-    list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
-  }
+  const spec = parseListArgs(tokens || []);
+  const bad = listArgsError(spec);
+  if(bad){ print(bad.text, bad.cls); return; }
+  const list = filterTasks(tasks, spec);
   if(list.length === 0){ print('nothing here.', 'info'); return; }
-  printFramed(buildTaskRows(sortForDisplay(list)), `  ${taskSummaryLine(list)}`);
+  printFramed(buildTaskRows(sortForDisplay(list)), `  ${taskSummaryLine(list, tasks.length)}`);
+  if(!isFilterActive(spec) && isFilterActive(paneFilter)){
+    print(`(this is everything — the pane above is filtered to ${describeFilter(paneFilter)}. "filter off" clears it.)`, 'info');
+  }
+}
+
+// the standing version of "list": same arguments, but it narrows the always-visible
+// pane instead of printing once. split into its own command rather than folded into
+// "list" on purpose — "list" is a question you ask, this is a view you set, and
+// having a peek at "list active" silently rearrange your pane would be a surprise.
+function cmd_filter(tokens){
+  const raw = (tokens || []).filter(Boolean);
+  const first = (raw[0] || '').toLowerCase();
+
+  if(raw.length === 0){
+    if(!isFilterActive(paneFilter)){
+      print('no filter — the task pane is showing everything.', 'info');
+      print('  narrow it with the same arguments "list" takes:  filter active  |  filter -proj work  |  filter -t urgent', 'info');
+      return;
+    }
+    const shown = filterTasks(tasks, paneFilter).length;
+    print(`filter: ${describeFilter(paneFilter)}  —  ${shown} of ${tasks.length} task${tasks.length === 1 ? '' : 's'} shown  ("filter off" clears it)`, 'info');
+    return;
+  }
+
+  if(['off','none','clear','all'].includes(first) && raw.length === 1){
+    // "filter all" lands here rather than parsing as status:all — as a filter,
+    // "everything" and "no filter" are the same request, and this is the wording
+    // most people reach for first.
+    if(!isFilterActive(paneFilter)){ print('no filter was set.', 'info'); return; }
+    paneFilter = { ...NO_FILTER };
+    renderListPane();
+    print(`filter cleared — the task pane shows all ${tasks.length} again.`, 'ok');
+    saveState();
+    return;
+  }
+
+  const spec = parseListArgs(raw);
+  const bad = listArgsError(spec);
+  if(bad){ print(bad.text, bad.cls); return; }
+  paneFilter = spec;
+  renderListPane();
+  const shown = filterTasks(tasks, spec).length;
+  print(`filter: ${describeFilter(spec)}  —  the task pane now shows ${shown} of ${tasks.length}.`, 'ok');
+  if(shown === 0) print('  nothing matches it right now — "filter off" brings everything back.', 'info');
+  // the pane this narrows can be off screen entirely (art view with split off), in
+  // which case the command looks like it did nothing at all. say where to find it.
+  if(!listPaneVisible()) print('  (the task pane is hidden right now — "split on" or "view tasks" shows it)', 'info');
+  saveState();
 }
 
 // searches both pending/active and archived tasks at once — the point of a search
@@ -2252,23 +2367,36 @@ function cmd_find(tokens){
   printFramed(buildTaskRows([...activeHits, ...archivedHits], archivedIds), summary);
 }
 
-// the always-visible list in split view. deliberately unfiltered — it's the
-// standing picture of everything outstanding, while "list -proj x" stays the way
-// to ask a narrower question in the terminal below it.
+// the always-visible task list — the pane above the console in split view, and the
+// side column in "view tasks". narrowed by the standing "filter", which is why the
+// header carries a badge whenever one is set: a pane that's hiding tasks has to say
+// so on its face, since unlike a terminal listing it has no command echoed above it
+// to explain why it looks the way it does.
 function renderListPane(){
   const pane = document.getElementById('list-pane');
   if(!pane) return;
+  const filtered = isFilterActive(paneFilter);
+  const badge = filtered ? `<span class="filter-badge">filter: ${escapeHtml(describeFilter(paneFilter))}</span>` : '';
+  const head = summary => `<div class="pane-head">TASKS ${badge}<span>${escapeHtml(summary)}</span></div>`;
+
   if(tasks.length === 0){
-    pane.innerHTML =
-      `<div class="pane-head">TASKS <span>nothing yet</span></div>` +
+    pane.innerHTML = head('nothing yet') +
       `<div class="line info">no tasks yet — add one:  add "organize your desk"</div>`;
     return;
   }
-  const rows = buildTaskRows(sortForDisplay(tasks)).map(r => r.segments
+  const shown = filterTasks(tasks, paneFilter);
+  // distinct from the no-tasks-at-all case above: you *have* tasks, the filter is
+  // just hiding all of them, and the way out is clearing it rather than adding one.
+  if(shown.length === 0){
+    pane.innerHTML = head(`0 of ${tasks.length} shown`) +
+      `<div class="line info">nothing matches this filter — "filter off" brings back all ${tasks.length}.</div>`;
+    return;
+  }
+  const rows = buildTaskRows(sortForDisplay(shown)).map(r => r.segments
     ? `<div class="line">${r.segments.map(seg => seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')}</div>`
     : `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
   ).join('');
-  pane.innerHTML = `<div class="pane-head">TASKS <span>${escapeHtml(taskSummaryLine(tasks))}</span></div>` + rows;
+  pane.innerHTML = head(taskSummaryLine(shown, tasks.length)) + rows;
 }
 
 function cmd_archive(...tokens){
@@ -2920,6 +3048,7 @@ function dispatch(cmd, rest){
     case 'project': cmd_project(rest[0], ...rest.slice(1)); break;
     case 'projects': cmd_project('list'); break;
     case 'list': cmd_list(rest); break;
+    case 'filter': cmd_filter(rest); break;
     case 'archive': cmd_archive(...rest); break;
     case 'find': cmd_find(rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;

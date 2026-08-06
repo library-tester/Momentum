@@ -1,13 +1,14 @@
 # to do
-- collect better ascii graphics (big ones) and images (like your own ones)
-- tell opus in max settings to improve the designs: amber, nord and solar, so they look as beautiful as possible
+- tell opus in max settings to improve the designs: amber, nord and solar, so they look as beautiful as possible. remember, I personally dont like too much colors, so take that into account. pay attention to good contrasts.
 
-# to do, optional
-- remove very small and very big
+- collect better ascii graphics (big ones) and images (like your own ones)
 - check the site on a smartphone and adjust as necessary
 - find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
 - reduce the bload of commands and try to simplify them
 - get feedback by AI regarding the whole design and functionality
+
+
+# to do, optional
 
 # to do, user management
 - ask claude about user management, and ask for a prompt for claude code. the site should be usable for other users once it gets online, every user needs persistent data storage of this tasks and projects, the state of the task manager etc.
