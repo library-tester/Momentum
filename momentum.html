@@ -1656,6 +1656,23 @@ function printSegments(segments){
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
 }
+// like print(), but for a line whose column-aligned text (leading spaces baked
+// in, same as everywhere else in this file) might be too wide for the terminal.
+// padding-left pushes the whole line right by the indent, and text-indent pulls
+// just the first line back by the same amount — so line 1 lands exactly where
+// its own leading spaces already put it, but if it's too long to fit and wraps,
+// the overflow (which isn't affected by text-indent) picks up at the padding
+// edge instead of sliding back to column 0. 'ch' is exact here since the
+// terminal is monospace throughout — 1ch is 1 character, same as a real space.
+function printHanging(text, indentCh){
+  const div = document.createElement('div');
+  div.className = 'line';
+  div.style.paddingLeft = indentCh + 'ch';
+  div.style.textIndent = '-' + indentCh + 'ch';
+  div.textContent = text;
+  outputEl.appendChild(div);
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
 function printEcho(text){
   const div = document.createElement('div');
   div.className = 'line echo';
@@ -1780,30 +1797,41 @@ function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 // usages longer than this get their description on the next line instead of
 // pushing every other description off to the right.
 const HELP_MAX_USAGE = 46;
-function buildHelpText(){
+
+// each row remembers where its description text starts (in characters) via
+// `indent`, so printHelp() can give a row that's too wide for the terminal a
+// hanging indent when it soft-wraps — the overflow lines up under the
+// description, not back under "commands" at the left edge. indent 0 means
+// there's nothing to hang (plain prose or a blank line).
+function buildHelpRows(){
   const fitting = COMMANDS.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
   const col = Math.max(...fitting) + 2;
-  const lines = [
-    'commands:',
-    '  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)',
-    '',
+  const indent = col + 2;   // "  " + the usage column — where desc/extra text actually starts
+  const rows = [
+    { text: 'commands:', indent: 0 },
+    { text: '  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)', indent: 2 },
+    { text: '', indent: 0 },
   ];
   COMMANDS.forEach(c => {
     if(c.usage.length > col - 2){
-      lines.push('  ' + c.usage);
-      lines.push('  ' + ' '.repeat(col) + c.desc);
+      rows.push({ text: '  ' + c.usage, indent: 0 });
+      rows.push({ text: '  ' + ' '.repeat(col) + c.desc, indent });
     } else {
-      lines.push('  ' + c.usage.padEnd(col) + c.desc);
+      rows.push({ text: '  ' + c.usage.padEnd(col) + c.desc, indent });
     }
-    (c.extra || []).forEach(e => lines.push('  ' + ' '.repeat(col) + e));
+    (c.extra || []).forEach(e => rows.push({ text: '  ' + ' '.repeat(col) + e, indent }));
   });
   // printed from the same map dispatch uses, so the advertised shortcuts are
   // exactly the ones that work.
-  lines.push('');
-  lines.push('  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '));
-  return lines.join('\n');
+  rows.push({ text: '', indent: 0 });
+  rows.push({ text: '  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '), indent: 2 });
+  return rows;
 }
-const HELP_TEXT = buildHelpText();
+const HELP_ROWS = buildHelpRows();
+
+function cmd_help(){
+  HELP_ROWS.forEach(r => r.indent ? printHanging(r.text, r.indent) : print(r.text));
+}
 
 function parseFlags(tokens){
   const args = { _: [] };
@@ -2877,7 +2905,7 @@ async function handleCommand(raw){
 
 function dispatch(cmd, rest){
   switch(cmd){
-    case 'help': print(HELP_TEXT); break;
+    case 'help': cmd_help(); break;
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'rename': cmd_rename(rest[0], rest.slice(1).join(' ')); break;
     case 'start': cmd_start(rest[0]); break;
