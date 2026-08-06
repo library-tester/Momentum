@@ -1,0 +1,10 @@
+x default design is the day
+- checkboxes for folders that should or should not be included
+- help file too complex
+- id numbers in the tasklist get always counted from 1. So when I have 3 tasks they get ids from 1 to 3. the archive gets the remaining id numbers, starting from 4 in this example
+- bug: when i add a new project and its empty (no task added yet) its not listed when i input "project list" 
+
+- other viewmode: split without the reward system: on the left side the commandline, on the right side your tasks
+- when the image is fully revealed: What do you want to do" then a new line! then close (save, start a new one) then a new line! download (save the file to your computer)...
+- in the upper status bar, replace ascii and image collected with just art collected
+- try to move everything in [] (except the id) after the tasks title, so everything is in one line

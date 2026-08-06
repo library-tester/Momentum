@@ -440,6 +440,13 @@ function isOverdue(t){
   return d < today;
 }
 
+// calendar-day key in local time — the unit both the streak and the heatmap
+// group completions by, so two completions on the same day (regardless of
+// time of day) always land in the same bucket.
+function localDateKey(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 // relative age since createdAt, for the "[3d ago]" detail field (see "show age").
 // coarsens as it goes further back — a task doesn't need day-level precision once
 // it's months old, and staying coarse keeps the detail line from getting noisy.
@@ -1599,6 +1606,7 @@ const COMMANDS = [
     extra: ['much of it is revealed  (esc, enter, space or click to exit)'] },
   { usage: 'fullscreen [on|off]', desc: 'put the whole app fullscreen, like F11  (esc to leave)' },
   { usage: 'stats', desc: 'task summary' },
+  { usage: 'streak', desc: "current/longest completion streak + a heatmap" },
   { usage: 'export', desc: 'download a backup of all your tasks + progress' },
   { usage: 'import', desc: 'restore tasks + progress from a backup file' },
   { usage: 'recover [list|<n>]', desc: 'restore an automatic in-browser backup',
@@ -1781,7 +1789,17 @@ async function performDone(ids){
       print(`(${track.banked} completion${track.banked === 1 ? '' : 's'} banked for your next piece — type "close" or "download" to start it)`, 'info');
     }
   }
-  if(changed){ saveState(); renderPanel(); }
+  if(changed){
+    // nudge once per new day, not once per task — completing 3 tasks today
+    // shouldn't print the same streak line 3 times.
+    const counts = completionCounts();
+    const doneToday = counts[localDateKey(new Date())];
+    if(doneToday === 1){
+      const { current } = computeStreaks(counts);
+      if(current >= 2) print(`you've completed tasks ${current} days running.`, 'ok');
+    }
+    saveState(); renderPanel();
+  }
 }
 
 function cmd_rm(idsStr){
@@ -2103,6 +2121,93 @@ function cmd_stats(){
   const pending = tasks.filter(t=>t.status==='pending').length;
   const overdue = tasks.filter(isOverdue).length;
   print(`total: ${total}   completed: ${archive.length}   active: ${active}   pending: ${pending}   overdue: ${overdue}   projects: ${projects.length}   ascii collected: ${asciiTrack.collected.length}   image collected: ${imageTrack.collected.length}`);
+}
+
+// ---------- streak + completion heatmap ----------
+// every archived task already carries completedAt; this just buckets those
+// timestamps into local calendar days. shared by "streak" and the done-command
+// nudge below, so both agree on what a "day" means.
+function completionCounts(){
+  const counts = {};
+  archive.forEach(t => {
+    if(!t.completedAt) return;
+    const key = localDateKey(new Date(t.completedAt));
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}
+
+// current: consecutive days of at least one completion, counting backward from
+// today — or from yesterday if today has nothing yet, since today isn't over
+// and a streak shouldn't read as broken before it's actually broken.
+// longest: the best run ever seen in the data, independent of "current".
+function computeStreaks(counts){
+  const dates = Object.keys(counts).sort();
+  if(dates.length === 0) return { current: 0, longest: 0 };
+  const toDate = s => new Date(s + 'T00:00:00');
+  let longest = 1, run = 1;
+  for(let i = 1; i < dates.length; i++){
+    const gap = Math.round((toDate(dates[i]) - toDate(dates[i-1])) / 86400000);
+    run = gap === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  let anchor = counts[localDateKey(today)] ? today : (counts[localDateKey(yesterday)] ? yesterday : null);
+  let current = 0;
+  if(anchor){
+    const cursor = new Date(anchor);
+    while(counts[localDateKey(cursor)]){
+      current++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+  }
+  return { current, longest };
+}
+
+// GitHub-style grid, but density is carried by the glyph rather than color —
+// a fair number of themes here (day/night) render every line in one color, so
+// shading has to survive in monochrome. weeks run Monday-Sunday, most recent
+// week ending today; any day beyond today (the tail end of this week) is left
+// blank rather than drawn as "0 completions".
+// three shading levels only (░▒▓) — U+2588 FULL BLOCK was dropped: it comes from
+// a different part of the font (webfonts rarely ship Block Elements at all, so
+// these fall back to whatever system font has them) and rendered visibly
+// shorter than the three shades, which do consistently come from the same
+// fallback source together.
+const HEATMAP_LEVELS = [' ', '░', '▒', '▓'];
+function heatmapGlyph(n){
+  if(!n) return HEATMAP_LEVELS[0];
+  if(n === 1) return HEATMAP_LEVELS[1];
+  if(n <= 3) return HEATMAP_LEVELS[2];
+  return HEATMAP_LEVELS[3];
+}
+const HEATMAP_WEEKS = 10;
+const WEEKDAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function buildHeatmapRows(counts){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const daysSinceMonday = (today.getDay() + 6) % 7;
+  const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + (6 - daysSinceMonday));   // this week's Sunday
+  const start = new Date(weekEnd); start.setDate(weekEnd.getDate() - HEATMAP_WEEKS * 7 + 1);    // Monday, HEATMAP_WEEKS back
+
+  return WEEKDAY_LABELS.map((label, wd) => {
+    let line = `${label.padEnd(4)}`;
+    for(let w = 0; w < HEATMAP_WEEKS; w++){
+      const cell = new Date(start); cell.setDate(start.getDate() + w * 7 + wd);
+      line += (cell > today) ? '  ' : `${heatmapGlyph(counts[localDateKey(cell)])} `;
+    }
+    return { text: line.trimEnd() };
+  });
+}
+
+function cmd_streak(){
+  const counts = completionCounts();
+  if(Object.keys(counts).length === 0){ print('no completed tasks yet — finish one to start a streak.', 'info'); return; }
+  const { current, longest } = computeStreaks(counts);
+  print(current > 0
+    ? `you've completed tasks ${current} day${current === 1 ? '' : 's'} running` + (current >= longest ? ' — your best yet.' : ` (longest: ${longest}).`)
+    : `no active streak right now — longest ever: ${longest} day${longest === 1 ? '' : 's'}.`, 'ok');
+  printFramed(buildHeatmapRows(counts), `  less ${HEATMAP_LEVELS.slice(1).join(' ')} more   (last ${HEATMAP_WEEKS} weeks)`);
 }
 
 function cmd_mode(arg){
@@ -2534,6 +2639,7 @@ function dispatch(cmd, rest){
     case 'display': cmd_display(); break;
     case 'fullscreen': cmd_fullscreen(rest[0]); break;
     case 'stats': cmd_stats(); break;
+    case 'streak': cmd_streak(); break;
     case 'export': cmd_export(); break;
     case 'import': cmd_import(); break;
     case 'recover': cmd_recover(rest[0]); break;
