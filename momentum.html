@@ -1628,7 +1628,7 @@ function updateStats(){
   const total = tasks.length;
   const active = tasks.filter(t=>t.status==='active').length;
   const overdue = tasks.filter(isOverdue).length;
-  const collectedTxt = ` · ${asciiTrack.collected.length} ascii + ${imageTrack.collected.length} image collected`;
+  const collectedTxt = ` · ${asciiTrack.collected.length + imageTrack.collected.length} art collected`;
   document.getElementById('stats').textContent =
     `${total} total · ${archive.length} completed · ${active} in progress · ${overdue} overdue · ${projects.length} project${projects.length===1?'':'s'}${collectedTxt}`;
 }
@@ -2614,7 +2614,9 @@ function cmd_switch(arg){
 function printCompletionPrompt(art){
   const kind = displayMode === 'image' ? 'Image' : 'Artwork';
   print(`${kind} completed! "${art.name}" is fully revealed.`, 'ok');
-  print('What do you want to do:  close  (save it, start a new one)   |   download  (save the file to your computer)', 'info');
+  print('What do you want to do?', 'info');
+  print('  close     (save it, start a new one)', 'info');
+  print('  download  (save the file to your computer)', 'info');
 }
 
 function slugify(name){
