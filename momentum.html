@@ -358,7 +358,6 @@
 let tasks = [];
 let archive = [];                                          // completed tasks live here, out of the normal list
 let projects = [];
-let nextId = 1;
 let history = [];
 let histIdx = -1;
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
@@ -972,7 +971,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
+    tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
     blockSizePref, blockCountOverride, excludedImageFolders,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -982,7 +981,6 @@ function buildStateSnapshot(){
 function applyStateSnapshot(data){
   tasks = data.tasks || [];
   archive = data.archive || [];
-  nextId = data.nextId || 1;
   projects = data.projects || [];
   displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'day');   // data.nightMode: pre-multi-theme saves
@@ -1472,7 +1470,18 @@ function cmd_fullscreen(arg){
   );
 }
 
+// ids aren't a stored identity — they're recomputed from position every time the
+// lists change, so the tasklist always reads 1..N and the archive picks up right
+// where it left off (N+1...). every mutation already ends in renderPanel() (see
+// below), so that's the one place this needs to run: add/done/rm/undo/import all
+// self-heal through here without needing their own reindex call.
+function reindexIds(){
+  tasks.forEach((t, i) => { t.id = i + 1; });
+  archive.forEach((t, i) => { t.id = tasks.length + i + 1; });
+}
+
 function renderPanel(){
+  reindexIds();
   // every task mutation already ends in renderPanel(), so hanging the split-view
   // pane's refresh off it is what keeps the always-visible list actually current.
   if(splitOn) renderListPane();
@@ -1717,7 +1726,7 @@ function cmd_add(args){
       print(`note: created new project "${project}"`, 'info');
     }
   }
-  const t = { id: nextId++, title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
+  const t = { id: tasks.length + 1, title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
   tasks.push(t);
   const priTxt = priority ? ` [${priority}]` : '';
   const dueTxt = due ? ` due ${due}` : '';
