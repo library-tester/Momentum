@@ -7,17 +7,27 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="art-data.js"></script>
 <style>
-  /* "amber" — the original look, and the default/fallback for any unrecognized data-theme value */
+  /* Each theme below is built on one accent hue plus a red, and nothing else.
+     --amber is the signature (prompt, headings, and the ascii art itself) and
+     --accent is the same hue a step lighter, for "ok" lines — so confirmations
+     read as brighter rather than as a second colour. --error is the one place a
+     different hue is allowed, because "this is wrong" has to survive being
+     glanced at. Everything else is a neutral tinted toward the signature.
+     Contrast was measured, not eyeballed: body text clears 7:1 against its
+     background and every coloured text clears WCAG AA's 4.5:1. */
+
+  /* "amber" — warm gold on near-black; the original look, and the fallback for
+     any unrecognized data-theme value */
   :root{
-    --bg-dark:     #1a1410;
-    --bg-panel:    #221a14;
-    --line:        #3a2c1e;
-    --text-dim:    #a8926f;
-    --text-main:   #e8dcc0;
+    --bg-dark:     #15100c;
+    --bg-panel:    #1f1811;
+    --line:        #463726;
+    --text-dim:    #b49d7c;
+    --text-main:   #f0e5cf;
     --amber:       #d9a441;
-      --accent:      #6b9b6e;
-    --accent-dim:  #4a6b4d;
-    --error:       #c96a5a;
+    --accent:      #e6c079;
+    --accent-dim:  #54401d;
+    --error:       #d6786a;
   }
   :root[data-theme="night"]{
     --bg-dark:     #000000;
@@ -42,29 +52,35 @@
     --accent-dim:  #000000;
     --error:       #000000;
   }
-  /* "solar" — solarized-dark inspired */
+  /* "solar" — solarized-dark inspired. keeps solarized's iconic base03 background
+     and cyan, but drops its yellow: solarized's full accent set is a rainbow, and
+     one hue carries this UI fine. its greys are raised well above solarized's own
+     base01/base0, which are tuned for syntax highlighting where dim text is
+     genuinely decorative — here dim text carries tags and counts you have to read. */
   :root[data-theme="solar"]{
     --bg-dark:     #002b36;
-    --bg-panel:    #073642;
-    --line:        #0d4a58;
-    --text-dim:    #586e75;
-    --text-main:   #93a1a1;
-    --amber:       #b58900;
-    --accent:      #2aa198;
-    --accent-dim:  #0a4552;
-    --error:       #dc322f;
+    --bg-panel:    #083d4a;
+    --line:        #155a6b;
+    --text-dim:    #8b9c9c;
+    --text-main:   #bccaca;
+    --amber:       #35b5aa;
+    --accent:      #6ccbc0;
+    --accent-dim:  #0e4f5e;
+    --error:       #dd8078;
   }
-  /* "nord" — arctic blue-gray, nord-inspired */
+  /* "nord" — arctic blue-gray. frost blue is the signature; nord's aurora yellow is
+     dropped for the same reason as solarized's. the aurora red is lightened enough
+     to actually be legible on the polar-night background. */
   :root[data-theme="nord"]{
-    --bg-dark:     #2e3440;
-    --bg-panel:    #3b4252;
-    --line:        #434c5e;
-    --text-dim:    #7b88a1;
-    --text-main:   #e5e9f0;
-    --amber:       #ebcb8b;
-    --accent:      #88c0d0;
-    --accent-dim:  #434c5e;
-    --error:       #bf616a;
+    --bg-dark:     #2a303c;
+    --bg-panel:    #343b4a;
+    --line:        #4c5568;
+    --text-dim:    #9aa7bd;
+    --text-main:   #e8ecf3;
+    --amber:       #88c0d0;
+    --accent:      #a8d3de;
+    --accent-dim:  #3d4a5c;
+    --error:       #d4818c;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}

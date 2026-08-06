@@ -1,5 +1,5 @@
 # to do
-- tell opus in max settings to improve the designs: amber, nord and solar, so they look as beautiful as possible. remember, I personally dont like too much colors, so take that into account. pay attention to good contrasts.
+x tell opus in max settings to improve the designs: amber, nord and solar, so they look as beautiful as possible. remember, I personally dont like too much colors, so take that into account. pay attention to good contrasts.
 
 - collect better ascii graphics (big ones) and images (like your own ones)
 - check the site on a smartphone and adjust as necessary
