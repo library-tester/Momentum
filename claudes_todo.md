@@ -3,13 +3,13 @@
 C. Design and UX improvements
 ?- 12. Responsive layout. There are no media queries at all, and the two panes have 280px + 240px minimums — so on a phone the app is unusable. Add a breakpoint that stacks the art panel above the terminal below ~700px.
 
-- 13. Show relative age on tasks. You already store createdAt and never display it. [3d ago] on the details line quietly creates useful pressure on stale tasks.
+x 13. Show relative age on tasks. You already store createdAt and never display it. [3d ago] on the details line quietly creates useful pressure on stale tasks.
 
 - 16. Streak tracking + a completion heatmap. This is the biggest motivational addition and fits the project's stated purpose better than any feature currently in it: "you've completed tasks 6 days running." You already store completedAt on every archived task, so the data is sitting there unused.
 
 D. Robustness
 
-20. Add a .gitignore. There's none, and your exported backup is sitting untracked at backup/momentum-backup-2026-08-04.json. I'd ignore __pycache__/ and decide deliberately whether backups belong in git (I'd say yes, actually — it's the durable copy of your tasks).
+x20. Add a .gitignore. There's none, and your exported backup is sitting untracked at backup/momentum-backup-2026-08-04.json. I'd ignore __pycache__/ and decide deliberately whether backups belong in git (I'd say yes, actually — it's the durable copy of your tasks).
 
 E. Bigger bets (worth discussing before building)
 22. The simplification you already wrote down — "remove priority, project, due functionality completely." This is the single biggest change available: it would delete roughly 200 lines, collapse add's flag parsing to nothing, and make every task a clean one-liner. I'd stage it: hide those fields from display first, confirm you don't miss them for a week, then delete the code. I'd rather not rip it out irreversibly on day one.

@@ -1,0 +1,14 @@
+todo.md
+claudes_todo.md
+
+# personal export snapshots from the app's "export" command — timestamped
+# task-data dumps, not source
+backup/
+
+# Claude Code config, not meant to be shared
+.claude/
+
+# OS/editor cruft
+.DS_Store
+__pycache__/
+*.pyc

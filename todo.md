@@ -1,25 +1,13 @@
 # to do
-x block size and count should be editable.
-x checkboxes are reduntant, use just ids on your 
-x display in day design: the image displayed should have black background not white one 
-- create the README
-- add gitignore and remove unecessary files
 - collect better ascii graphics (big ones) and images (like your own ones)
-
-# to do, designs and themes
-- remove designs you dont like
+- tell opus in max settings to improve the designs: amber, nord and solar, so they look as beautiful as possible
 
 # to do, optional
 - remove very small and very big
 - check the site on a smartphone and adjust as necessary
 - find and analyze other peoples cmd like taskmanagers (like your own tkinter app)
 - reduce the bload of commands and try to simplify them
-- test the application extensively (look for bugs, anything annoying)
 - get feedback by AI regarding the whole design and functionality
-- download leads to save as instead of immediately downloading
-- add a mode where you get a complete image every task
-- learn git management
-
 
 # to do, user management
 - ask claude about user management, and ask for a prompt for claude code. the site should be usable for other users once it gets online, every user needs persistent data storage of this tasks and projects, the state of the task manager etc.
@@ -85,5 +73,11 @@ x i want to be able to delete tasks by rm 1-4
 x archive
 x implement a nightmode where everything is red text and design elements on black background (switch nightmode)
 x once an image or ascii graphic is finished add a small popup with the title "Image completed" with a download and close button. the download button enables the download of the image
+x block size and count should be editable.
+x checkboxes are reduntant, use just ids on your 
+x display in day design: the image displayed should have black background not white one 
+x create the README
+x pick as standard theme the day theme and remove the following themes from the code entirely: solar, amber
+x add gitignore and remove unecessary files
 
 

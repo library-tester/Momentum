@@ -364,11 +364,12 @@ let histIdx = -1;
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
 const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
-let theme = 'amber';
+let theme = 'day';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
 let brokenImageStreak = 0;                                // consecutive images that failed to load, auto-skipping — see handleImageLoadError
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
+let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "show age"
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
@@ -437,6 +438,19 @@ function isOverdue(t){
   const today = new Date(); today.setHours(0,0,0,0);
   const d = new Date(t.due + 'T00:00:00');
   return d < today;
+}
+
+// relative age since createdAt, for the "[3d ago]" detail field (see "show age").
+// coarsens as it goes further back — a task doesn't need day-level precision once
+// it's months old, and staying coarse keeps the detail line from getting noisy.
+function taskAgeText(createdAt){
+  const days = Math.floor((Date.now() - createdAt) / 86400000);
+  if(days <= 0) return 'today';
+  if(days === 1) return '1d ago';
+  if(days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if(months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 function escapeHtml(s){
@@ -934,7 +948,7 @@ function activeTrack(){ return displayMode === 'image' ? imageTrack : asciiTrack
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn,
+    tasks, archive, nextId, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
     blockSizePref, blockCountOverride,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -947,11 +961,12 @@ function applyStateSnapshot(data){
   nextId = data.nextId || 1;
   projects = data.projects || [];
   displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
-  theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'amber');   // data.nightMode: pre-multi-theme saves
+  theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'day');   // data.nightMode: pre-multi-theme saves
   splitOn = !!data.splitOn;
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
+  showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
@@ -1480,6 +1495,20 @@ function print(text, cls){
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
 }
+// like print(), but for a single line built from differently-styled runs (e.g.
+// a bright title followed by dim [tag] fields) — each segment keeps its own class.
+function printSegments(segments){
+  const div = document.createElement('div');
+  div.className = 'line';
+  segments.forEach(seg => {
+    const span = document.createElement('span');
+    if(seg.cls) span.className = seg.cls;
+    span.textContent = seg.text;
+    div.appendChild(span);
+  });
+  outputEl.appendChild(div);
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
 function printEcho(text){
   const div = document.createElement('div');
   div.className = 'line echo';
@@ -1552,6 +1581,7 @@ const COMMANDS = [
     extra: ['(drag the divider between them to resize)'] },
   { usage: 'title [on|off]', desc: 'show or hide the "MOMENTUM" title bar' },
   { usage: 'statline [on|off]', desc: 'show or hide the "N total · N completed · ..." summary line' },
+  { usage: 'show age [on|off]', desc: 'show or hide "[3d ago]" on the details line, based on when a task was added' },
   { usage: 'switch [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
     extra: ['(nightmode/daymode also work)'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
@@ -1560,8 +1590,7 @@ const COMMANDS = [
   { usage: 'reveal', desc: 'cheat: instantly finish revealing it' },
   { usage: 'hide', desc: 'cheat: re-mask it back to 0%' },
   { usage: 'block size [<tier>]', desc: 'show or set the image reveal block size',
-    extra: ['tiers: very small, small, medium, big, very big, full  (one block)',
-            'a part-uncovered image keeps what you uncovered — same region,',
+    extra: ['tiers: very small, small, medium, big, very big, full',
             'redrawn at the new block size  (image mode only)'] },
   { usage: 'block count [<1-20>|auto]', desc: 'blocks uncovered per completed task  (image mode only)' },
   { usage: 'close', desc: 'once complete: save it + start a new one' },
@@ -1912,21 +1941,38 @@ function printFramed(rows, summary){
   if(summary) widths.push(summary.length);
   const rule = '─'.repeat(Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths))));
   print(rule, 'info');
-  rows.forEach(r => print(r.text, r.cls));
+  rows.forEach(r => r.segments ? printSegments(r.segments) : print(r.text, r.cls));
   print(rule, 'info');
   if(summary) print(summary, 'info');
 }
 
-// the [priority] [project] [tag] [due] line that hangs under a task — returned
-// separately so callers can skip printing a second line when there's nothing in it.
+// the [priority] [project] [tag] [due] [age] tags that trail a task — returned
+// separately so callers can skip appending anything when there's nothing in it.
 function detailFields(t, extra){
   const fields = [];
   if(t.priority) fields.push(`[${t.priority}]`);
   if(t.project) fields.push(`[${t.project}]`);
   if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
   if(t.due) fields.push(`[due:${t.due}]`);
+  if(showAge && t.createdAt) fields.push(`[${taskAgeText(t.createdAt)}]`);
   (extra || []).forEach(f => fields.push(f));
   return fields;
+}
+
+// packs each row's tag fields onto the same line as its title instead of a row
+// underneath, right where the title ends. items: [{ left, fields, cls }] — cls,
+// if set, makes the whole row one color (e.g. overdue); otherwise the title
+// stays bright and the trailing fields render dim via a separate segment.
+function buildAlignedRows(items){
+  return items.map(({ left, fields, cls }) => {
+    const fieldsText = fields.join(' ');
+    if(!fieldsText) return { text: left, cls };
+    return {
+      text: `${left} ${fieldsText}`,
+      cls,
+      segments: cls ? null : [{ text: `${left} ` }, { text: fieldsText, cls: 'info' }]
+    };
+  });
 }
 
 // the id *is* the marker now — there's no checkbox, since everything still in the
@@ -1938,19 +1984,16 @@ function detailFields(t, extra){
 // the two arrays at a time).
 function buildTaskRows(list, archivedIds){
   const idWidth = Math.max(...list.map(t => String(t.id).length));
-  const indent = ' '.repeat(idWidth + 5);
-  const rows = [];
-  list.forEach(t=>{
+  const items = list.map(t=>{
     const archived = !!(archivedIds && archivedIds.has(t.id));
     const overdue = !archived && isOverdue(t);
-    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, cls: overdue ? 'err' : undefined });
     const extra = overdue ? ['[OVERDUE]'] : [];
     if(archived) extra.push('[archived]');
     const fields = detailFields(t, extra);
     if(!archived && t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
-    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: overdue ? 'err' : 'info' });
+    return { left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined };
   });
-  return rows;
+  return buildAlignedRows(items);
 }
 
 // meaningful order instead of pure insertion order: overdue first (they're the
@@ -2029,8 +2072,9 @@ function renderListPane(){
       `<div class="line info">no tasks yet — add one:  add "organize your desk"</div>`;
     return;
   }
-  const rows = buildTaskRows(sortForDisplay(tasks)).map(r =>
-    `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
+  const rows = buildTaskRows(sortForDisplay(tasks)).map(r => r.segments
+    ? `<div class="line">${r.segments.map(seg => seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')}</div>`
+    : `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
   ).join('');
   pane.innerHTML = `<div class="pane-head">TASKS <span>${escapeHtml(taskSummaryLine(tasks))}</span></div>` + rows;
 }
@@ -2046,14 +2090,11 @@ function cmd_archive(...tokens){
   if(list.length === 0){ print('the archive is empty.', 'info'); return; }
 
   const idWidth = Math.max(...list.map(t => String(t.id).length));
-  const indent = ' '.repeat(idWidth + 5);
-  const rows = [];
-  list.forEach(t=>{
-    rows.push({ text: `  [${String(t.id).padStart(idWidth)}] ${t.title}` });
-    const fields = detailFields(t, t.completedAt ? [`[completed:${new Date(t.completedAt).toLocaleDateString()}]`] : []);
-    if(fields.length) rows.push({ text: `${indent}${fields.join(' ')}`, cls: 'info' });
-  });
-  printFramed(rows, `  ${list.length} completed`);
+  const items = list.map(t => ({
+    left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`,
+    fields: detailFields(t, t.completedAt ? [`[completed:${new Date(t.completedAt).toLocaleDateString()}]`] : [])
+  }));
+  printFramed(buildAlignedRows(items), `  ${list.length} completed`);
 }
 
 function cmd_stats(){
@@ -2126,6 +2167,28 @@ function cmd_statline(arg){
     ? 'stat line on.'
     : 'stat line off — a bit more room for the terminal.', 'ok');
   saveState();
+}
+
+// "show age" toggles the [3d ago] detail field derived from createdAt (see
+// taskAgeText). namespaced under "show" rather than a bare "age" command since
+// it's about what a task's detail line displays, not the task itself.
+function cmd_show(tokens){
+  const [sub, arg] = tokens || [];
+  if(sub !== 'age'){ print('usage: show age on|off', 'err'); return; }
+  if(!arg){
+    print(`task age is ${showAge ? 'on' : 'off'}  (turn it on/off with: show age on | show age off)`, 'info');
+    return;
+  }
+  const want = arg.toLowerCase();
+  if(!['on','off'].includes(want)){ print('usage: show age on|off', 'err'); return; }
+  const on = want === 'on';
+  if(on === showAge){ print(`task age is already ${want}`, 'info'); return; }
+  showAge = on;
+  print(showAge
+    ? 'task age on — the details line now shows how long ago each task was created.'
+    : 'task age off.', 'ok');
+  saveState();
+  renderPanel();
 }
 
 function cmd_switch(arg){
@@ -2458,6 +2521,7 @@ function dispatch(cmd, rest){
     case 'split': cmd_split(rest[0]); break;
     case 'title': cmd_title(rest[0]); break;
     case 'statline': cmd_statline(rest[0]); break;
+    case 'show': cmd_show(rest); break;
     case 'switch': cmd_switch(rest[0]); break;
     case 'art': cmd_art(); break;
     case 'next': return cmd_next();
