@@ -1946,7 +1946,8 @@ const COMMANDS = [
             'it lives in this browser and is lost along with everything else',
             'if its site data ever gets cleared)'] },
   { usage: 'clear', desc: 'clear the terminal' },
-  { usage: 'help', desc: 'show this list' },
+  { usage: 'help [<group>|<command>|all]', desc: 'bare: the group menu. "help done" explains one command;',
+    extra: ['"help all" prints every command at once'] },
 ];
 
 // one-letter shortcuts for the commands typed most often. these are rewrites of
@@ -1963,25 +1964,61 @@ const SPELLINGS = { remove:'rm', delete:'rm', image:'art' };
 const ALIASES = { ...SHORTCUTS, ...SPELLINGS };
 function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 
+// the dispatchable command word a help row documents: the first token of its
+// usage, which is exactly what dispatch() switches on. "archive [-proj name]"
+// and "archive rm <ids>" are both the "archive" command; the three "tag" rows
+// and both "block" rows likewise collapse to one name each. derived rather than
+// declared on every row, so a row can't drift out of sync with the command it
+// documents.
+function commandNameOf(usage){ return usage.split(' ')[0]; }
+const COMMAND_NAMES = [...new Set(COMMANDS.map(c => commandNameOf(c.usage)))];
+
+// ---------- help groups ----------
+// the full command list is ~70 printed lines, which is a wall you have to read
+// end-to-end to find one thing. grouping lets bare "help" be a five-line menu
+// and pushes the detail behind "help <group>". membership is keyed by command
+// *name*, so every row of a multi-row command travels together automatically.
+const HELP_GROUPS = [
+  { name:'tasks',  desc:'add, edit, finish and find tasks',
+    members:['add','rename','start','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
+  { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
+    members:['gallery','mode','exclude','include','art','next','reveal','hide','block','close','download','display'] },
+  { name:'layout', desc:'panels, themes, and what shows on screen',
+    members:['view','split','mirror','title','statline','show','switch','fullscreen'] },
+  { name:'data',   desc:'backups, and restoring from them',
+    members:['export','import','recover'] },
+  { name:'other',  desc:'stats, streak, and the rest',
+    members:['stats','streak','clear','help'] },
+];
+// anything not explicitly placed lands in "other" rather than vanishing from
+// help entirely — a new command with no group is still findable.
+function commandsInGroup(groupName){
+  const group = HELP_GROUPS.find(g => g.name === groupName);
+  if(!group) return [];
+  const placed = new Set(HELP_GROUPS.flatMap(g => g.members));
+  return COMMANDS.filter(c => {
+    const name = commandNameOf(c.usage);
+    return group.members.includes(name) || (groupName === 'other' && !placed.has(name));
+  });
+}
+
 // usages longer than this get their description on the next line instead of
 // pushing every other description off to the right.
 const HELP_MAX_USAGE = 46;
 
 // each row remembers where its description text starts (in characters) via
-// `indent`, so printHelp() can give a row that's too wide for the terminal a
+// `indent`, so cmd_help() can give a row that's too wide for the terminal a
 // hanging indent when it soft-wraps — the overflow lines up under the
-// description, not back under "commands" at the left edge. indent 0 means
-// there's nothing to hang (plain prose or a blank line).
-function buildHelpRows(){
-  const fitting = COMMANDS.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
-  const col = Math.max(...fitting) + 2;
+// description, not back under the left edge. indent 0 means there's nothing to
+// hang (plain prose or a blank line). the usage column is measured from the
+// subset being printed, so a single group's block is as tight as it can be
+// rather than padded out to the widest usage in the whole app.
+function buildHelpRows(list){
+  const fitting = list.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
+  const col = (fitting.length ? Math.max(...fitting) : 0) + 2;
   const indent = col + 2;   // "  " + the usage column — where desc/extra text actually starts
-  const rows = [
-    { text: 'commands:', indent: 0 },
-    { text: '  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)', indent: 2 },
-    { text: '', indent: 0 },
-  ];
-  COMMANDS.forEach(c => {
+  const rows = [];
+  list.forEach(c => {
     if(c.usage.length > col - 2){
       rows.push({ text: '  ' + c.usage, indent: 0 });
       rows.push({ text: '  ' + ' '.repeat(col) + c.desc, indent });
@@ -1990,16 +2027,162 @@ function buildHelpRows(){
     }
     (c.extra || []).forEach(e => rows.push({ text: '  ' + ' '.repeat(col) + e, indent }));
   });
-  // printed from the same map dispatch uses, so the advertised shortcuts are
-  // exactly the ones that work.
-  rows.push({ text: '', indent: 0 });
-  rows.push({ text: '  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '), indent: 2 });
   return rows;
 }
-const HELP_ROWS = buildHelpRows();
+function printHelpRows(rows){
+  rows.forEach(r => r.indent ? printHanging(r.text, r.indent) : print(r.text));
+}
+// printed from the same map dispatch uses, so the advertised shortcuts are
+// exactly the ones that work.
+function printShortcutsRow(){
+  printHanging('  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '), 2);
+}
 
-function cmd_help(){
-  HELP_ROWS.forEach(r => r.indent ? printHanging(r.text, r.indent) : print(r.text));
+function cmd_help(arg){
+  const raw = (arg || '').toLowerCase();
+
+  // bare "help": a menu, not the manual.
+  if(!raw){
+    print('momentum — commands are grouped; open one with "help <group>".');
+    print('');
+    HELP_GROUPS.forEach(g => {
+      const n = commandsInGroup(g.name).length;
+      printHanging(`  help ${g.name.padEnd(8)}${g.desc}  (${n} line${n === 1 ? '' : 's'})`, 14);
+    });
+    printHanging('  help all     every command at once, the long way', 14);
+    print('');
+    print('  "help <command>" explains just that one, e.g. help done', 'info');
+    print('  Tab completes command names and their options; press it again to cycle.', 'info');
+    print('');
+    printShortcutsRow();
+    return;
+  }
+
+  if(raw === 'all'){
+    print('commands:');
+    printHanging('  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)', 2);
+    print('');
+    printHelpRows(buildHelpRows(COMMANDS));
+    print('');
+    printShortcutsRow();
+    return;
+  }
+
+  if(HELP_GROUPS.some(g => g.name === raw)){
+    const group = HELP_GROUPS.find(g => g.name === raw);
+    print(`${raw} — ${group.desc}:`);
+    print('');
+    printHelpRows(buildHelpRows(commandsInGroup(raw)));
+    return;
+  }
+
+  // a single command — aliases resolve first, so "help l" and "help d" explain
+  // the real command rather than reporting that the letter is unknown.
+  const name = resolveAlias(raw);
+  const rows = COMMANDS.filter(c => commandNameOf(c.usage) === name);
+  if(rows.length){
+    printHelpRows(buildHelpRows(rows));
+    const alias = Object.entries(ALIASES).filter(([k,v]) => v === name).map(([k]) => k);
+    if(alias.length) print(`  also: ${alias.join(', ')}`, 'info');
+    print(`  group: ${groupOfCommand(name)}  ("help ${groupOfCommand(name)}" for its neighbours)`, 'info');
+    return;
+  }
+
+  const guess = suggestCommand(raw);
+  print(`no help for "${raw}"${guess ? ` — did you mean "${guess}"?` : ''}`, 'err');
+  print(`  groups: ${HELP_GROUPS.map(g => g.name).join(', ')}, all`, 'info');
+}
+function groupOfCommand(name){
+  const g = HELP_GROUPS.find(g => g.members.includes(name));
+  return g ? g.name : 'other';
+}
+
+// ---------- did you mean ----------
+// plain Levenshtein over a two-row buffer — the candidate set is a few dozen
+// short words, so there's nothing to optimize past that.
+function editDistance(a, b){
+  if(a === b) return 0;
+  let prev = Array.from({length: b.length + 1}, (_, i) => i);
+  for(let i = 1; i <= a.length; i++){
+    const cur = [i];
+    for(let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(
+        prev[j] + 1,                                        // deletion
+        cur[j-1] + 1,                                       // insertion
+        prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1)             // substitution
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// single-letter shortcuts are excluded as candidates: every 1-char typo would
+// "match" one of them at distance 1, which is noise rather than a suggestion.
+// the tolerance scales with length so short words don't get wild guesses —
+// "lst" -> "list" is worth offering, "abc" -> "add" is not.
+const SUGGESTABLE = [...new Set([...COMMAND_NAMES, 'projects', ...Object.keys(SPELLINGS)])].filter(n => n.length > 1);
+function suggestCommand(cmd){
+  let best = null, bestDist = Infinity;
+  SUGGESTABLE.forEach(name => {
+    const d = editDistance(cmd, name);
+    if(d < bestDist){ bestDist = d; best = name; }
+  });
+  return bestDist <= (cmd.length <= 4 ? 1 : 2) ? best : null;
+}
+
+// ---------- tab completion ----------
+// what each command offers for the argument you're currently typing. the
+// function gets (position, earlier args) so a subcommand can steer what comes
+// next — "block size <Tab>" offers tiers, "block count <Tab>" offers auto.
+// values are the same literals the commands themselves parse, so anything
+// completed here is guaranteed to be accepted.
+const BLOCK_SIZE_NAMES = ['very small', 'small', 'medium', 'big', 'very big', 'full'];
+const ON_OFF = () => ['on', 'off'];
+const ARG_COMPLETIONS = {
+  switch:     () => THEMES,
+  mode:       () => ['ascii', 'image'],
+  view:       () => VIEW_MODES,
+  split:      ON_OFF,
+  mirror:     ON_OFF,
+  title:      ON_OFF,
+  statline:   ON_OFF,
+  fullscreen: ON_OFF,
+  show:       pos => pos === 0 ? ['age'] : ON_OFF(),
+  list:       () => ['all', 'pending', 'active'],
+  filter:     () => ['all', 'pending', 'active', 'off'],
+  done:       () => ['all'],
+  start:      () => ['all'],
+  rm:         () => ['all'],
+  restore:    () => ['all'],
+  archive:    pos => pos === 0 ? ['rm'] : ['all'],
+  gallery:    pos => pos === 0 ? ['list', 'show'] : [],
+  project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
+  recover:    pos => pos === 0 ? ['list'] : [],
+  tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
+  block:      (pos, prior) => pos === 0 ? ['size', 'count']
+                : prior[0] === 'size'  ? BLOCK_SIZE_NAMES
+                : prior[0] === 'count' ? ['auto']
+                : [],
+  help:       pos => pos === 0 ? [...HELP_GROUPS.map(g => g.name), 'all', ...COMMAND_NAMES] : [],
+};
+
+// splits on plain whitespace rather than reusing tokenize(): completion only
+// ever targets command names and short keyword arguments, never a quoted task
+// title, and a quote-aware split would make the "where does the token I'm
+// typing start" arithmetic below much harder for no gain.
+function computeCompletion(value){
+  const start = (value === '' || /\s$/.test(value)) ? value.length : value.lastIndexOf(' ') + 1;
+  const prefix = value.slice(start).toLowerCase();
+  const before = value.slice(0, start).trim();
+  const prior = before ? before.split(/\s+/) : [];
+  let pool;
+  if(prior.length === 0){
+    pool = COMMAND_NAMES;
+  } else {
+    const fn = ARG_COMPLETIONS[resolveAlias(prior[0].toLowerCase())];
+    pool = fn ? fn(prior.length - 1, prior.slice(1)) : [];
+  }
+  return { base: value.slice(0, start), candidates: pool.filter(c => c.toLowerCase().startsWith(prefix)) };
 }
 
 function parseFlags(tokens){
@@ -3240,7 +3423,7 @@ async function handleCommand(raw){
 
 function dispatch(cmd, rest){
   switch(cmd){
-    case 'help': cmd_help(); break;
+    case 'help': cmd_help(rest[0]); break;
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'rename': cmd_rename(rest[0], rest.slice(1).join(' ')); break;
     case 'start': cmd_start(rest[0]); break;
@@ -3284,13 +3467,52 @@ function dispatch(cmd, rest){
     case 'import': cmd_import(); break;
     case 'recover': cmd_recover(rest[0]); break;
     case 'clear': outputEl.innerHTML = ''; break;
-    default: print(`unknown command "${cmd}" — try "help"`, 'err');
+    default: {
+      const guess = suggestCommand(cmd);
+      print(`unknown command "${cmd}"${guess ? ` — did you mean "${guess}"?` : ''}`, 'err');
+      if(!guess) print('  try "help" for the command groups', 'info');
+      break;
+    }
   }
 }
 
 // ---------- input wiring ----------
 const cmdInput = document.getElementById('cmd');
+// tracks an in-progress Tab cycle: `applied` is the exact value this last wrote
+// into the box, and repeated Tabs only advance the cycle while the box still
+// holds it — type anything at all and the next Tab starts a fresh completion
+// against the new text instead of continuing a stale candidate list.
+let completionState = null;
+function applyCompletion(){
+  const { base, candidates, idx } = completionState;
+  completionState.applied = base + candidates[idx];
+  cmdInput.value = completionState.applied;
+}
+function handleTab(){
+  if(completionState && cmdInput.value === completionState.applied){
+    completionState.idx = (completionState.idx + 1) % completionState.candidates.length;
+    applyCompletion();
+    return;
+  }
+  const { base, candidates } = computeCompletion(cmdInput.value);
+  if(candidates.length === 0){ completionState = null; return; }
+  completionState = { base, candidates, idx: 0, applied: null };
+  applyCompletion();
+  // an unambiguous completion finishes the word and moves on: the trailing space
+  // means the very next Tab completes the *next* argument rather than re-offering
+  // the one just settled. dropping the state is what lets that happen.
+  if(candidates.length === 1){
+    cmdInput.value += ' ';
+    completionState = null;
+  }
+}
 cmdInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Tab'){
+    e.preventDefault();                                  // Tab would otherwise move focus out of the input
+    handleTab();
+    return;
+  }
+  completionState = null;                                // any other key invalidates the cycle
   if(e.key === 'Enter'){
     const val = cmdInput.value;
     if(val.trim() !== ''){
