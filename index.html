@@ -288,6 +288,12 @@
   #list-pane .line{ white-space:pre-wrap; }
   #list-pane .err{ color:var(--error); }
   #list-pane .info{ color:var(--text-dim); }
+  /* the list pane is the one surface in the app you look at without typing a
+     command first — clicking a row inserts its id into whatever you're typing,
+     and the [id] bracket pre-fills "done <id>" without running it. no hover
+     styling: the pointer cursor alone is the affordance, so the pane stays as
+     plain to look at as everywhere else in the app. */
+  #list-pane .line.row{ cursor:pointer; }
   .pane-head{
     display:flex;
     justify-content:space-between;
@@ -1859,6 +1865,16 @@ function splitIds(idsStr, source){
   if(!raw) return [];
   const list = source || tasks;
   if(raw.toLowerCase() === 'all') return list.map(t => String(t.id));
+  // the bound a range gets clamped to below — the highest id actually in play,
+  // not the task *count*. those used to be the same number when ids were
+  // recomputed from position on every render, but ids are now stable and only
+  // reused once genuinely freed (see nextFreeId), so deleting a task without
+  // adding a replacement leaves a gap: 7 tasks can easily carry ids up to 9.
+  // clamping to list.length instead of this would silently drop real, currently-
+  // listed ids off the top of a range — "rm 2-8" quietly becoming "rm 2-7" and
+  // leaving id 8 behind, which is a worse bug than the one this guard exists to
+  // prevent.
+  const maxId = list.length ? Math.max(...list.map(t => t.id)) : 0;
   const out = [];
   raw.split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
     const m = tok.match(/^(\d+)-(\d+)$/);
@@ -1868,9 +1884,8 @@ function splitIds(idsStr, source){
       // clamped before the loop runs, not filtered after — an unbounded "rm
       // 1-9999999" would otherwise build a multi-million-entry array (and hang
       // the tab) before findTask ever gets a chance to say most of those ids
-      // don't exist. bounded by the id space actually in play, same idea as
-      // parseNumberSelection's `max` for folder numbers.
-      b = Math.min(b, list.length);
+      // don't exist.
+      b = Math.min(b, maxId);
       for(let i = a; i <= b; i++) out.push(String(i));
     } else {
       out.push(tok);
@@ -1910,19 +1925,18 @@ const COMMANDS = [
   { usage: 'gallery', desc: 'list your collected artworks' },
   { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
-  { usage: 'exclude [<numbers>]', desc: 'list image_art folders, or drop folder(s) from the random pool by number' },
-  { usage: 'include [<numbers>]', desc: 'list image_art folders (marking which are excluded), or bring folder(s) back' },
+  { usage: 'folders [<numbers>]', desc: 'list the image_art folders, or flip one in/out of the random pool',
+    extra: ['(exclude <numbers> / include <numbers> force a direction instead)'] },
   { usage: 'view [art|tasks]', desc: 'which panel gets the right-hand column: the reward art, or your task list',
     extra: ['(the tasks view\'s column boundary is draggable too)'] },
   { usage: 'split [on|off]', desc: 'pin the *other* panel above the console — the task list in the art',
     extra: ['view, the reward art in the tasks view',
             '(drag the divider between them to resize)'] },
-  { usage: 'mirror [on|off]', desc: 'flip the two columns left-for-right  (no argument toggles)' },
-  { usage: 'title [on|off]', desc: 'show or hide the "MOMENTUM" title bar' },
-  { usage: 'statline [on|off]', desc: 'show or hide the "N total · N completed · ..." summary line' },
-  { usage: 'show age [on|off]', desc: 'show or hide "[3d ago]" on the details line, based on when a task was added' },
-  { usage: 'switch [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
-    extra: ['(nightmode/daymode also work)'] },
+  { usage: 'set [<key>] [on|off|toggle]', desc: 'the on/off display settings — keys: title, statline, mirror, age',
+    extra: ['bare "set" lists all four with their current state',
+            '(title/statline/mirror/"show age" still work as their own commands)'] },
+  { usage: 'theme [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
+    extra: ['(also: switch, and the classic nightmode/daymode)'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
     extra: ['(also: image — same command either way)'] },
   { usage: 'next', desc: 'skip to a new piece (no credit for it)' },
@@ -1960,9 +1974,17 @@ const SHORTCUTS = { a:'add', d:'done', l:'list', s:'split', g:'gallery', u:'undo
 // longer spellings of the same commands, kept working out of habit/compatibility.
 // they're not advertised as shortcuts; the command they resolve to says "also: ..."
 // in its own help line.
-const SPELLINGS = { remove:'rm', delete:'rm', image:'art' };
+const SPELLINGS = { remove:'rm', delete:'rm', image:'art', switch:'theme' };
 const ALIASES = { ...SHORTCUTS, ...SPELLINGS };
 function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
+
+// commands that still dispatch but no longer have a help row of their own,
+// because they were folded into a broader one. they can't be plain ALIASES —
+// "title on" has to become "set title on", which is an argument rewrite, not a
+// word swap, so dispatch handles the call and this only points help at the row
+// that now documents them. keeps "help title" useful instead of answering "no
+// help for that" about a command that demonstrably works.
+const HELP_ALIASES = { title:'set', statline:'set', mirror:'set', show:'set', age:'set', exclude:'folders', include:'folders' };
 
 // the dispatchable command word a help row documents: the first token of its
 // usage, which is exactly what dispatch() switches on. "archive [-proj name]"
@@ -1982,9 +2004,9 @@ const HELP_GROUPS = [
   { name:'tasks',  desc:'add, edit, finish and find tasks',
     members:['add','rename','start','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
   { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
-    members:['gallery','mode','exclude','include','art','next','reveal','hide','block','close','download','display'] },
+    members:['gallery','mode','folders','art','next','reveal','hide','block','close','download','display'] },
   { name:'layout', desc:'panels, themes, and what shows on screen',
-    members:['view','split','mirror','title','statline','show','switch','fullscreen'] },
+    members:['view','split','set','theme','fullscreen'] },
   { name:'data',   desc:'backups, and restoring from them',
     members:['export','import','recover'] },
   { name:'other',  desc:'stats, streak, and the rest',
@@ -2077,12 +2099,14 @@ function cmd_help(arg){
   }
 
   // a single command — aliases resolve first, so "help l" and "help d" explain
-  // the real command rather than reporting that the letter is unknown.
-  const name = resolveAlias(raw);
+  // the real command rather than reporting that the letter is unknown, and the
+  // folded-away commands ("help title") land on the row that now covers them.
+  const name = HELP_ALIASES[raw] || resolveAlias(raw);
   const rows = COMMANDS.filter(c => commandNameOf(c.usage) === name);
   if(rows.length){
     printHelpRows(buildHelpRows(rows));
-    const alias = Object.entries(ALIASES).filter(([k,v]) => v === name).map(([k]) => k);
+    const alias = [...Object.entries(ALIASES), ...Object.entries(HELP_ALIASES)]
+      .filter(([k,v]) => v === name).map(([k]) => k);
     if(alias.length) print(`  also: ${alias.join(', ')}`, 'info');
     print(`  group: ${groupOfCommand(name)}  ("help ${groupOfCommand(name)}" for its neighbours)`, 'info');
     return;
@@ -2120,7 +2144,7 @@ function editDistance(a, b){
 // "match" one of them at distance 1, which is noise rather than a suggestion.
 // the tolerance scales with length so short words don't get wild guesses —
 // "lst" -> "list" is worth offering, "abc" -> "add" is not.
-const SUGGESTABLE = [...new Set([...COMMAND_NAMES, 'projects', ...Object.keys(SPELLINGS)])].filter(n => n.length > 1);
+const SUGGESTABLE = [...new Set([...COMMAND_NAMES, 'projects', ...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES)])].filter(n => n.length > 1);
 function suggestCommand(cmd){
   let best = null, bestDist = Infinity;
   SUGGESTABLE.forEach(name => {
@@ -2137,16 +2161,22 @@ function suggestCommand(cmd){
 // values are the same literals the commands themselves parse, so anything
 // completed here is guaranteed to be accepted.
 const BLOCK_SIZE_NAMES = ['very small', 'small', 'medium', 'big', 'very big', 'full'];
+// the multi-letter spellings that still dispatch but no longer head a help row —
+// completable, but only once nothing canonical matches (see computeCompletion).
+const LEGACY_COMMAND_NAMES = [...new Set([...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES), 'projects'])];
 const ON_OFF = () => ['on', 'off'];
 const ARG_COMPLETIONS = {
-  switch:     () => THEMES,
+  theme:      () => THEMES,
+  set:        pos => pos === 0 ? Object.keys(SETTINGS) : SETTING_VALUES,
   mode:       () => ['ascii', 'image'],
   view:       () => VIEW_MODES,
   split:      ON_OFF,
+  fullscreen: ON_OFF,
+  // folded into "set", but still typed out of habit — completing them keeps the
+  // old spellings first-class rather than quietly second-rate.
   mirror:     ON_OFF,
   title:      ON_OFF,
   statline:   ON_OFF,
-  fullscreen: ON_OFF,
   show:       pos => pos === 0 ? ['age'] : ON_OFF(),
   list:       () => ['all', 'pending', 'active'],
   filter:     () => ['all', 'pending', 'active', 'off'],
@@ -2177,7 +2207,13 @@ function computeCompletion(value){
   const prior = before ? before.split(/\s+/) : [];
   let pool;
   if(prior.length === 0){
-    pool = COMMAND_NAMES;
+    // canonical names first, so Tab teaches the vocabulary the app actually
+    // documents. the still-working older spellings ("switch", "title", "exclude"
+    // …) are a fallback tier rather than part of that list: they only surface when
+    // nothing canonical matches, which keeps them typeable from muscle memory
+    // without padding out every ordinary completion with retired synonyms.
+    pool = COMMAND_NAMES.filter(c => c.toLowerCase().startsWith(prefix));
+    if(pool.length === 0) pool = LEGACY_COMMAND_NAMES;
   } else {
     const fn = ARG_COMPLETIONS[resolveAlias(prior[0].toLowerCase())];
     pool = fn ? fn(prior.length - 1, prior.slice(1)) : [];
@@ -2693,6 +2729,26 @@ function cmd_find(tokens){
   printFramed(buildTaskRows([...activeHits, ...archivedHits], archivedIds), summary);
 }
 
+// wraps one buildTaskRows() row for the clickable list pane. the [id] bracket
+// becomes its own span — click it and the list-pane click handler below
+// pre-fills "done <id>" into the command line without running it, so clicking a
+// task never finishes it on its own; click anywhere else on the row and the id
+// gets appended into whatever's being typed instead. the row always starts with
+// "  [<id>] " (see buildTaskRows), so slicing off through the first "]" reliably
+// isolates the bracket without needing buildTaskRows to hand back id/title as
+// separate fields — rows printed to the terminal (list/find/archive) go through
+// buildTaskRows too, so that shape has to stay a single string for those callers.
+function rowHtml(r, id){
+  const raw = r.segments ? r.segments[0].text : r.text;
+  const bracketEnd = raw.indexOf(']') + 1;
+  const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(raw.slice(0, bracketEnd))}</span>`;
+  const restHtml = r.segments
+    ? escapeHtml(raw.slice(bracketEnd)) + r.segments.slice(1).map(seg =>
+        seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')
+    : escapeHtml(raw.slice(bracketEnd));
+  return `<div class="line row${r.cls ? ' ' + r.cls : ''}" data-id="${id}">${idHtml}${restHtml}</div>`;
+}
+
 // the always-visible task list — the pane above the console in split view, and the
 // side column in "view tasks". narrowed by the standing "filter", which is why the
 // header carries a badge whenever one is set: a pane that's hiding tasks has to say
@@ -2718,10 +2774,8 @@ function renderListPane(){
       `<div class="line info">nothing matches this filter — "filter off" brings back all ${tasks.length}.</div>`;
     return;
   }
-  const rows = buildTaskRows(sortForDisplay(shown)).map(r => r.segments
-    ? `<div class="line">${r.segments.map(seg => seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')}</div>`
-    : `<div class="line${r.cls ? ' ' + r.cls : ''}">${escapeHtml(r.text)}</div>`
-  ).join('');
+  const sorted = sortForDisplay(shown);
+  const rows = buildTaskRows(sorted).map((r, i) => rowHtml(r, sorted[i].id)).join('');
   pane.innerHTML = head(taskSummaryLine(shown, tasks.length)) + rows;
 }
 
@@ -2935,36 +2989,58 @@ function printImageFolderList(){
   printFramed(rows, `  ${includedCount}/${folders.length} included  (exclude <numbers> | include <numbers>)`);
 }
 
-function cmd_include(tokens){
+// "folders <n>" is the one command: it flips whichever folders you name, since
+// what you actually want is nearly always "not this one" / "this one again" and
+// which direction that is, is something the app already knows. "exclude"/
+// "include" remain for when you want to state the direction outright (handy
+// across several folders at once, where some are already in the state you want)
+// — all three land here, so there's one implementation of the rule, one guard,
+// and one set of messages regardless of which word you typed.
+function resolveFolderArgs(tokens, verb){
   const folders = allImageFolders();
-  if(folders.length === 0){ print('no image folders found under image_art/.', 'info'); return; }
+  if(folders.length === 0){ print('no image folders found under image_art/.', 'info'); return null; }
   const raw = (tokens || []).join(' ').trim();
-  if(!raw){ printImageFolderList(); return; }
+  if(!raw){ printImageFolderList(); return null; }
   const nums = parseNumberSelection(raw, folders.length);
-  if(nums.length === 0){ print(`usage: include <numbers 1-${folders.length}>  (see "include" for the list)`, 'err'); return; }
-  const chosen = nums.map(n => folders[n - 1]);
-  const newlyIncluded = chosen.filter(f => excludedImageFolders.includes(f));
-  if(newlyIncluded.length === 0){ print('already included.', 'info'); return; }
-  excludedImageFolders = excludedImageFolders.filter(f => !chosen.includes(f));
-  print(`included: ${newlyIncluded.join(', ')}`, 'ok');
+  if(nums.length === 0){ print(`usage: ${verb} <numbers 1-${folders.length}>  (bare "${verb}" lists them)`, 'err'); return null; }
+  return { folders, chosen: Array.from(new Set(nums.map(n => folders[n - 1]))) };
+}
+// mode: 'toggle' flips each named folder, 'exclude'/'include' force a direction.
+function applyFolderChange(folders, chosen, mode){
+  const before = new Set(excludedImageFolders);
+  const next = new Set(excludedImageFolders);
+  chosen.forEach(f => {
+    if(mode === 'exclude') next.add(f);
+    else if(mode === 'include') next.delete(f);
+    else if(next.has(f)) next.delete(f); else next.add(f);
+  });
+  // the pool can't be emptied — pickNextEntry would have nothing to choose from,
+  // and its fallback (ignore the exclusions entirely) would make the setting a lie.
+  if(next.size >= folders.length){ print("can't exclude every folder — at least one has to stay included.", 'err'); return; }
+  const nowExcluded = folders.filter(f => next.has(f) && !before.has(f));
+  const nowIncluded = folders.filter(f => !next.has(f) && before.has(f));
+  if(!nowExcluded.length && !nowIncluded.length){
+    print(mode === 'include' ? 'already included.' : 'already excluded.', 'info');
+    return;
+  }
+  excludedImageFolders = folders.filter(f => next.has(f));   // rebuilt in listing order, so the numbers stay meaningful
+  if(nowExcluded.length) print(`excluded: ${nowExcluded.join(', ')}`, 'ok');
+  if(nowIncluded.length) print(`included: ${nowIncluded.join(', ')}`, 'ok');
+  const includedCount = folders.length - excludedImageFolders.length;
+  print(`  ${includedCount}/${folders.length} folder${folders.length === 1 ? '' : 's'} in the random pool now`, 'info');
   saveState();
 }
-
+function cmd_folders(tokens){
+  const args = resolveFolderArgs(tokens, 'folders');
+  if(args) applyFolderChange(args.folders, args.chosen, 'toggle');
+}
+function cmd_include(tokens){
+  const args = resolveFolderArgs(tokens, 'include');
+  if(args) applyFolderChange(args.folders, args.chosen, 'include');
+}
 function cmd_exclude(tokens){
-  const folders = allImageFolders();
-  if(folders.length === 0){ print('no image folders found under image_art/.', 'info'); return; }
-  const raw = (tokens || []).join(' ').trim();
-  if(!raw){ printImageFolderList(); return; }
-  const nums = parseNumberSelection(raw, folders.length);
-  if(nums.length === 0){ print(`usage: exclude <numbers 1-${folders.length}>  (see "exclude" for the list)`, 'err'); return; }
-  const chosen = nums.map(n => folders[n - 1]);
-  const stillIncluded = folders.filter(f => !excludedImageFolders.includes(f) && !chosen.includes(f));
-  if(stillIncluded.length === 0){ print("can't exclude every folder — at least one has to stay included.", 'err'); return; }
-  const newlyExcluded = chosen.filter(f => !excludedImageFolders.includes(f));
-  if(newlyExcluded.length === 0){ print('already excluded.', 'info'); return; }
-  excludedImageFolders = Array.from(new Set([...excludedImageFolders, ...chosen]));
-  print(`excluded: ${newlyExcluded.join(', ')}`, 'ok');
-  saveState();
+  const args = resolveFolderArgs(tokens, 'exclude');
+  if(args) applyFolderChange(args.folders, args.chosen, 'exclude');
 }
 
 // which panel gets the full-height column of its own. the other one is what
@@ -3021,86 +3097,98 @@ function cmd_split(arg){
   saveState();
 }
 
-// swaps which side of the window each column is on. deliberately independent of
-// "view": that decides *which* panel gets its own column, this only decides which
-// edge that column sits against, so the two compose instead of multiplying into
-// four named layouts. bare "mirror" toggles, like "fullscreen".
-function cmd_mirror(arg){
-  arg = (arg || '').toLowerCase();
-  if(arg && !['on','off'].includes(arg)){ print('usage: mirror [on|off]  (no argument toggles)', 'err'); return; }
-  const want = arg ? arg === 'on' : !mirrored;
-  if(want === mirrored){ print(`already ${mirrored ? 'mirrored' : 'unmirrored'}`, 'info'); return; }
-  mirrored = want;
-  applyView();
-  print(mirrored
-    ? `mirrored — ${sideName()} is on the left now, the console on the right.`
-    : `unmirrored — ${sideName()} is back on the right.`, 'ok');
-  saveState();
-}
+// ---------- the on/off display settings ----------
+// title, statline, mirror and age were four top-level commands that all said the
+// same thing ("show this or don't"), which made four things to remember instead
+// of one. they're one registry now, driven by "set <key> on|off", with bare "set"
+// printing the lot — so discovering that any of them exist means discovering all
+// of them. each entry owns the three things that actually differ between them:
+// where the flag lives, what has to be redrawn when it moves, and what to say.
+// the old four commands still work (see dispatch) — they delegate straight in
+// here rather than keeping a second copy of the logic.
+const SETTINGS = {
+  title: {
+    label: 'the "MOMENTUM" title bar',
+    get: () => titleOn,
+    apply: v => { titleOn = v; applyTitle(); },
+    said: v => v ? 'title bar on.' : 'title bar off — a bit more room for the terminal.',
+  },
+  statline: {
+    // distinct from "stats", which prints a one-off summary into the terminal log:
+    // this is the always-visible "N total · N completed · ..." line under the title.
+    label: 'the "N total · N completed · ..." line under the title',
+    get: () => statLineOn,
+    apply: v => { statLineOn = v; applyStatLine(); },
+    said: v => v ? 'stat line on.' : 'stat line off — a bit more room for the terminal.',
+  },
+  mirror: {
+    // deliberately independent of "view": that decides *which* panel gets its own
+    // column, this only decides which edge that column sits against, so the two
+    // compose instead of multiplying into four named layouts.
+    label: 'flip the two columns left-for-right',
+    get: () => mirrored,
+    apply: v => { mirrored = v; applyView(); },
+    said: v => v
+      ? `mirrored — ${sideName()} is on the left now, the console on the right.`
+      : `unmirrored — ${sideName()} is back on the right.`,
+  },
+  age: {
+    label: '"[3d ago]" on each task\'s details line',
+    get: () => showAge,
+    apply: v => { showAge = v; renderPanel(); },
+    said: v => v
+      ? 'task age on — the details line now shows how long ago each task was created.'
+      : 'task age off.',
+  },
+};
+const SETTING_VALUES = ['on', 'off', 'toggle'];
 
-function cmd_title(arg){
-  if(!arg){
-    print(`title bar is ${titleOn ? 'on' : 'off'}  (turn it on/off with: title on | title off)`, 'info');
+function cmd_set(key, value){
+  const keys = Object.keys(SETTINGS);
+
+  // bare "set" — the whole point of folding these together: one place that shows
+  // every display flag and its current state at once.
+  if(!key){
+    print('display settings  —  change one with:  set <key> on|off');
+    const w = Math.max(...keys.map(k => k.length));
+    keys.forEach(k => printHanging(`  ${k.padEnd(w)}  ${SETTINGS[k].get() ? 'on ' : 'off'}   ${SETTINGS[k].label}`, w + 9));
     return;
   }
-  arg = arg.toLowerCase();
-  if(!['on','off'].includes(arg)){ print('usage: title on|off', 'err'); return; }
-  const want = arg === 'on';
-  if(want === titleOn){ print(`title bar is already ${arg}`, 'info'); return; }
-  titleOn = want;
-  applyTitle();
-  print(titleOn
-    ? 'title bar on.'
-    : 'title bar off — a bit more room for the terminal.', 'ok');
-  saveState();
-}
 
-// separate from "stats" (which prints a one-off summary into the terminal log) —
-// this is the always-visible "N total · N completed · ..." line under the title,
-// a display preference in the same family as title/split.
-function cmd_statline(arg){
-  if(!arg){
-    print(`stat line is ${statLineOn ? 'on' : 'off'}  (turn it on/off with: statline on | statline off)`, 'info');
+  key = key.toLowerCase();
+  const setting = SETTINGS[key];
+  if(!setting){
+    // same did-you-mean treatment unknown commands get — a mistyped key is the
+    // same kind of mistake and deserves the same help.
+    let guess = null, best = Infinity;
+    keys.forEach(k => { const d = editDistance(key, k); if(d < best){ best = d; guess = k; } });
+    if(best > (key.length <= 4 ? 1 : 2)) guess = null;
+    print(`no display setting "${key}"${guess ? ` — did you mean "${guess}"?` : ''}`, 'err');
+    print(`  keys: ${keys.join(', ')}   ("set" alone shows them with their current state)`, 'info');
     return;
   }
-  arg = arg.toLowerCase();
-  if(!['on','off'].includes(arg)){ print('usage: statline on|off', 'err'); return; }
-  const want = arg === 'on';
-  if(want === statLineOn){ print(`stat line is already ${arg}`, 'info'); return; }
-  statLineOn = want;
-  applyStatLine();
-  print(statLineOn
-    ? 'stat line on.'
-    : 'stat line off — a bit more room for the terminal.', 'ok');
-  saveState();
-}
 
-// "show age" toggles the [3d ago] detail field derived from createdAt (see
-// taskAgeText). namespaced under "show" rather than a bare "age" command since
-// it's about what a task's detail line displays, not the task itself.
-function cmd_show(tokens){
-  const [sub, arg] = tokens || [];
-  if(sub !== 'age'){ print('usage: show age on|off', 'err'); return; }
-  if(!arg){
-    print(`task age is ${showAge ? 'on' : 'off'}  (turn it on/off with: show age on | show age off)`, 'info');
+  const current = setting.get();
+  if(!value){
+    print(`${key} is ${current ? 'on' : 'off'}  —  ${setting.label}  (change with: set ${key} ${current ? 'off' : 'on'})`, 'info');
     return;
   }
-  const want = arg.toLowerCase();
-  if(!['on','off'].includes(want)){ print('usage: show age on|off', 'err'); return; }
-  const on = want === 'on';
-  if(on === showAge){ print(`task age is already ${want}`, 'info'); return; }
-  showAge = on;
-  print(showAge
-    ? 'task age on — the details line now shows how long ago each task was created.'
-    : 'task age off.', 'ok');
+  const v = value.toLowerCase();
+  if(!SETTING_VALUES.includes(v)){ print(`usage: set ${key} <${SETTING_VALUES.join('|')}>`, 'err'); return; }
+  const want = v === 'toggle' ? !current : v === 'on';
+  if(want === current){ print(`${key} is already ${current ? 'on' : 'off'}`, 'info'); return; }
+  setting.apply(want);
+  print(setting.said(want), 'ok');
   saveState();
-  renderPanel();
 }
 
-function cmd_switch(arg){
-  if(!arg){ print(`current theme: ${theme}  (switch with: switch <${THEMES.join('|')}>, or the classic switch nightmode|daymode)`, 'info'); return; }
+// renamed from "switch": every other setting command in the app is named after
+// the thing it changes, and "switch" was named after the act of changing. the old
+// word still works (see SPELLINGS), as do the classic nightmode/daymode.
+function cmd_theme(arg){
+  if(!arg){ print(`current theme: ${theme}  (change with: theme <${THEMES.join('|')}>, or the classic theme nightmode|daymode)`, 'info'); return; }
   const target = THEME_ALIASES[arg.toLowerCase()] || arg.toLowerCase();
-  if(!THEMES.includes(target)){ print(`usage: switch <${THEMES.join('|')}>`, 'err'); return; }
+  if(!THEMES.includes(target)){ print(`usage: theme <${THEMES.join('|')}>`, 'err'); return; }
   if(target === theme){ print(`already in ${target} mode`, 'info'); return; }
   theme = target;
   applyTheme();
@@ -3442,15 +3530,24 @@ function dispatch(cmd, rest){
     case 'find': cmd_find(rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
+    case 'folders': cmd_folders(rest); break;
     case 'include': cmd_include(rest); break;
     case 'exclude': cmd_exclude(rest); break;
     case 'view': cmd_view(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
-    case 'mirror': cmd_mirror(rest[0]); break;
-    case 'title': cmd_title(rest[0]); break;
-    case 'statline': cmd_statline(rest[0]); break;
-    case 'show': cmd_show(rest); break;
-    case 'switch': cmd_switch(rest[0]); break;
+    case 'set': cmd_set(rest[0], rest[1]); break;
+    case 'theme': cmd_theme(rest[0]); break;
+    // the four display toggles "set" absorbed. they rewrite into it rather than
+    // having their own implementations, so there's one code path per setting —
+    // the same rule the SHORTCUTS map follows. bare "mirror" keeps toggling, which
+    // is what it always did and what "set mirror toggle" now spells explicitly.
+    case 'title': cmd_set('title', rest[0]); break;
+    case 'statline': cmd_set('statline', rest[0]); break;
+    case 'mirror': cmd_set('mirror', rest[0] || 'toggle'); break;
+    case 'show':
+      if((rest[0] || '').toLowerCase() !== 'age'){ print('usage: show age on|off   (or: set age on|off)', 'err'); break; }
+      cmd_set('age', rest[1]);
+      break;
     case 'art': cmd_art(); break;
     case 'next': return cmd_next();
     case 'reveal': return cmd_reveal();
@@ -3478,6 +3575,17 @@ function dispatch(cmd, rest){
 
 // ---------- input wiring ----------
 const cmdInput = document.getElementById('cmd');
+// echoes + runs a line exactly as if it had been typed and Enter pressed —
+// shared by the real Enter handler and the list pane's [id]-bracket click
+// shortcut (see below), so a click-triggered "done 3" leaves the same echo and
+// history entry a typed one would, rather than a second, silent code path.
+function runCommandLine(val){
+  if(val.trim() === '') return;
+  printEcho(val);
+  history.push(val);
+  histIdx = history.length;
+  handleCommand(val).catch(err => print(`something went wrong: ${err.message}`, 'err'));
+}
 // tracks an in-progress Tab cycle: `applied` is the exact value this last wrote
 // into the box, and repeated Tabs only advance the cycle while the box still
 // holds it — type anything at all and the next Tab starts a fresh completion
@@ -3514,13 +3622,7 @@ cmdInput.addEventListener('keydown', (e)=>{
   }
   completionState = null;                                // any other key invalidates the cycle
   if(e.key === 'Enter'){
-    const val = cmdInput.value;
-    if(val.trim() !== ''){
-      printEcho(val);
-      history.push(val);
-      histIdx = history.length;
-      handleCommand(val).catch(err => print(`something went wrong: ${err.message}`, 'err'));
-    }
+    runCommandLine(cmdInput.value);
     cmdInput.value = '';
   } else if(e.key === 'ArrowUp'){
     if(histIdx > 0){ histIdx--; cmdInput.value = history[histIdx]; }
@@ -3535,6 +3637,43 @@ cmdInput.addEventListener('keydown', (e)=>{
 // selection the moment the mouse comes up — isCollapsed is false only when text
 // is actually selected, so that's the one case this backs off.
 document.body.addEventListener('click', ()=> { if(window.getSelection().isCollapsed) cmdInput.focus(); });
+
+// ---------- clicking a row in the list pane ----------
+// inserts at the caret rather than always appending to the end, so clicking a row
+// while you're editing mid-command lands the id where you're actually typing.
+// continues an id list rather than starting a new argument whenever the caret
+// sits right after a digit — that's what turns "done " + click + click into
+// "done 3,7" instead of "done 3 7" (which splitIds doesn't accept) or "done 37".
+function insertIdAtCaret(id){
+  const val = cmdInput.value;
+  const pos = cmdInput.selectionStart != null ? cmdInput.selectionStart : val.length;
+  const before = val.slice(0, pos), after = val.slice(pos);
+  let insert = String(id);
+  if(/\d$/.test(before)) insert = ',' + insert;
+  else if(before && !/\s$/.test(before)) insert = ' ' + insert;
+  cmdInput.value = before + insert + after;
+  cmdInput.focus();
+  cmdInput.setSelectionRange(pos + insert.length, pos + insert.length);
+}
+document.getElementById('list-pane').addEventListener('click', (e) => {
+  // a drag-select ending on a row is copying a title, not clicking it — same
+  // guard the terminal's own click-to-refocus handler uses just above.
+  if(!window.getSelection().isCollapsed) return;
+  const row = e.target.closest('.line[data-id]');
+  if(!row) return;
+  const id = row.getAttribute('data-id');
+  if(e.target.closest('.row-id')){
+    // pre-fills the command, doesn't run it — clicking a task is not the same
+    // as deciding it's done. replaces the input outright rather than inserting,
+    // since "done <id>" is a complete, ready-to-edit command on its own, not
+    // something to build up the way plain row clicks accumulate ids.
+    cmdInput.value = `done ${id}`;
+    cmdInput.focus();
+    cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
+  } else {
+    insertIdAtCaret(id);
+  }
+});
 
 // ---------- resize dividers ----------
 // both positions are kept as a percentage rather than pixels, so they hold their

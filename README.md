@@ -52,7 +52,7 @@ python3 -m http.server 8000
 
 Both work identically for day-to-day use. The difference only matters when you're **adding your own art** — see [Adding your own art](#adding-your-own-art) below.
 
-Type `help` at any time to see every command without leaving the app.
+Type `help` at any time. It opens a short menu of command groups — `help tasks`, `help art`, `help layout`, `help data` — rather than one long wall; `help <command>` explains a single one (`help done`), and `help all` prints everything at once. `Tab` completes command names and their options.
 
 ---
 
@@ -112,7 +112,7 @@ done 2                         # finish it — watch the art panel
 art                            # how far along is this piece?
 display                        # blow it up fullscreen (esc/enter/space/click to exit)
 
-switch nord                    # try a different theme
+theme nord                     # try a different theme
 mode image                     # switch from ASCII art to photographs
 help                           # everything else
 ```
@@ -181,6 +181,7 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | `gallery` | List everything you've collected |
 | `gallery show <name>` | Reprint a collected artwork in full |
 | `mode ascii\|image` | Switch reveal tracks |
+| `folders [<numbers>]` | List the `image_art/` folders, or flip one in/out of the random pool |
 | `block size <tier>` | Image granularity: `very small`, `small`, `medium`, `big`, `very big`, `full` |
 | `block count <1-20>` | How many blocks one completed task uncovers |
 
@@ -190,13 +191,24 @@ Anything that would affect more than three tasks at once asks for confirmation f
 
 | Command | What it does |
 |---|---|
-| `switch <theme>` | `amber`, `night`, `day`, `solar`, `nord` |
-| `split on\|off` | Pin the task list above the terminal (on by default — drag the divider to resize) |
-| `title on\|off` | Show/hide the MOMENTUM banner |
-| `statline on\|off` | Show/hide the summary line under it |
+| `theme <name>` | `amber`, `night`, `day`, `solar`, `nord` (also: `switch`) |
+| `view art\|tasks` | Which panel gets the right-hand column |
+| `split on\|off` | Pin the other panel above the terminal (on by default — drag the divider to resize) |
+| `set [<key>] [on\|off]` | The on/off display settings — bare `set` lists them all |
 | `display` | Blow up the current piece as large as the screen allows |
 | `fullscreen [on\|off]` | Real browser fullscreen, F11-style |
 | `clear` | Clear the terminal |
+
+`set` covers four switches that used to be four separate commands — bare `set` shows all of them and their current state:
+
+| Key | Controls |
+|---|---|
+| `title` | The MOMENTUM banner |
+| `statline` | The `N total · N completed · ...` line under it |
+| `mirror` | Flips the two columns left-for-right |
+| `age` | The `[3d ago]` field on each task's details line |
+
+> The old spellings still work — `title off`, `statline on`, `mirror`, `show age off` — they just route into `set` rather than being their own implementations. `set <key> toggle` flips one without naming a direction.
 
 ### Backups
 
@@ -212,8 +224,11 @@ Anything that would affect more than three tasks at once asks for confirmation f
 
 | Key | Does |
 |---|---|
+| `Tab` | Complete the command name, or the option you're typing — press again to cycle |
 | `↑` / `↓` | Walk back through your command history |
 | `Esc` / `Enter` / `Space` / click | Exit the `display` overlay |
+
+`Tab` knows what each command accepts, so `theme ⇥` cycles the five themes, `set ⇥` the four display keys, `block size ⇥` the six tiers, and `split ⇥` just `on`/`off`. An unambiguous completion adds a trailing space so the next `Tab` starts on the next argument.
 
 Single-letter shortcuts for the commands you'll type most:
 
@@ -235,7 +250,7 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
      visual appeal — a list of five colour names sells them far worse than seeing them. -->
 
 
-**The layout is yours to set.** Turn off the title bar and the stat line, drag the split divider to give the task list more or less room, or turn split view off entirely for a full-height terminal. Every one of these preferences is saved with your tasks and comes back next time.
+**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
 ---
 
