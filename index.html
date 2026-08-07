@@ -422,7 +422,7 @@
 <body>
 
 <header>
-  <div class="title"><span>MOMENTUM</span> — yet another task manager</div>
+  <div class="title"><span>MOMENTUM</span></div>
   <div class="stats" id="stats">loading...</div>
 </header>
 
@@ -1125,7 +1125,7 @@ function applyStateSnapshot(data){
   projects = data.projects || [];
   displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'day');   // data.nightMode: pre-multi-theme saves
-  splitOn = !!data.splitOn;
+  splitOn = data.splitOn === undefined ? true : !!data.splitOn;   // undefined: a save from before split defaulted on
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
@@ -1621,18 +1621,22 @@ function cmd_fullscreen(arg){
   );
 }
 
-// ids aren't a stored identity — they're recomputed from position every time the
-// lists change, so the tasklist always reads 1..N and the archive picks up right
-// where it left off (N+1...). every mutation already ends in renderPanel() (see
-// below), so that's the one place this needs to run: add/done/rm/undo/import all
-// self-heal through here without needing their own reindex call.
-function reindexIds(){
-  tasks.forEach((t, i) => { t.id = i + 1; });
-  archive.forEach((t, i) => { t.id = tasks.length + i + 1; });
+// ids are assigned once, at creation, and never reused while the task is still
+// live — pending, active, or archived. that's what makes an id a safe thing to
+// remember between commands: complete #3, and #5 is still #5, not whatever
+// slides into that slot next render. a new task gets the smallest integer
+// nothing in either list is currently using, rather than an ever-climbing
+// counter, so the numbers stay small and typeable over the long run — deleting
+// a task (or "archive rm"-ing one) frees its id back into the pool instead of
+// the id space only ever growing.
+function nextFreeId(){
+  const used = new Set([...tasks, ...archive].map(t => t.id));
+  let id = 1;
+  while(used.has(id)) id++;
+  return id;
 }
 
 function renderPanel(){
-  reindexIds();
   // every task mutation already ends in renderPanel(), so hanging the split-view
   // pane's refresh off it is what keeps the always-visible list actually current.
   if(listPaneVisible()) renderListPane();
@@ -1740,13 +1744,20 @@ function findTask(idStr){
   const id = parseInt(idStr, 10);
   return tasks.find(t => t.id === id);
 }
+// archive's counterpart — used by "restore" and "archive rm", which act on ids
+// that have already left `tasks`.
+function findArchived(idStr){
+  const id = parseInt(idStr, 10);
+  return archive.find(t => t.id === id);
+}
 
 // splits "3,5,6" -> ["3","5","6"], expands ranges like "1-4" -> ["1","2","3","4"],
-// and "all" expands to every currently-listed (non-archived) task id.
-function splitIds(idsStr){
+// and "all" expands to every id in `source` (tasks by default; pass `archive` for
+// restore/archive-rm, where "all" has to mean every archived task instead).
+function splitIds(idsStr, source){
   const raw = (idsStr || '').trim();
   if(!raw) return [];
-  if(raw.toLowerCase() === 'all') return tasks.map(t => String(t.id));
+  if(raw.toLowerCase() === 'all') return (source || tasks).map(t => String(t.id));
   const out = [];
   raw.split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
     const m = tok.match(/^(\d+)-(\d+)$/);
@@ -1786,6 +1797,8 @@ const COMMANDS = [
   { usage: 'filter [<same arguments as list>|off]', desc: 'narrow the always-visible task pane and keep it that way',
     extra: ['bare "filter" says what\'s applied; "filter off" clears it'] },
   { usage: 'archive [-proj name] [-t tag]', desc: 'show completed/archived tasks' },
+  { usage: 'archive rm <id[,id...]|1-4|all>', desc: 'permanently delete archived task(s) — no coming back from this one' },
+  { usage: 'restore <id[,id...]|1-4|all>', desc: 'move archived task(s) back to your list' },
   { usage: 'find <text>', desc: 'search titles + tags, pending/active and archive together' },
   { usage: 'gallery', desc: 'list your collected artworks' },
   { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
@@ -1920,7 +1933,7 @@ function cmd_add(args){
       print(`note: created new project "${project}"`, 'info');
     }
   }
-  const t = { id: tasks.length + 1, title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
+  const t = { id: nextFreeId(), title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
   tasks.push(t);
   const priTxt = priority ? ` [${priority}]` : '';
   const dueTxt = due ? ` due ${due}` : '';
@@ -2204,19 +2217,21 @@ function describeFilter(f){
   return parts.join(' · ');
 }
 
-// list/archive all print the same shape: a rule, the rows, a rule, then a
-// dim one-line summary. the rule is sized to the widest row rather than fixed, so
-// it hugs the content instead of overrunning (and wrapping in) a narrow terminal
-// pane. rules and summary are dim on purpose — the task titles are the only thing
-// at full brightness, so they're what your eye lands on first.
+// list/archive all print the same shape: a dashed rule, the rows, then (for most
+// callers) a dim one-line summary. the rule is sized to the widest row rather
+// than fixed, so it hugs the content instead of overrunning (and wrapping in) a
+// narrow terminal pane. closingRule prints a second copy of that same rule right
+// after the rows — "list" wants one there since it dropped its summary line and
+// would otherwise end on a bare row with nothing marking the close.
 const FRAME_MIN = 30, FRAME_MAX = 66;
-function printFramed(rows, summary){
+function printFramed(rows, summary, closingRule){
   const widths = rows.map(r => r.text.length);
   if(summary) widths.push(summary.length);
-  const rule = '─'.repeat(Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths))));
+  const width = Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths)));
+  const rule = '- '.repeat(Math.ceil(width / 2)).trimEnd();
   print(rule, 'info');
   rows.forEach(r => r.segments ? printSegments(r.segments) : print(r.text, r.cls));
-  print(rule, 'info');
+  if(closingRule) print(rule, 'info');
   if(summary) print(summary, 'info');
 }
 
@@ -2311,7 +2326,7 @@ function cmd_list(tokens){
   if(bad){ print(bad.text, bad.cls); return; }
   const list = filterTasks(tasks, spec);
   if(list.length === 0){ print('nothing here.', 'info'); return; }
-  printFramed(buildTaskRows(sortForDisplay(list)), `  ${taskSummaryLine(list, tasks.length)}`);
+  printFramed(buildTaskRows(sortForDisplay(list)), null, true);
   if(!isFilterActive(spec) && isFilterActive(paneFilter)){
     print(`(this is everything — the pane above is filtered to ${describeFilter(paneFilter)}. "filter off" clears it.)`, 'info');
   }
@@ -2416,6 +2431,8 @@ function renderListPane(){
 }
 
 function cmd_archive(...tokens){
+  const first = (tokens[0] || '').toLowerCase();
+  if(['rm','remove','delete'].includes(first)) return cmd_archiveRm(tokens[1]);
   const { proj, tag } = parseListArgs(tokens || []);
   let list = archive;
   if(proj){ list = list.filter(t => t.project === proj); }
@@ -2430,7 +2447,53 @@ function cmd_archive(...tokens){
     left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`,
     fields: detailFields(t, t.completedAt ? [`[completed:${new Date(t.completedAt).toLocaleDateString()}]`] : [])
   }));
-  printFramed(buildAlignedRows(items), `  ${list.length} completed`);
+  printFramed(buildAlignedRows(items), `  ${list.length} completed`, true);
+}
+
+// the inverse of "done" — pulls an archived task back into the active list.
+// status resets to pending rather than trying to recall whatever it was
+// (pending/active) before completion, since that isn't tracked once a task is done.
+function cmd_restore(idsStr){
+  const ids = splitIds(idsStr, archive);
+  if(ids.length === 0){ print('restore needs an archived task id, e.g. restore 3 or restore 3,5,6', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findArchived(idStr);
+    if(!t){ print(`no archived task #${idStr}`, 'err'); return; }
+    archive = archive.filter(x => x.id !== t.id);
+    t.status = 'pending';
+    delete t.completedAt;
+    tasks.push(t);
+    print(`#${t.id} "${t.title}" restored to your task list.`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderPanel(); }
+}
+
+// permanently deletes from the archive. unlike "rm" on a pending task, there's no
+// "restore" to come back from here — the automatic in-browser backups/export still
+// have it, but nothing inside the app can bring it back once this runs, hence the
+// confirmation past the usual threshold.
+function cmd_archiveRm(idsStr){
+  const ids = splitIds(idsStr, archive);
+  if(ids.length === 0){ print('archive rm needs an id, e.g. archive rm 3 or archive rm 3,5,6', 'err'); return; }
+  const targets = ids.map(findArchived).filter(Boolean);
+  if(targets.length > CONFIRM_THRESHOLD){
+    askConfirm(`permanently delete ${targets.length} archived tasks? "restore" can't bring these back once this runs.`, `archive rm ${idsStr}`, () => performArchiveRm(ids));
+    return;
+  }
+  performArchiveRm(ids);
+}
+function performArchiveRm(ids){
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findArchived(idStr);
+    if(!t){ print(`no archived task #${idStr}`, 'err'); return; }
+    archive = archive.filter(x => x.id !== t.id);
+    print(`permanently deleted #${t.id} "${t.title}" from the archive`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderPanel(); }
 }
 
 function cmd_stats(){
@@ -3017,22 +3080,31 @@ function cmd_gallery(sub, ...rest){
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
 // listed by canonical name only — aliases are resolved away before this is consulted.
-const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','recover','close','next','reveal','hide','block']);
+const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','recover','close','next','reveal','hide','block','archive','restore']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
 
-  // a pending confirmation owns the next line you type — it's an answer, not a
-  // command. the undo snapshot is taken here rather than when the question was
-  // asked, since that's the moment anything actually changes.
+  // a pending confirmation owns the next line you type, but only if that line
+  // actually looks like an answer to it. the undo snapshot is taken here rather
+  // than when the question was asked, since that's the moment anything actually
+  // changes.
   if(pendingConfirm){
     const { label, run } = pendingConfirm;
     pendingConfirm = null;
-    if(!/^(y|yes)$/i.test(trimmed)){ print('cancelled — nothing changed.', 'info'); return; }
-    const before = JSON.stringify(buildStateSnapshot());
-    await run();
-    pushUndo(label, before);
-    return;
+    if(/^(y|yes)$/i.test(trimmed)){
+      const before = JSON.stringify(buildStateSnapshot());
+      await run();
+      pushUndo(label, before);
+      return;
+    }
+    print('cancelled — nothing changed.', 'info');
+    if(trimmed === '' || /^(n|no)$/i.test(trimmed)) return;
+    // anything else typed here wasn't an answer at all — it's the next thing you
+    // meant to do (type "rm all", get distracted, type "add buy milk"). running it
+    // instead of discarding it is what stops that add from silently vanishing into
+    // the "cancelled" line above.
+    return handleCommand(raw);
   }
 
   const tokens = tokenize(trimmed);
@@ -3066,6 +3138,7 @@ function dispatch(cmd, rest){
     case 'list': cmd_list(rest); break;
     case 'filter': cmd_filter(rest); break;
     case 'archive': cmd_archive(...rest); break;
+    case 'restore': cmd_restore(rest[0]); break;
     case 'find': cmd_find(rest); break;
     case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
     case 'mode': cmd_mode(rest[0]); break;
@@ -3119,7 +3192,10 @@ cmdInput.addEventListener('keydown', (e)=>{
     e.preventDefault();
   }
 });
-document.body.addEventListener('click', ()=> cmdInput.focus());
+// a plain click should refocus the input, but a drag-select shouldn't lose its
+// selection the moment the mouse comes up — isCollapsed is false only when text
+// is actually selected, so that's the one case this backs off.
+document.body.addEventListener('click', ()=> { if(window.getSelection().isCollapsed) cmdInput.focus(); });
 
 // ---------- resize dividers ----------
 // both positions are kept as a percentage rather than pixels, so they hold their
