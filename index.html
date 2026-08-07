@@ -1650,7 +1650,17 @@ function fitImageFrame(container, art){
 // its natural size and transforming to fit. exits on escape/enter/space or a click.
 const FULLSCREEN_EXIT_KEYS = ['Escape', 'Enter', ' '];
 let fullscreenEl = null, fullscreenResizeHandler = null;
+// set only while fullscreen is showing a piece from the collected gallery (see
+// openGalleryFullscreen) — null for the ordinary "display" of the live piece,
+// which has no "next piece" to browse to. that's what left/right arrow only
+// doing something in the gallery case, not during a plain "display".
+let fullscreenGalleryIdx = null;
 function handleFullscreenKey(e){
+  if(fullscreenGalleryIdx !== null && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')){
+    e.preventDefault();
+    stepFullscreenGallery(e.key === 'ArrowRight' ? 1 : -1);
+    return;
+  }
   if(FULLSCREEN_EXIT_KEYS.includes(e.key)){
     e.preventDefault();                                  // space would otherwise scroll the page behind the overlay
     closeFullscreen();
@@ -1660,6 +1670,7 @@ function closeFullscreen(){
   if(!fullscreenEl) return;
   fullscreenEl.remove();
   fullscreenEl = null;
+  fullscreenGalleryIdx = null;
   if(fullscreenResizeHandler){ window.removeEventListener('resize', fullscreenResizeHandler); fullscreenResizeHandler = null; }
   document.removeEventListener('keydown', handleFullscreenKey);
   cmdInput.focus();
@@ -1742,6 +1753,62 @@ function cmd_display(){
   if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
   if(displayMode === 'image') openImageFullscreen(track.current, track.progress);
   else openAsciiFullscreen(track.current, track.progress);
+}
+
+// ---------- fullscreen from the gallery ----------
+// "gallery display <n>" (or left/right from an already-open one — see
+// handleFullscreenKey) — a collected piece is complete, so unlike the live
+// "display" this never needs a reveal-tile grid or progress object; it's just
+// the finished art, as large as the screen allows. keeps galleryDetailIdx (and
+// therefore the in-panel view underneath) in sync as you browse, so whatever
+// you land on in fullscreen is still showing once you exit.
+function openGalleryFullscreen(idx){
+  const all = collectedGalleryList();
+  if(all.length === 0) return;
+  idx = ((idx % all.length) + all.length) % all.length;   // wraps both directions, so arrowing past either end loops rather than dead-ending
+  const item = all[idx];
+  const entry = galleryManifestEntry(item);
+  if(!entry){
+    print(`the source file for "${item.name}" is missing — it can't be shown fullscreen.`, 'err');
+    return;
+  }
+  if(item.type === 'image'){
+    const grid = entry.grid && entry.grid.cols ? entry.grid : { cols: 6, rows: 4 };
+    const art = { cols: grid.cols, rows: grid.rows, file: entry.file, name: item.name };
+    mountFullscreen(`<div class="image-frame"><img class="image-base" src="image_art/${entry.file}" alt="${escapeHtml(item.name)}"></div>`);
+    const frame = fullscreenEl.querySelector('.image-frame');
+    const img = fullscreenEl.querySelector('.image-base');
+    // mirrors openImageFullscreen's own onerror: close first so the message
+    // lands on a terminal that's actually visible, not hidden behind the overlay.
+    // no handleImageLoadError here — that's specific to skipping the *live*
+    // track forward, which doesn't apply to browsing a static collection.
+    img.onerror = () => {
+      closeFullscreen();
+      print(`image_art/${entry.file} is missing or unreadable.`, 'err');
+    };
+    fullscreenGalleryIdx = idx;
+    galleryOpen = true; galleryDetailIdx = idx; renderPanel();
+    wireFullscreen(fitFrameToAvail(frame, img, art, () => ({ w: window.innerWidth, h: window.innerHeight })));
+  } else {
+    // ascii has to load before there's anything to mount — unlike the image
+    // branch, this doesn't open (or disturb whatever's already open) until the
+    // text is actually in hand, so a broken file during a left/right browse
+    // leaves you exactly where you were rather than closing on a failed step.
+    loadArtworkFile(entry).then(art => {
+      const full = { order: Array.from({length: art.cellIndices.length}, (_,i)=>i), revealedCount: art.cellIndices.length };
+      fullscreenGalleryIdx = idx;
+      galleryOpen = true; galleryDetailIdx = idx; renderPanel();
+      openAsciiFullscreen(art, full);
+    }).catch(() => {
+      print(`could not load "${item.name}".`, 'err');
+    });
+  }
+}
+function stepFullscreenGallery(delta){
+  if(fullscreenGalleryIdx === null) return;
+  const all = collectedGalleryList();
+  if(all.length <= 1) return;   // nothing to step to
+  openGalleryFullscreen(fullscreenGalleryIdx + delta);
 }
 
 // ---------- real browser fullscreen ----------
@@ -3634,13 +3701,25 @@ async function cmd_download(){
   }
 }
 
+// resolves "gallery show"/"gallery display"'s argument the same way — a number
+// first (matching what's actually on screen), a name as the fallback. returns
+// -1 rather than null on no match, so callers can test it without a second
+// null-check.
+function resolveGalleryArg(arg, all){
+  if(/^\d+$/.test(arg)){
+    const n = parseInt(arg, 10);
+    if(n >= 1 && n <= all.length) return n - 1;
+  }
+  return all.findIndex(c => c.name.toLowerCase() === arg.toLowerCase());
+}
+
 // the collection lives in the reveal panel now (see renderGalleryGrid/Detail),
 // not the terminal log — a numbered dump you then had to re-type the exact
 // humanizeName'd name back into "show" was never actually usable off its own
-// output. "gallery show" still takes a number OR a name (number first, since
-// that's what's actually on screen once the grid's up); name lookup stays as
-// the fallback for anyone who'd rather type "gallery show li moly 2091" from
-// memory than look at the panel first.
+// output. "gallery show"/"gallery display" both take a number OR a name (number
+// first, since that's what's actually on screen once the grid's up); name
+// lookup stays as the fallback for anyone who'd rather type "gallery show li
+// moly 2091" from memory than look at the panel first.
 function cmd_gallery(sub, ...rest){
   sub = (sub || 'list').toLowerCase();
   if(sub === 'list'){
@@ -3666,12 +3745,7 @@ function cmd_gallery(sub, ...rest){
     if(!arg){ print('usage: gallery show <n|name>', 'err'); return; }
     const all = collectedGalleryList();
     if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
-    let idx = -1;
-    if(/^\d+$/.test(arg)){
-      const n = parseInt(arg, 10);
-      if(n >= 1 && n <= all.length) idx = n - 1;
-    }
-    if(idx === -1) idx = all.findIndex(c => c.name.toLowerCase() === arg.toLowerCase());
+    const idx = resolveGalleryArg(arg, all);
     if(idx === -1){ print(`"${arg}" isn't in your collection yet — "gallery" lists what you've got, by number.`, 'err'); return; }
     galleryOpen = true;
     galleryDetailIdx = idx;
@@ -3679,7 +3753,22 @@ function cmd_gallery(sub, ...rest){
     if(!revealPaneVisible()) print('  (the panel is hidden right now — "split on" or "view art" shows it)', 'info');
     return;
   }
-  print('usage: gallery [list|show <n|name>|close]', 'err');
+  if(sub === 'display'){
+    const all = collectedGalleryList();
+    if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+    const arg = rest.join(' ').trim();
+    let idx;
+    if(!arg){
+      if(galleryDetailIdx == null){ print('usage: gallery display <n|name>  (or open one first — "gallery show <n>")', 'err'); return; }
+      idx = galleryDetailIdx;
+    } else {
+      idx = resolveGalleryArg(arg, all);
+      if(idx === -1){ print(`"${arg}" isn't in your collection yet — "gallery" lists what you've got, by number.`, 'err'); return; }
+    }
+    openGalleryFullscreen(idx);
+    return;
+  }
+  print('usage: gallery [list|show <n|name>|display [<n|name>]|close]', 'err');
 }
 
 // commands that can change saved state. each one gets a snapshot taken before it
