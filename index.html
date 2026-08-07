@@ -174,17 +174,63 @@
     line-height:1.5;
   }
   .empty-panel.err{ color:var(--error); }
-  .gallery-pre{
-    margin:4px 0 10px;
-    color:var(--amber);
-    font-size:12px;
-    line-height:1.1;
-    white-space:pre;
+  /* the collected-art contact sheet — replaces what used to be a numbered text
+     dump into the terminal log. lives in the reveal panel itself (see
+     renderGalleryGrid/renderGalleryDetail), the same surface the live reveal
+     uses, since it's showing the same kind of thing: art, earned by tasks. */
+  /* fixed-width columns, not minmax(96px, 1fr): with a 1fr maximum the columns
+     share every spare pixel, so widening the panel grows all the thumbnails
+     continuously until there's room for one more column — at which point they
+     all snap back to the 96px minimum and start over. dragging the divider
+     across a few of those thresholds makes the whole sheet pulse bigger/smaller.
+     a fixed track means the tiles are always exactly one size and only their
+     *number* responds to the width, which is what a contact sheet should do.
+     the trade is some dead space at the right edge between thresholds — much
+     cheaper than art that changes size while you look at it. */
+  .gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, 96px);
+    justify-content:start;
+    gap:14px;
+    align-content:start;
   }
-  .gallery-img{
-    display:block;
-    max-width:100%;
-    margin:4px 0 10px;
+  .gallery-tile{ cursor:pointer; display:flex; flex-direction:column; gap:4px; }
+  .gallery-thumb{
+    aspect-ratio:1;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:3px;
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .gallery-tile:hover .gallery-thumb{ border-color:var(--amber); }
+  .gallery-thumb-img{ width:100%; height:100%; object-fit:cover; display:block; }
+  /* positioned absolute + top-left transform-origin so fitThumbToBox's scale()
+     shrinks it toward the corner it's measured from, not the tile's center —
+     matching the same reasoning openAsciiFullscreen uses for the full-size view. */
+  .gallery-thumb-ascii{
+    margin:0;
+    font-family:inherit;
+    color:var(--amber);
+    white-space:pre;
+    line-height:1.15;
+    position:absolute;
+    top:0; left:0;
+  }
+  .gallery-missing{ color:var(--text-dim); font-size:22px; }
+  .gallery-cap{
+    font-size:11px;
+    color:var(--text-dim);
+    line-height:1.3;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    line-clamp:2;
+    -webkit-box-orient:vertical;
   }
   .image-frame{
     position:relative;
@@ -461,6 +507,16 @@ const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original 
 let theme = 'day';
 let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
 let brokenImageStreak = 0;                                // consecutive images that failed to load, auto-skipping — see handleImageLoadError
+// the reveal panel shows either the live in-progress piece or the collected
+// gallery — never both, same panel either way. galleryOpen picks which;
+// galleryDetailIdx, only meaningful while it's true, picks the contact-sheet
+// grid (null) or one piece shown full-size (its index into collectedGalleryList()).
+// deliberately session-only, not saved with the rest of state — "you left the
+// gallery open" isn't a preference worth restoring on reload, unlike splitOn/
+// viewMode, and a stale galleryDetailIdx surviving a reload into a collection
+// that's since changed shape is a bug waiting to happen for no real benefit.
+let galleryOpen = false;
+let galleryDetailIdx = null;
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "show age"
@@ -1734,6 +1790,137 @@ function nextFreeId(){
   return id;
 }
 
+// ---------- collected-art gallery (contact sheet) ----------
+// switches the reveal panel back to the live in-progress piece, out of gallery
+// view. called by anything that changes, or specifically wants to show, the
+// live reveal — so that action is what you actually see next, rather than a
+// gallery grid that's now stale relative to what you just did.
+function showLiveReveal(){
+  galleryOpen = false;
+  galleryDetailIdx = null;
+}
+// the one list "gallery"/"gallery show <n>" both work from — sorted the same
+// way every time (oldest collected first), so a number this prints keeps
+// meaning the same piece across separate commands as long as nothing new gets
+// collected in between. matches how "recover <n>"/"exclude <n>" already treat
+// their own numbered lists: recomputed fresh, never cached.
+function collectedGalleryList(){
+  return [
+    ...asciiTrack.collected.map(c => ({ ...c, type:'ascii' })),
+    ...imageTrack.collected.map(c => ({ ...c, type:'image' })),
+  ].sort((a,b) => a.collectedAt - b.collectedAt);
+}
+// a collected item only remembers {id, name, collectedAt} — this resolves the
+// full manifest entry (file path, grid, …) needed to actually redraw it. can
+// come back empty if the source file was ever removed from the manifest after
+// being collected; callers show a "missing" placeholder rather than crash.
+function galleryManifestEntry(item){
+  const track = item.type === 'image' ? imageTrack : asciiTrack;
+  const field = item.type === 'image' ? 'images' : 'artworks';
+  return track.manifest && track.manifest[field] && track.manifest[field].find(e => e.id === item.id);
+}
+// scales el (measured at its natural size) down to fit inside box, anchored at
+// the top-left corner — same technique openAsciiFullscreen uses to blow ascii
+// art up to fill a screen, run in reverse to shrink it into a thumbnail instead.
+function fitThumbToBox(el, box){
+  el.style.transform = 'none';
+  const rect = el.getBoundingClientRect(), boxRect = box.getBoundingClientRect();
+  if(!rect.width || !rect.height || !boxRect.width || !boxRect.height) return;
+  const scale = Math.min(boxRect.width / rect.width, boxRect.height / rect.height);
+  el.style.transform = `scale(${scale})`;
+  el.style.transformOrigin = 'top left';
+}
+function renderGalleryPanel(g){
+  const all = collectedGalleryList();
+  if(imageResizeObserver){ imageResizeObserver.disconnect(); imageResizeObserver = null; }
+  if(all.length === 0){
+    // the collection emptied out from under an open gallery view — only reachable
+    // via undo/import/recover rewinding past everything you'd collected, but that's
+    // exactly the kind of rewind this app makes easy, so it has to degrade cleanly
+    // rather than render a detail view pointing at a piece that no longer exists.
+    showLiveReveal();
+    g.innerHTML = '<div class="empty-panel">no artworks collected yet — keep completing tasks!</div>';
+    return;
+  }
+  if(galleryDetailIdx != null && all[galleryDetailIdx]) renderGalleryDetail(g, all, galleryDetailIdx);
+  else renderGalleryGrid(g, all);
+}
+function renderGalleryGrid(g, all){
+  const tiles = all.map((c, i) => {
+    const entry = galleryManifestEntry(c);
+    const thumb = !entry
+      ? `<div class="gallery-missing">?</div>`
+      : c.type === 'image'
+        ? `<img class="gallery-thumb-img" src="image_art/${entry.file}" alt="${escapeHtml(c.name)}">`
+        : `<pre class="gallery-thumb-ascii" data-idx="${i}"></pre>`;   // text filled in async below
+    return `<div class="gallery-tile" data-idx="${i}" title="${escapeHtml(c.name)}">` +
+      `<div class="gallery-thumb">${thumb}</div>` +
+      `<div class="gallery-cap">${i + 1}. ${escapeHtml(c.name)}</div>` +
+    `</div>`;
+  }).join('');
+  g.innerHTML =
+    `<div class="artwork-title">your collection <span class="artwork-progress">${all.length} piece${all.length === 1 ? '' : 's'} · click one, or "gallery show &lt;n&gt;"</span></div>` +
+    `<div class="gallery-grid">${tiles}</div>`;
+  // ascii thumbnails need their real text loaded before there's anything to scale
+  // to fit — images just hand the browser a URL and it takes care of itself.
+  // fitting once, here, is enough: the grid's tracks are a fixed width (see the
+  // stylesheet), so a thumb box is the same 96px square no matter how wide the
+  // panel gets, and a scale computed against it stays correct. no ResizeObserver
+  // for this view, unlike the live/single-piece ones — those size their frame
+  // *from* the available space and genuinely have to recompute; re-measuring a
+  // box that can't change would just be a forced layout per thumbnail per frame
+  // for the whole length of a divider drag.
+  all.forEach((c, i) => {
+    if(c.type !== 'ascii') return;
+    const entry = galleryManifestEntry(c);
+    if(!entry) return;
+    loadArtworkFile(entry).then(art => {
+      const pre = g.querySelector(`.gallery-thumb-ascii[data-idx="${i}"]`);
+      if(!pre) return;   // the panel moved on (re-rendered, or left gallery view) before this resolved
+      pre.textContent = art.rows.join('\n');
+      fitThumbToBox(pre, pre.parentElement);
+    }).catch(() => { /* a missing/unreadable file just leaves the placeholder blank */ });
+  });
+}
+function renderGalleryDetail(g, all, idx){
+  const c = all[idx];
+  const entry = galleryManifestEntry(c);
+  const header = `<div class="artwork-title">${escapeHtml(c.name)} <span class="artwork-progress">${idx + 1}/${all.length} · collected ${new Date(c.collectedAt).toLocaleDateString()} · click the piece, or "gallery close", to go back</span></div>`;
+  if(!entry){
+    g.innerHTML = header + `<div class="empty-panel err">the source file for "${escapeHtml(c.name)}" is missing — it can't be redrawn, but it's still in your collection.</div>`;
+    return;
+  }
+  if(c.type === 'image'){
+    g.innerHTML = header + `<div class="image-stage"><div class="image-frame"><img class="image-base" src="image_art/${entry.file}" alt="${escapeHtml(c.name)}"></div></div>`;
+    const stage = g.querySelector('.image-stage'), frame = g.querySelector('.image-frame'), img = g.querySelector('.image-base');
+    if(!stage || !frame || !img) return;   // same defensive guard fitImageFrame uses — the query should never actually miss right after the innerHTML that created it
+    const grid = entry.grid && entry.grid.cols ? entry.grid : { cols: 6, rows: 4 };
+    img.onerror = () => {
+      g.innerHTML = header + `<div class="empty-panel err">image_art/${escapeHtml(entry.file)} is missing or unreadable.</div>`;
+    };
+    const layout = fitFrameToAvail(frame, img, { cols: grid.cols, rows: grid.rows, file: entry.file }, () => {
+      const cs = getComputedStyle(stage);
+      return { w: stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+               h: stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) };
+    });
+    imageResizeObserver = new ResizeObserver(layout);
+    imageResizeObserver.observe(stage);
+  } else {
+    g.innerHTML = header + '<div class="empty-panel">loading...</div>';
+    loadArtworkFile(entry).then(art => {
+      // still on the same detail piece? renderPanel() may have moved on (another
+      // command, or leaving gallery view) by the time this resolves.
+      if(!galleryOpen || galleryDetailIdx !== idx) return;
+      // fully revealed, not driven by any track's live progress — a collected
+      // piece is done, so every cell counts as shown regardless of order.
+      const full = { order: Array.from({length: art.cellIndices.length}, (_,i)=>i), revealedCount: art.cellIndices.length };
+      g.innerHTML = header + buildArtworkScene(art, full);
+    }).catch(() => {
+      g.innerHTML = header + `<div class="empty-panel err">could not load "${escapeHtml(c.name)}".</div>`;
+    });
+  }
+}
+
 function renderPanel(){
   // every task mutation already ends in renderPanel(), so hanging the split-view
   // pane's refresh off it is what keeps the always-visible list actually current.
@@ -1748,6 +1935,11 @@ function renderPanel(){
     return;
   }
   const g = document.getElementById('reveal-panel');
+  if(galleryOpen){
+    renderGalleryPanel(g);
+    updateStats();
+    return;
+  }
   const track = activeTrack();
   if(!track.current){
     g.innerHTML = collectionLoadError
@@ -1940,8 +2132,10 @@ const COMMANDS = [
   { usage: 'archive rm <id[,id...]|1-4|all>', desc: 'permanently delete archived task(s) — no coming back from this one' },
   { usage: 'restore <id[,id...]|1-4|all>', desc: 'move archived task(s) back to your list' },
   { usage: 'find <text>', desc: 'search titles + tags, pending/active and archive together' },
-  { usage: 'gallery', desc: 'list your collected artworks' },
-  { usage: 'gallery show <name>', desc: 'reprint a collected artwork in full' },
+  { usage: 'gallery', desc: 'your collection, as a contact sheet in the side panel' },
+  { usage: 'gallery show <n|name>', desc: 'open one piece full-size — or just click its tile',
+    extra: ['(the number is whatever "gallery" is showing on screen)'] },
+  { usage: 'gallery close', desc: 'back to the live reveal' },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'folders [<numbers>]', desc: 'list the image_art folders, or flip one in/out of the random pool',
     extra: ['(exclude <numbers> / include <numbers> force a direction instead)'] },
@@ -2203,7 +2397,7 @@ const ARG_COMPLETIONS = {
   rm:         () => ['all'],
   restore:    () => ['all'],
   archive:    pos => pos === 0 ? ['rm'] : ['all'],
-  gallery:    pos => pos === 0 ? ['list', 'show'] : [],
+  gallery:    pos => pos === 0 ? ['list', 'show', 'close'] : [],
   project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
   recover:    pos => pos === 0 ? ['list'] : [],
   tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
@@ -2964,6 +3158,7 @@ function cmd_mode(arg){
   if(!['ascii','image'].includes(arg)){ print('usage: mode ascii|image', 'err'); return; }
   if(arg === displayMode){ print(`already in ${arg} mode`, 'info'); return; }
   displayMode = arg;
+  showLiveReveal();   // switching tracks means switching what the panel shows live
   print(`switched to ${arg} mode`, 'ok');
   saveState(); renderPanel();
 }
@@ -3262,6 +3457,7 @@ async function cmd_next(){
   if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
   const was = track.current.name;
   await track.startNew();
+  showLiveReveal();   // you're skipping to a new piece — that's the thing to show
   print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
   const spent = await track.applyBanked(art => printCompletionPrompt(art));
   if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
@@ -3272,6 +3468,7 @@ async function cmd_reveal(){
   if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
   const total = track.totalCells();
   if(track.pending){ print(`"${track.current.name}" is already fully revealed — type "close" or "download"`, 'err'); return; }
+  showLiveReveal();
   await track.reveal(total - track.progress.revealedCount, art => {
     print('(cheat)', 'info');
     printCompletionPrompt(art);
@@ -3283,6 +3480,7 @@ function cmd_hide(){
   if(!track.current){ print(`the ${displayMode} collection is still loading...`, 'info'); return; }
   track.progress.revealedCount = 0;
   track.pending = false;
+  showLiveReveal();
   print(`"${track.current.name}" hidden again — back to 0%`, 'ok');
   saveState(); renderPanel();
 }
@@ -3357,6 +3555,7 @@ async function applyBlockSize(pref, art, track){
   const oldOrder = materializeOrder(track.progress, beforeTotal);
   art.cols = to.cols; art.rows = to.rows;
   Object.assign(track.progress, remapReveal(oldOrder, beforeCount, from, to, track.pending));
+  showLiveReveal();   // the whole point of resizing the grid is to look at the result
   saveState(); renderPanel();
 
   const afterTotal = to.cols * to.rows;
@@ -3391,6 +3590,7 @@ function cmd_blockCount(arg){
   }
 
   blockCountOverride = next;
+  showLiveReveal();
   saveState(); renderPanel();
   print(next ? `block count set: ${next} block${next === 1 ? '' : 's'} per completed task` : "block count back to each image's own pace", 'ok');
   describe();
@@ -3400,6 +3600,7 @@ async function cmd_close(){
   const track = activeTrack();
   if(!track.pending){ print('nothing to close right now', 'err'); return; }
   const finished = await track.closePending();
+  showLiveReveal();   // the new piece just started is the thing to look at now
   print(`closed "${finished.name}" — added to your collection. now revealing "${track.current.name}".`, 'ok');
   const spent = await track.applyBanked(art => printCompletionPrompt(art));
   if(spent) print(`...and spent ${spent} banked completion${spent === 1 ? '' : 's'} on it right away.`, 'ok');
@@ -3433,52 +3634,52 @@ async function cmd_download(){
   }
 }
 
+// the collection lives in the reveal panel now (see renderGalleryGrid/Detail),
+// not the terminal log — a numbered dump you then had to re-type the exact
+// humanizeName'd name back into "show" was never actually usable off its own
+// output. "gallery show" still takes a number OR a name (number first, since
+// that's what's actually on screen once the grid's up); name lookup stays as
+// the fallback for anyone who'd rather type "gallery show li moly 2091" from
+// memory than look at the panel first.
 function cmd_gallery(sub, ...rest){
   sub = (sub || 'list').toLowerCase();
   if(sub === 'list'){
-    const all = [
-      ...asciiTrack.collected.map(c => ({ ...c, type:'ascii' })),
-      ...imageTrack.collected.map(c => ({ ...c, type:'image' })),
-    ].sort((a,b) => a.collectedAt - b.collectedAt);
+    const all = collectedGalleryList();
     if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
-    all.forEach((c, i) => print(`${i+1}. [${c.type}] ${c.name}  (collected ${new Date(c.collectedAt).toLocaleDateString()})`));
+    galleryOpen = true;
+    galleryDetailIdx = null;
+    renderPanel();
+    print(`${all.length} piece${all.length === 1 ? '' : 's'} collected — showing your collection in the panel.`, 'ok');
+    print('  click a tile for a closer look, or "gallery show <n>"  —  "gallery close" returns to the live reveal.', 'info');
+    if(!revealPaneVisible()) print('  (the panel is hidden right now — "split on" or "view art" shows it)', 'info');
+    return;
+  }
+  if(sub === 'close'){
+    if(!galleryOpen){ print('the gallery view isn\'t open.', 'info'); return; }
+    showLiveReveal();
+    renderPanel();
+    print('back to the live reveal.', 'ok');
     return;
   }
   if(sub === 'show'){
-    const name = rest.join(' ');
-    if(!name){ print('usage: gallery show <name>', 'err'); return; }
-    const inAscii = asciiTrack.collected.some(c => c.name.toLowerCase() === name.toLowerCase());
-    const inImage = imageTrack.collected.some(c => c.name.toLowerCase() === name.toLowerCase());
-    if(!inAscii && !inImage){ print(`"${name}" isn't in your collection yet`, 'err'); return; }
-    if(inAscii){
-      const entry = asciiTrack.manifest && asciiTrack.manifest.artworks.find(a => a.name.toLowerCase() === name.toLowerCase());
-      if(!entry){ print(`no artwork data found for "${name}"`, 'err'); return; }
-      loadArtworkFile(entry).then(art => {
-        print(`— ${art.name} —`);
-        const pre = document.createElement('pre');
-        pre.className = 'gallery-pre';
-        pre.textContent = art.rows.join('\n');
-        const stick = isNearOutputBottom();
-        outputEl.appendChild(pre);
-        if(stick) outputEl.scrollTop = outputEl.scrollHeight;
-        trimOutput();
-      });
-    } else {
-      const entry = imageTrack.manifest && imageTrack.manifest.images.find(a => a.name.toLowerCase() === name.toLowerCase());
-      if(!entry){ print(`no image data found for "${name}"`, 'err'); return; }
-      print(`— ${entry.name} —`);
-      const img = document.createElement('img');
-      img.className = 'gallery-img';
-      img.src = 'image_art/' + entry.file;
-      img.alt = entry.name;
-      const stick = isNearOutputBottom();
-      outputEl.appendChild(img);
-      if(stick) outputEl.scrollTop = outputEl.scrollHeight;
-      trimOutput();
+    const arg = rest.join(' ').trim();
+    if(!arg){ print('usage: gallery show <n|name>', 'err'); return; }
+    const all = collectedGalleryList();
+    if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+    let idx = -1;
+    if(/^\d+$/.test(arg)){
+      const n = parseInt(arg, 10);
+      if(n >= 1 && n <= all.length) idx = n - 1;
     }
+    if(idx === -1) idx = all.findIndex(c => c.name.toLowerCase() === arg.toLowerCase());
+    if(idx === -1){ print(`"${arg}" isn't in your collection yet — "gallery" lists what you've got, by number.`, 'err'); return; }
+    galleryOpen = true;
+    galleryDetailIdx = idx;
+    renderPanel();
+    if(!revealPaneVisible()) print('  (the panel is hidden right now — "split on" or "view art" shows it)', 'info');
     return;
   }
-  print('usage: gallery [list|show <name>]', 'err');
+  print('usage: gallery [list|show <n|name>|close]', 'err');
 }
 
 // commands that can change saved state. each one gets a snapshot taken before it
@@ -3725,6 +3926,21 @@ document.getElementById('list-pane').addEventListener('click', (e) => {
   } else {
     insertIdAtCaret(id);
   }
+});
+
+// ---------- clicking a tile in the gallery contact sheet ----------
+// a tile drills into that piece's detail view; clicking the detail view (there's
+// nothing else in it to click) goes back to the grid — same "click in, click out"
+// pattern as the list pane's row clicks just above.
+document.getElementById('reveal-panel').addEventListener('click', (e) => {
+  if(!galleryOpen) return;
+  const tile = e.target.closest('.gallery-tile');
+  if(tile){
+    const idx = parseInt(tile.getAttribute('data-idx'), 10);
+    if(Number.isFinite(idx)){ galleryDetailIdx = idx; renderPanel(); }
+    return;
+  }
+  if(galleryDetailIdx != null){ galleryDetailIdx = null; renderPanel(); }
 });
 
 // ---------- resize dividers ----------

@@ -178,8 +178,9 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | `hide` | Cheat: re-mask it back to 0% |
 | `close` | Once complete — file it in the gallery, start a new one |
 | `download` | Once complete — save the real file to your computer |
-| `gallery` | List everything you've collected |
-| `gallery show <name>` | Reprint a collected artwork in full |
+| `gallery` | Your collection, as a contact sheet in the side panel |
+| `gallery show <n\|name>` | Open one piece full-size — or just click its tile |
+| `gallery close` | Back to the live reveal |
 | `mode ascii\|image` | Switch reveal tracks |
 | `folders [<numbers>]` | List the `image_art/` folders, or flip one in/out of the random pool |
 | `block size <tier>` | Image granularity: `very small`, `small`, `medium`, `big`, `very big`, `full` |
