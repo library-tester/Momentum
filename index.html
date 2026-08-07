@@ -1769,12 +1769,22 @@ const OUTPUT_MAX_LINES = 2000;
 function trimOutput(){
   while(outputEl.childElementCount > OUTPUT_MAX_LINES) outputEl.removeChild(outputEl.firstChild);
 }
+// force-scrolling to the bottom on every print is right most of the time — but not
+// when you've scrolled up to read backlog, where it yanks you back down before
+// you've finished. checked *before* the append (appendChild changes scrollHeight
+// out from under a check taken after), and only re-pins the view if you were
+// already within a hair of the bottom — standard terminal behavior.
+const AUTOSCROLL_THRESHOLD_PX = 50;
+function isNearOutputBottom(){
+  return outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight < AUTOSCROLL_THRESHOLD_PX;
+}
 function print(text, cls){
   const div = document.createElement('div');
   div.className = 'line' + (cls ? ' '+cls : '');
   div.textContent = text;
+  const stick = isNearOutputBottom();
   outputEl.appendChild(div);
-  outputEl.scrollTop = outputEl.scrollHeight;
+  if(stick) outputEl.scrollTop = outputEl.scrollHeight;
   trimOutput();
 }
 // like print(), but for a single line built from differently-styled runs (e.g.
@@ -1788,8 +1798,9 @@ function printSegments(segments){
     span.textContent = seg.text;
     div.appendChild(span);
   });
+  const stick = isNearOutputBottom();
   outputEl.appendChild(div);
-  outputEl.scrollTop = outputEl.scrollHeight;
+  if(stick) outputEl.scrollTop = outputEl.scrollHeight;
   trimOutput();
 }
 // like print(), but for a line whose column-aligned text (leading spaces baked
@@ -1806,16 +1817,18 @@ function printHanging(text, indentCh){
   div.style.paddingLeft = indentCh + 'ch';
   div.style.textIndent = '-' + indentCh + 'ch';
   div.textContent = text;
+  const stick = isNearOutputBottom();
   outputEl.appendChild(div);
-  outputEl.scrollTop = outputEl.scrollHeight;
+  if(stick) outputEl.scrollTop = outputEl.scrollHeight;
   trimOutput();
 }
 function printEcho(text){
   const div = document.createElement('div');
   div.className = 'line echo';
   div.textContent = text;
+  const stick = isNearOutputBottom();
   outputEl.appendChild(div);
-  outputEl.scrollTop = outputEl.scrollHeight;
+  if(stick) outputEl.scrollTop = outputEl.scrollHeight;
   trimOutput();
 }
 
@@ -3156,8 +3169,9 @@ function cmd_gallery(sub, ...rest){
         const pre = document.createElement('pre');
         pre.className = 'gallery-pre';
         pre.textContent = art.rows.join('\n');
+        const stick = isNearOutputBottom();
         outputEl.appendChild(pre);
-        outputEl.scrollTop = outputEl.scrollHeight;
+        if(stick) outputEl.scrollTop = outputEl.scrollHeight;
         trimOutput();
       });
     } else {
@@ -3168,8 +3182,9 @@ function cmd_gallery(sub, ...rest){
       img.className = 'gallery-img';
       img.src = 'image_art/' + entry.file;
       img.alt = entry.name;
+      const stick = isNearOutputBottom();
       outputEl.appendChild(img);
-      outputEl.scrollTop = outputEl.scrollHeight;
+      if(stick) outputEl.scrollTop = outputEl.scrollHeight;
       trimOutput();
     }
     return;
