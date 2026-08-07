@@ -613,6 +613,44 @@ function shuffledIndices(n){
   }
   return arr;
 }
+// small, fast, deterministic PRNG (mulberry32) — doesn't need to be cryptographic,
+// it exists purely so a reveal order can be reproduced from one saved integer
+// instead of the whole shuffled array (see materializeOrder below). same
+// Fisher-Yates as shuffledIndices above, just drawing from this instead of
+// Math.random() so the same seed always reshuffles the same way.
+function mulberry32(seed){
+  let s = seed >>> 0;
+  return function(){
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seededShuffledIndices(seed, n){
+  const rand = mulberry32(seed);
+  const arr = Array.from({length:n}, (_,i)=>i);
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(rand() * (i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+// a fresh 32-bit seed for a newly-started piece — one Math.random() call, versus
+// the array of up to GRID_MAX_CELLS numbers it replaces in storage.
+function randomSeed(){
+  return (Math.random() * 0xFFFFFFFF) >>> 0;
+}
+// progress.order is the authority whenever it's set — that only happens after a
+// regrid (see remapReveal), whose coverage-weighted reordering depends on the
+// old revealed region and can't be reconstructed from a formula. absent that,
+// the order is generated fresh from progress.seed every time it's needed: a
+// seeded shuffle of range(total) is fully determined by (seed, total), so a
+// piece that's never been regridded doesn't need its shuffle order stored at
+// all — just the one number that reproduces it.
+function materializeOrder(progress, total){
+  return progress.order || seededShuffledIndices(progress.seed, total);
+}
 
 // ---------- folder discovery ----------
 // lets new files just work by dropping them into ascii_art/ or image_art/ and
@@ -744,7 +782,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
   return {
     manifest: null,
     current: null,                                        // loaded item, shape depends on loadItem
-    progress: { itemId:null, revealOrder:[], revealedCount:0 },
+    progress: { itemId:null, seed:0, revealedCount:0 },
     collected: [],                                         // permanent gallery history [{id,name,collectedAt}] — never auto-cleared
     cycleSeen: [],                                         // ids picked in the current pass, so nothing repeats until everyone's had a turn
     pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
@@ -793,7 +831,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       this.current = await loadItem(entry);
       this.progress = Object.assign({
         itemId: this.current.id,
-        revealOrder: shuffledIndices(totalCellsFor(this.current)),
+        seed: randomSeed(),
         revealedCount: 0,
       }, progressExtra ? progressExtra(this.current) : null);
       this.pending = false;
@@ -804,14 +842,22 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       if(entry){
         this.current = await loadItem(entry);
         const total = totalCellsFor(this.current);
-        if(!Array.isArray(this.progress.revealOrder) || this.progress.revealOrder.length !== total){
+        // a mismatch is only possible when there's an explicit order (set by a past
+        // regrid) whose length no longer fits — a seed alone always regenerates
+        // correctly-sized for whatever `total` turns out to be, so there's nothing
+        // to rescue in that case; it's self-healing by construction.
+        if(Array.isArray(this.progress.order) && this.progress.order.length !== total){
           // the cell count moved under us — either the source file changed, or the
-          // grid preference did (a "grid" command run in an earlier session, or an
-          // import from a save made under a different one). regrid, where the track
-          // knows how, keeps the picture; otherwise the old reshuffle stands.
+          // grid preference did (a "block size" command run in an earlier session,
+          // or an import from a save made under a different one). regrid, where the
+          // track knows how, keeps the picture; otherwise fall back to a fresh order.
           const rescued = regrid && regrid(this.progress, this.current, this.pending);
           if(rescued) Object.assign(this.progress, rescued);
-          else this.progress.revealOrder = shuffledIndices(total);
+          else { this.progress.order = null; this.progress.seed = randomSeed(); }
+        } else if(!Array.isArray(this.progress.order) && !Number.isFinite(this.progress.seed)){
+          // neither an explicit order nor a seed — a corrupt save, or one that
+          // slipped past the migration in restore() below. same fallback.
+          this.progress.seed = randomSeed();
         }
         this.progress.revealedCount = Math.min(this.progress.revealedCount || 0, total);
         return;
@@ -896,7 +942,15 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending, banked: this.banked }; },
     restore(data){
       if(!data) return;
-      this.progress = data.progress || { itemId:null, revealOrder:[], revealedCount:0 };
+      this.progress = data.progress || { itemId:null, seed:0, revealedCount:0 };
+      // legacy saves (from before progress moved to a seed) stored the shuffled
+      // order outright — kept as an explicit override rather than migrated into a
+      // seed, so an old save's art doesn't invisibly reshuffle on its first load
+      // under this version.
+      if(Array.isArray(this.progress.revealOrder) && this.progress.order === undefined){
+        this.progress.order = this.progress.revealOrder;
+      }
+      delete this.progress.revealOrder;
       this.collected = data.collected || [];
       this.cycleSeen = data.cycleSeen || [];
       this.pending = !!data.pending;
@@ -1023,9 +1077,15 @@ async function resolveGrid(entry){
 //   - a piece that wasn't finished can't come out finished. completing a piece is
 //     something tasks do; a display setting rounding up to 100% would hand out a
 //     gallery entry nobody earned. it stops one block short instead.
-function remapReveal(progress, from, to, wasComplete){
+// takes the OLD order already materialized (see materializeOrder) rather than a
+// progress object, so this doesn't care whether that order came from a stored
+// seed or an earlier explicit override — either way the caller hands over a
+// plain array and this produces a new one, since a coverage-weighted remap
+// depends on the specific old revealed region and can't be re-derived from a
+// formula the way a fresh shuffle can.
+function remapReveal(oldOrder, oldRevealedCount, from, to, wasComplete){
   const oldTotal = from.cols * from.rows, newTotal = to.cols * to.rows;
-  const revealedOld = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+  const revealedOld = new Set(oldOrder.slice(0, oldRevealedCount));
 
   const coverage = new Array(newTotal).fill(0);
   for(let nr = 0; nr < to.rows; nr++){
@@ -1051,18 +1111,20 @@ function remapReveal(progress, from, to, wasComplete){
     }
   }
 
-  const fraction = oldTotal ? progress.revealedCount / oldTotal : 0;
+  const fraction = oldTotal ? oldRevealedCount / oldTotal : 0;
   let keep = Math.round(fraction * newTotal);
-  if(progress.revealedCount > 0 && keep < 1) keep = 1;
+  if(oldRevealedCount > 0 && keep < 1) keep = 1;
   if(!wasComplete && keep >= newTotal) keep = newTotal - 1;
   if(wasComplete) keep = newTotal;
   keep = Math.min(newTotal, Math.max(0, keep));
 
   // most-covered blocks first so the revealed region lands where it was; the random
   // tiebreak keeps equally-covered blocks (and the whole untouched remainder) from
-  // uncovering in a readable left-to-right sweep later on.
+  // uncovering in a readable left-to-right sweep later on. this result is a
+  // coverage-weighted reordering, not a plain shuffle, so — unlike a fresh piece's
+  // order — it has to be stored explicitly; `order` (not `seed`) is what carries it.
   const order = shuffledIndices(newTotal).sort((a, b) => coverage[b] - coverage[a]);
-  return { revealOrder: order, revealedCount: keep, grid: { cols: to.cols, rows: to.rows } };
+  return { order, revealedCount: keep, grid: { cols: to.cols, rows: to.rows } };
 }
 
 async function loadImageEntry(entry){
@@ -1094,11 +1156,13 @@ const imageTrack = createRevealTrack({
   totalCellsFor: item => item.cols * item.rows,
   defaultExtra: { grid: { cols: 6, rows: 4 } },
   filterPool: items => items.filter(e => !excludedImageFolders.includes(imageFolderOf(e))),
-  // the grid each saved revealOrder was numbered against — without it, a reload
+  // the grid each saved reveal order was numbered against — without it, a reload
   // under a changed grid preference has no way to know where the revealed blocks were.
   progressExtra: item => ({ grid: { cols: item.cols, rows: item.rows } }),
   regrid: (progress, item, pending) => (progress.grid && progress.grid.cols)
-    ? remapReveal(progress, progress.grid, { cols: item.cols, rows: item.rows }, pending)
+    ? remapReveal(
+        materializeOrder(progress, progress.grid.cols * progress.grid.rows),
+        progress.revealedCount, progress.grid, { cols: item.cols, rows: item.rows }, pending)
     : null,
   syncItem: (item, progress) => {
     if(progress.grid && progress.grid.cols){ item.cols = progress.grid.cols; item.rows = progress.grid.rows; }
@@ -1235,6 +1299,13 @@ function saveState(){
 // export first. still lives in the same localStorage origin, though — this is not
 // the durable, leaves-the-browser copy that "export" is (see printExportNudge).
 const AUTOBACKUP_LIMIT = 10;
+const AUTOBACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;   // 10 minutes
+// in-memory rate-limit clock for the backup below — resets to 0 on reload, which
+// is fine, since that just means the first save of a fresh session always backs
+// up rather than waiting out a clock nobody remembers. saveState()'s own write to
+// STORAGE_KEY (above) is the real, immediate save on every command; this is only
+// the bonus rolling copy, and doesn't need to track it command-for-command.
+let lastAutoBackupAt = 0;
 function loadAutoBackups(){
   try{
     const entries = JSON.parse(localStorage.getItem(AUTOBACKUP_KEY) || '[]');
@@ -1247,11 +1318,14 @@ function pushAutoBackup(snapshot){
   // about the bonus copy on top of it would just be noise on top of a problem the
   // user already knows about. if only this one fails (primary fine, quota tight),
   // staying quiet matches this app's habit of keeping secondary systems gentle.
+  const now = Date.now();
+  if(now - lastAutoBackupAt < AUTOBACKUP_MIN_INTERVAL_MS) return;   // rate-limited: skip the read/append/write dance entirely, not just the write
   try{
     const entries = loadAutoBackups();
-    entries.push({ at: Date.now(), data: snapshot });
+    entries.push({ at: now, data: snapshot });
     while(entries.length > AUTOBACKUP_LIMIT) entries.shift();
     localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify(entries));
+    lastAutoBackupAt = now;
   }catch(e){ /* quota exceeded or storage unavailable — this backup is a bonus, not critical */ }
 }
 
@@ -1362,7 +1436,7 @@ function cmd_recover(arg){
 function buildArtworkScene(art, progress){
   const { rows, width, height, cellIndices } = art;
   const revealed = new Set(
-    progress.revealOrder.slice(0, progress.revealedCount).map(pos => cellIndices[pos])
+    materializeOrder(progress, cellIndices.length).slice(0, progress.revealedCount).map(pos => cellIndices[pos])
   );
   let html = '';
   for(let r = 0; r < height; r++){
@@ -1386,7 +1460,7 @@ function buildArtworkScene(art, progress){
 
 function buildImageScene(art, progress){
   const total = art.cols * art.rows;
-  const revealed = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+  const revealed = new Set(materializeOrder(progress, total).slice(0, progress.revealedCount));
   let tiles = '';
   for(let i = 0; i < total; i++){
     tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
@@ -1541,7 +1615,7 @@ function wireFullscreen(layout){
 }
 function openImageFullscreen(art, progress){
   const total = art.cols * art.rows;
-  const revealed = new Set(progress.revealOrder.slice(0, progress.revealedCount));
+  const revealed = new Set(materializeOrder(progress, total).slice(0, progress.revealedCount));
   let tiles = '';
   for(let i = 0; i < total; i++){
     tiles += `<div class="tile${revealed.has(i) ? ' revealed' : ''}"></div>`;
@@ -1686,12 +1760,22 @@ function updateStats(){
 
 // ---------- terminal ----------
 const outputEl = document.getElementById('output');
+// output only ever grows — print()/printSegments()/printHanging()/printEcho() and
+// gallery's <pre>/<img> inserts all append, nothing removes a line except "clear".
+// capped so a long-running session doesn't quietly turn the DOM node into
+// thousands of live elements; trimmed from the top, since the lines worth keeping
+// around are the recent ones, not the oldest.
+const OUTPUT_MAX_LINES = 2000;
+function trimOutput(){
+  while(outputEl.childElementCount > OUTPUT_MAX_LINES) outputEl.removeChild(outputEl.firstChild);
+}
 function print(text, cls){
   const div = document.createElement('div');
   div.className = 'line' + (cls ? ' '+cls : '');
   div.textContent = text;
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
+  trimOutput();
 }
 // like print(), but for a single line built from differently-styled runs (e.g.
 // a bright title followed by dim [tag] fields) — each segment keeps its own class.
@@ -1706,6 +1790,7 @@ function printSegments(segments){
   });
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
+  trimOutput();
 }
 // like print(), but for a line whose column-aligned text (leading spaces baked
 // in, same as everywhere else in this file) might be too wide for the terminal.
@@ -1723,6 +1808,7 @@ function printHanging(text, indentCh){
   div.textContent = text;
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
+  trimOutput();
 }
 function printEcho(text){
   const div = document.createElement('div');
@@ -1730,6 +1816,7 @@ function printEcho(text){
   div.textContent = text;
   outputEl.appendChild(div);
   outputEl.scrollTop = outputEl.scrollHeight;
+  trimOutput();
 }
 
 function tokenize(str){
@@ -1757,13 +1844,20 @@ function findArchived(idStr){
 function splitIds(idsStr, source){
   const raw = (idsStr || '').trim();
   if(!raw) return [];
-  if(raw.toLowerCase() === 'all') return (source || tasks).map(t => String(t.id));
+  const list = source || tasks;
+  if(raw.toLowerCase() === 'all') return list.map(t => String(t.id));
   const out = [];
   raw.split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
     const m = tok.match(/^(\d+)-(\d+)$/);
     if(m){
       let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
       if(a > b) [a, b] = [b, a];
+      // clamped before the loop runs, not filtered after — an unbounded "rm
+      // 1-9999999" would otherwise build a multi-million-entry array (and hang
+      // the tab) before findTask ever gets a chance to say most of those ids
+      // don't exist. bounded by the id space actually in play, same idea as
+      // parseNumberSelection's `max` for folder numbers.
+      b = Math.min(b, list.length);
       for(let i = a; i <= b; i++) out.push(String(i));
     } else {
       out.push(tok);
@@ -2110,7 +2204,12 @@ function cmd_tag(idsStr, action, value){
         if(!t.tags.includes(tag)) t.tags.push(tag);
       });
     } else if(action === 'rm'){
-      t.tags = t.tags.filter(x => x !== value);
+      // comma-split and case-insensitive, matching "add"/"set" above and the
+      // case-insensitive match filterTasks uses for "-t" — otherwise a tag you
+      // can filter by ("filter -t Urgent" matching "urgent") isn't one you can
+      // remove, and "rm" alone couldn't clear more than one tag per command.
+      const wanted = value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+      t.tags = t.tags.filter(x => !wanted.includes(x.toLowerCase()));
     } else {
       t.tags = value.split(',').map(s=>s.trim()).filter(Boolean);
     }
@@ -2953,8 +3052,9 @@ async function applyBlockSize(pref, art, track){
   }
 
   const beforeCount = track.progress.revealedCount, beforeTotal = from.cols * from.rows;
+  const oldOrder = materializeOrder(track.progress, beforeTotal);
   art.cols = to.cols; art.rows = to.rows;
-  Object.assign(track.progress, remapReveal(track.progress, from, to, track.pending));
+  Object.assign(track.progress, remapReveal(oldOrder, beforeCount, from, to, track.pending));
   saveState(); renderPanel();
 
   const afterTotal = to.cols * to.rows;
@@ -3058,6 +3158,7 @@ function cmd_gallery(sub, ...rest){
         pre.textContent = art.rows.join('\n');
         outputEl.appendChild(pre);
         outputEl.scrollTop = outputEl.scrollHeight;
+        trimOutput();
       });
     } else {
       const entry = imageTrack.manifest && imageTrack.manifest.images.find(a => a.name.toLowerCase() === name.toLowerCase());
@@ -3069,6 +3170,7 @@ function cmd_gallery(sub, ...rest){
       img.alt = entry.name;
       outputEl.appendChild(img);
       outputEl.scrollTop = outputEl.scrollHeight;
+      trimOutput();
     }
     return;
   }
