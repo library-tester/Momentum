@@ -453,8 +453,8 @@
 let tasks = [];
 let archive = [];                                          // completed tasks live here, out of the normal list
 let projects = [];
-let history = [];
-let histIdx = -1;
+let cmdHistory = [];                                      // typed commands — not "history", which would shadow window.history
+let historyWalk = null;                                    // in-progress Up/Down prefix search — see historyUp/historyDown
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
 const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
@@ -574,11 +574,12 @@ function applyStatLine(){
 
 const STORAGE_KEY = 'momentum-tasks-v1';
 const LEGACY_STORAGE_KEY = 'garden-tasks-v1';  // fall back to pre-rename saves so existing task lists aren't lost
-// three small keys, separate from STORAGE_KEY on purpose: none of this is app data,
+// four small keys, separate from STORAGE_KEY on purpose: none of this is app data,
 // so none of it belongs in what "undo"/"import"/"export" read or write.
 const AUTOBACKUP_KEY = 'momentum-autobackup-v1';    // rolling history — see pushAutoBackup/cmd_recover
 const LAST_EXPORT_KEY = 'momentum-last-export-v1';  // for the "you haven't exported in a while" nudge
 const FIRST_SEEN_KEY = 'momentum-first-seen-v1';    // that nudge's fallback baseline if you've never exported at all
+const HISTORY_KEY = 'momentum-history-v1';          // typed-command history — see cmdHistory below
 
 function isOverdue(t){
   if(!t.due || t.status === 'done') return false;
@@ -1333,6 +1334,23 @@ function pushAutoBackup(snapshot){
     localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify(entries));
     lastAutoBackupAt = now;
   }catch(e){ /* quota exceeded or storage unavailable — this backup is a bonus, not critical */ }
+}
+
+// ---------- typed-command history ----------
+// persisted so the up-arrow still has something to say after a reload — losing
+// it every refresh was the whole complaint. capped the same way the autobackup
+// list is, and just as gentle about failure: this is a convenience, not data.
+const HISTORY_LIMIT = 100;
+function loadCmdHistory(){
+  try{
+    const entries = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    return Array.isArray(entries) ? entries.filter(x => typeof x === 'string') : [];
+  }catch(e){ return []; }
+}
+function pushCmdHistory(val){
+  cmdHistory.push(val);
+  if(cmdHistory.length > HISTORY_LIMIT) cmdHistory.shift();
+  try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(cmdHistory)); }catch(e){ /* quota exceeded or storage unavailable — same as pushAutoBackup, not worth a warning */ }
 }
 
 // manual backup/restore — a safety net for whenever localStorage doesn't stick
@@ -3582,8 +3600,7 @@ const cmdInput = document.getElementById('cmd');
 function runCommandLine(val){
   if(val.trim() === '') return;
   printEcho(val);
-  history.push(val);
-  histIdx = history.length;
+  pushCmdHistory(val);
   handleCommand(val).catch(err => print(`something went wrong: ${err.message}`, 'err'));
 }
 // tracks an in-progress Tab cycle: `applied` is the exact value this last wrote
@@ -3614,23 +3631,58 @@ function handleTab(){
     completionState = null;
   }
 }
+// Up/Down search cmdHistory by the prefix you'd already typed when you first
+// pressed Up, not just walk it linearly — type "do", press Up, and only past
+// commands starting with "do" come back. `historyWalk` is captured on the first
+// Up of a sequence (prefix + the matching entries, most-recent-first) and just
+// advances on every Up/Down after that; any other key drops it (see below), so
+// the next Up starts a fresh search against whatever's typed by then — the same
+// behavior a real shell's Up arrow has.
+function historyUp(){
+  if(!historyWalk){
+    const prefix = cmdInput.value;
+    const matches = cmdHistory.filter(c => c.startsWith(prefix)).reverse();
+    if(matches.length === 0) return;
+    historyWalk = { prefix, matches, idx: 0 };
+  } else if(historyWalk.idx < historyWalk.matches.length - 1){
+    historyWalk.idx++;
+  } else {
+    return;   // already at the oldest match — nothing further back to show
+  }
+  cmdInput.value = historyWalk.matches[historyWalk.idx];
+  cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
+}
+function historyDown(){
+  if(!historyWalk) return;
+  if(historyWalk.idx === 0){
+    cmdInput.value = historyWalk.prefix;                 // walked back down past the newest match — restore what you'd typed
+    historyWalk = null;
+  } else {
+    historyWalk.idx--;
+    cmdInput.value = historyWalk.matches[historyWalk.idx];
+  }
+  cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
+}
 cmdInput.addEventListener('keydown', (e)=>{
   if(e.key === 'Tab'){
     e.preventDefault();                                  // Tab would otherwise move focus out of the input
     handleTab();
+    historyWalk = null;                                  // Tab isn't history navigation — a suspended search shouldn't outlive it
     return;
   }
-  completionState = null;                                // any other key invalidates the cycle
-  if(e.key === 'Enter'){
-    runCommandLine(cmdInput.value);
-    cmdInput.value = '';
-  } else if(e.key === 'ArrowUp'){
-    if(histIdx > 0){ histIdx--; cmdInput.value = history[histIdx]; }
+  completionState = null;                                // any other key invalidates the completion cycle
+  if(e.key === 'ArrowUp'){
+    historyUp();
     e.preventDefault();
   } else if(e.key === 'ArrowDown'){
-    if(histIdx < history.length - 1){ histIdx++; cmdInput.value = history[histIdx]; }
-    else { histIdx = history.length; cmdInput.value = ''; }
+    historyDown();
     e.preventDefault();
+  } else {
+    historyWalk = null;                                  // typing (or Enter) invalidates the history-search cycle
+    if(e.key === 'Enter'){
+      runCommandLine(cmdInput.value);
+      cmdInput.value = '';
+    }
   }
 });
 // a plain click should refocus the input, but a drag-select shouldn't lose its
@@ -3725,6 +3777,7 @@ wireDivider(document.getElementById('col-divider'), 'col', (ev) => {
 });
 
 // ---------- boot ----------
+cmdHistory = loadCmdHistory();                            // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
 print('welcome to Momentum. type "help" to see what you can do.', 'info');
 loadState();
 </script>

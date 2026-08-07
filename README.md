@@ -230,6 +230,8 @@ Anything that would affect more than three tasks at once asks for confirmation f
 
 `Tab` knows what each command accepts, so `theme ⇥` cycles the five themes, `set ⇥` the four display keys, `block size ⇥` the six tiers, and `split ⇥` just `on`/`off`. An unambiguous completion adds a trailing space so the next `Tab` starts on the next argument.
 
+Command history persists across reloads (the last 100), and `↑`/`↓` search by whatever you've already typed rather than just walking the list — type `do`, press `↑`, and only past commands starting with `do` come back. Type anything else and the next `↑` searches fresh against that.
+
 Single-letter shortcuts for the commands you'll type most:
 
 | | | | | | |
