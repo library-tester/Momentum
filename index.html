@@ -2178,6 +2178,8 @@ function splitIds(idsStr, source){
 const COMMANDS = [
   { usage: 'add <task title> [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]', desc: 'add a new task  (quotes around the title are optional)' },
   { usage: 'rename <id> "new title"', desc: 'fix a typo — one task at a time, no delete-and-retype' },
+  { usage: 'edit <id>', desc: 'load a task\'s current title into the command line to tweak, enter to save',
+    extra: ['(fills in "rename <id> ...", cursor inside the quotes — for a full retype, "rename" works directly)'] },
   { usage: 'start <id[,id...]|all>', desc: 'mark task(s) active' },
   { usage: 'done <id[,id...]|all>', desc: 'complete task(s) — moves them to the archive' },
   { usage: 'rm <id[,id...]|1-4|all>', desc: 'delete task(s)  (also: remove, delete)' },
@@ -2467,7 +2469,7 @@ const ARG_COMPLETIONS = {
   rm:         () => ['all'],
   restore:    () => ['all'],
   archive:    pos => pos === 0 ? ['rm'] : ['all'],
-  gallery:    pos => pos === 0 ? ['list', 'show', 'close'] : [],
+  gallery:    pos => pos === 0 ? ['list', 'show', 'display', 'close'] : [],
   project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
   recover:    pos => pos === 0 ? ['list'] : [],
   tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
@@ -2568,6 +2570,31 @@ function cmd_rename(idStr, newTitle){
   t.title = newTitle;
   print(`#${t.id} renamed: "${old}" → "${newTitle}"`, 'ok');
   saveState(); renderPanel();
+}
+
+// "edit <id>" changes nothing by itself — it loads a ready-to-submit
+// "rename <id> ..." command into the input, current title and all, so fixing
+// a word or two is a few keystrokes and enter instead of retyping the whole
+// title blind the way bare "rename" needs. cursor lands just inside the
+// closing quote (or at the very end, for the rare title that itself contains
+// a `"` and so goes in unquoted) rather than after it, so anything typed next
+// stays part of the title instead of trailing off as a stray extra argument.
+// deferred with setTimeout(0): Enter's own keydown handler clears the input
+// right after dispatch() returns, which would otherwise wipe this out the
+// instant it was set — same trick used above to attach the fullscreen key
+// listener only after its own triggering keystroke finishes bubbling.
+function cmd_edit(idStr){
+  if(!idStr){ print('edit needs a task id, e.g. edit 3', 'err'); return; }
+  const t = findTask(idStr);
+  if(!t){ print(`no task #${idStr}`, 'err'); return; }
+  const quotable = !t.title.includes('"');
+  const prefill = quotable ? `rename ${t.id} "${t.title}"` : `rename ${t.id} ${t.title}`;
+  setTimeout(() => {
+    cmdInput.value = prefill;
+    cmdInput.focus();
+    const pos = quotable ? prefill.length - 1 : prefill.length;
+    cmdInput.setSelectionRange(pos, pos);
+  }, 0);
 }
 
 function cmd_start(idsStr){
@@ -3825,6 +3852,7 @@ function dispatch(cmd, rest){
     case 'help': cmd_help(rest[0]); break;
     case 'add': cmd_add(parseFlags(rest)); break;
     case 'rename': cmd_rename(rest[0], rest.slice(1).join(' ')); break;
+    case 'edit': cmd_edit(rest[0]); break;
     case 'start': cmd_start(rest[0]); break;
     case 'done': return cmd_done(rest[0]);
     case 'rm': cmd_rm(rest[0]); break;
