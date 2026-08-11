@@ -478,7 +478,15 @@
     font-family:inherit;
     font-size:13px;
   }
-  ::selection{ background:var(--accent-dim); }
+  /* reverse video, not a new color: swaps the same --text-main/--bg-dark pair every
+     theme already tunes to clear 7:1 (see the contrast note up top), so a selection
+     is guaranteed readable in every theme automatically rather than needing its own
+     hand-picked highlight color. background-only (the old rule here) left the text
+     color untouched, which in day mode meant black selected text on a black
+     highlight — invisible, since --accent-dim and --text-main are both #000 there.
+     night mode had the identical bug for the identical reason (both #ff3333),
+     just less often noticed. */
+  ::selection{ background:var(--text-main); color:var(--bg-dark); }
   #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar, #list-pane::-webkit-scrollbar{ width:8px; }
   #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb, #list-pane::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
   /* night mode's --line is pure red — filling the whole thumb with it is a slab of
