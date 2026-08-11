@@ -456,20 +456,68 @@
   body.view-tasks #term-wrap{
     flex:1 1 auto;
   }
+  /* The console is set like a page in a book. The command you typed is the heading:
+     bold, with its "$" hanging out into the left margin. Everything the app says
+     back is set flush beneath it in one aligned column, and a blank line opens the
+     next entry — so a screenful of history reads as a stack of discrete blocks
+     rather than one undifferentiated run of lines.
+     Structure carries all of that, deliberately: every theme is a single color now
+     (see the palettes up top), so the hue that used to separate an echo from a
+     result from an error isn't available to do the job. Weight, spacing, alignment
+     and a margin marker do it instead — the same tools print typography has always
+     used, and the only ones that work in all five themes at once. */
   #output{
+    --gutter:2ch;                          /* the hanging margin "$" and "!" sit in */
     flex:1;
     min-height:0;
     overflow-y:auto;
-    padding:12px 20px;
+    padding:12px 20px 12px calc(20px + var(--gutter));
     font-size:13px;
     line-height:1.5;
   }
-  #output .line{ white-space:pre-wrap; }
+  /* every line hangs. a response too long for the column continues indented, rather
+     than resuming hard left where it would read as a new message instead of as the
+     rest of the one above it. lines that compute a deeper indent of their own
+     (printHanging / printFramed, for the task rows) set both properties inline and
+     override this — one mechanism, two sources of the number. */
+  #output .line{
+    position:relative;                     /* the gutter markers below anchor to this */
+    white-space:pre-wrap;
+    padding-left:var(--gutter);
+    text-indent:calc(var(--gutter) * -1);
+  }
+  /* printFramed sizes its rules to the content, but the console column can be
+     narrower than the frame that content asked for. clipped rather than wrapped: a
+     rule spilling onto a second line stops reading as a border and starts reading
+     as content, which is most of what made a busy screen look untidy. */
+  #output .rule{ white-space:pre; overflow:hidden; padding-left:0; text-indent:0; }
   #output .ok{ color:var(--accent); }
   #output .err{ color:var(--error); }
-  #output .info{ color:var(--text-dim); }
-  #output .echo{ color:var(--text-main); }
+  /* secondary lines — hints, counts, the parenthetical asides — step back a tone so
+     the actual answer reads first. still the one theme color, only softened: with
+     every role sharing a hue, opacity is what's left to rank them by. */
+  #output .info{ color:var(--text-dim); opacity:0.72; }
+  /* pulled left by exactly the gutter, so the "$" lands in the margin and the
+     command text itself starts in the same column as every response under it. */
+  #output .echo{
+    color:var(--text-main);
+    font-weight:700;
+    margin-left:calc(var(--gutter) * -1);
+    margin-top:1.15em;                     /* the blank line that opens a new entry */
+  }
   #output .echo::before{ content:"$ "; color:var(--amber); }
+  /* errors mark the same margin, so they're findable at a glance while scrolling
+     without their text being indented out of the column everything else shares.
+     positioned rather than inline: the hanging indent above shifts the first line
+     box, and an inline marker rides along with it and lands a gutter too far left.
+     out of flow, it can only be where it's told. */
+  #output .err::before{
+    content:"!";
+    position:absolute;
+    left:calc(var(--gutter) * -1);
+    text-indent:0;
+    font-weight:700;
+  }
   #input-row{
     display:flex;
     align-items:center;
@@ -477,7 +525,9 @@
     border-top:1px solid var(--line);
     flex-shrink:0;
   }
-  #prompt{ color:var(--amber); margin-right:8px; font-size:13px; }
+  /* 1ch (not 8px) so the caret starts exactly one gutter in — the live prompt then
+     sits in the same two columns as every echoed "$ " scrolled above it. */
+  #prompt{ color:var(--amber); margin-right:1ch; font-size:13px; font-weight:700; }
   #cmd{
     flex:1;
     background:transparent;

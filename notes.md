@@ -64,3 +64,24 @@ python3 -m http.server 8000
 
 # loading art
 python3 build_art_data.py
+
+# potent cmd like taskmanagers
+If you're looking for **command-line-first task managers**—especially the kind that feel like a little terminal application rather than a web app—there's a surprisingly good ecosystem.
+
+My shortlist would be:
+
+| Tool                | Style                | Best for                         |
+| ------------------- | -------------------- | -------------------------------- |
+| **Taskwarrior**     | Powerful CLI         | Serious task management          |
+| **Taskbook**        | CLI + beautiful TUI  | Modern, visual terminal workflow |
+| **todo.txt**        | Minimal CLI          | Simplicity / plain text          |
+| **Dooit**           | Interactive TUI      | Keyboard-heavy users             |
+| **Taskell**         | Kanban TUI           | Terminal Kanban                  |
+| **dstask**          | CLI + Git/Markdown   | Developers                       |
+| **Todoman**         | CLI                  | Standards/calendar integration   |
+| **Taskwarrior-tui** | TUI over Taskwarrior | Taskwarrior without the raw CLI  |
+
+[1]: https://taskwarrior.org/docs/start/?utm_source=chatgpt.com "Taskwarrior - What's next? - Taskwarrior"
+[2]: https://taskbook.sh/?utm_source=chatgpt.com "Taskbook — Tasks, boards & notes for the command line"
+[3]: https://www.reddit.com/r/CLI/comments/1u9xglz/cli_task_tracker/?utm_source=chatgpt.com "CLI task tracker"
+[4]: https://github.com/toolleeo/awesome-cli-apps-in-a-csv?utm_source=chatgpt.com "GitHub - toolleeo/awesome-cli-apps-in-a-csv: The largest Awesome Curated list of command line programs (CLI/TUI) with source data organized into CSV files · GitHub"

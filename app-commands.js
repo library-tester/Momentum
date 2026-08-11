@@ -80,6 +80,31 @@ function printEcho(text){
   trimOutput();
 }
 
+// how many characters fit across the output column right now. measured from a probe
+// rather than derived from font-size: 1ch depends on the font that actually loaded,
+// and the fallback has different metrics (see the @font-face note in momentum.css).
+// memoized on the element's width so a 70-line help dump costs one layout instead of
+// one per line — and it can't just be computed once at startup either, since both
+// dividers resize this column live.
+let outputColsCache = { width: -1, cols: 80 };
+function outputColumns(){
+  const width = outputEl.clientWidth;
+  if(outputColsCache.width === width) return outputColsCache.cols;
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;';
+  probe.textContent = '0'.repeat(50);
+  outputEl.appendChild(probe);
+  const charWidth = probe.getBoundingClientRect().width / 50;
+  probe.remove();
+  const cs = getComputedStyle(outputEl);
+  const inner = width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  // a console that's hidden or not yet laid out measures zero — 80 is a plain
+  // terminal's width, and a safe thing to format for until it's actually measurable.
+  const cols = (charWidth > 0 && inner > 0) ? Math.floor(inner / charWidth) : 80;
+  outputColsCache = { width, cols };
+  return cols;
+}
+
 function tokenize(str){
   const re = /"([^"]*)"|(\S+)/g;
   const out = [];
@@ -282,6 +307,12 @@ function commandsInGroup(groupName){
 // usages longer than this get their description on the next line instead of
 // pushing every other description off to the right.
 const HELP_MAX_USAGE = 46;
+// the width a description needs before it's worth setting beside its usage instead
+// of under it. narrower than this and the words break up into a one-per-line ribbon
+// — which is exactly what the whole help screen used to collapse into whenever the
+// console column was small, because the layout was computed purely from the widest
+// usage in the table and never asked how much room the console actually had.
+const HELP_MIN_DESC = 26;
 
 // each row remembers where its description text starts (in characters) via
 // `indent`, so cmd_help() can give a row that's too wide for the terminal a
@@ -292,7 +323,13 @@ const HELP_MAX_USAGE = 46;
 // rather than padded out to the widest usage in the whole app.
 function buildHelpRows(list){
   const fitting = list.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
-  const col = (fitting.length ? Math.max(...fitting) : 0) + 2;
+  // capped to what this console can actually show. the description column is only
+  // worth having if real width is left over for the description; when it isn't, col
+  // shrinks, and more rows fall through the "usage too long" branch below and stack
+  // instead — the layout that does fit. note both branches indent by col, so this
+  // one cap fixes the stacked rows as well. at a comfortable width nothing changes.
+  const room = Math.max(0, outputColumns() - HELP_MIN_DESC);
+  const col = Math.min((fitting.length ? Math.max(...fitting) : 0) + 2, room);
   const indent = col + 2;   // "  " + the usage column — where desc/extra text actually starts
   const rows = [];
   list.forEach(c => {
@@ -869,23 +906,27 @@ function describeFilter(f){
 }
 
 // list/archive all print the same shape: a dashed rule, the rows, then (for most
-// callers) a dim one-line summary. the rule is sized to the widest row rather
-// than fixed, so it hugs the content instead of overrunning (and wrapping in) a
-// narrow terminal pane. closingRule prints a second copy of that same rule right
-// after the rows — "list" wants one there since it dropped its summary line and
-// would otherwise end on a bare row with nothing marking the close.
+// callers) a dim one-line summary. the rule is sized to the widest row rather than
+// fixed, so it hugs its content instead of overrunning it. that alone doesn't keep
+// it inside a narrow console, though — the widest *row* can be wider than the pane,
+// and a rule matching it used to wrap onto a second line, which read as content
+// rather than as a border and was most of what made a busy screen look untidy.
+// hence the "rule" class: the stylesheet clips these to the column instead of
+// wrapping them. closingRule prints a second copy of that same rule right after the
+// rows — "list" wants one there since it dropped its summary line and would
+// otherwise end on a bare row with nothing marking the close.
 const FRAME_MIN = 30, FRAME_MAX = 66;
 function printFramed(rows, summary, closingRule){
   const widths = rows.map(r => r.text.length);
   if(summary) widths.push(summary.length);
   const width = Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths)));
   const rule = '- '.repeat(Math.ceil(width / 2)).trimEnd();
-  print(rule, 'info');
+  print(rule, 'info rule');
   // hanging-indented: a title long enough to wrap picks its continuation up under
   // its own first letter, not back at column 0 behind the [id] — same technique
   // printHanging already uses for help text, applied here via each row's .indent.
   rows.forEach(r => r.segments ? printSegments(r.segments, r.indent) : printHanging(r.text, r.indent, r.cls));
-  if(closingRule) print(rule, 'info');
+  if(closingRule) print(rule, 'info rule');
   if(summary) print(summary, 'info');
 }
 
@@ -1203,7 +1244,17 @@ function cmd_stats(){
   const active = tasks.filter(t=>t.status==='active').length;
   const pending = tasks.filter(t=>t.status==='pending').length;
   const overdue = tasks.filter(isOverdue).length;
-  print(`total: ${total}   completed: ${archive.length}   active: ${active}   pending: ${pending}   overdue: ${overdue}   projects: ${projects.length}   ascii collected: ${asciiTrack.collected.length}   image collected: ${imageTrack.collected.length}`);
+  // each label is bound to its own number by non-breaking spaces, and the pairs are
+  // separated by " · " (the same divider the header stat line uses). in a narrow
+  // console this line has to wrap somewhere, and those are the only two choices:
+  // between whole pairs, or — as it used to, on plain spaces — mid-pair, orphaning
+  // "2" onto the next line away from the "pending:" it belongs to.
+  const pairs = [
+    ['total', total], ['completed', archive.length], ['active', active], ['pending', pending],
+    ['overdue', overdue], ['projects', projects.length],
+    ['ascii collected', asciiTrack.collected.length], ['image collected', imageTrack.collected.length],
+  ];
+  print(pairs.map(([label, n]) => `${label.replace(/ /g, ' ')}: ${n}`).join('  ·  '));
 }
 
 // ---------- streak + completion heatmap ----------
