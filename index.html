@@ -3,10 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <title>Momentum - yet another task manager</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="art-data.js"></script>
 <style>
+  /* self-hosted rather than Google Fonts: the app is meant to work fully offline
+     under file:// (see README), where a fonts.googleapis.com <link> just fails
+     silently and falls back to system monospace — the fastest way to run this
+     quietly wasn't running the app it was designed to look like. only the two
+     weights actually used (400 body, 700 header) are here, taken straight from
+     Google's own "latin" subset (fonts.gstatic.com) rather than the full
+     multi-script family, so this covers exactly the same characters the CDN
+     version did — including falling back to system monospace for the few glyphs
+     (→) that were never in the latin subset to begin with, same as before.
+     regenerating: fetch https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700
+     with a browser user-agent, take the "latin" block's two woff2 urls. */
+  @font-face{
+    font-family:'IBM Plex Mono';
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url('fonts/ibm-plex-mono-400.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'IBM Plex Mono';
+    font-style:normal;
+    font-weight:700;
+    font-display:swap;
+    src:url('fonts/ibm-plex-mono-700.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
   /* Each theme below is built on one accent hue plus a red, and nothing else.
      --amber is the signature (prompt, headings, and the ascii art itself) and
      --accent is the same hue a step lighter, for "ok" lines — so confirmations
@@ -1340,9 +1365,20 @@ async function loadState(){
   renderPanel();
   if(tasks.length){
     print(`— ${tasks.length} task(s) loaded —`, 'info');
-    cmd_list([]);
+    // the pane above (see listPaneVisible) already shows this exact list the
+    // moment renderPanel() runs, a few lines up — dumping the full framed
+    // listing here too would just be the same list twice on every single boot.
+    // it only earns its keep when there's no pane to have shown it already.
+    if(!listPaneVisible()) cmd_list([]);
   } else {
-    print('no tasks yet — add one:  add "organize your desk"', 'info');
+    print('no tasks yet — a few commands to get going:', 'info');
+    const starters = [
+      { cmd: 'add "organize your desk"', desc: 'create your first task' },
+      { cmd: 'done 1',                   desc: "mark it complete once it's done" },
+      { cmd: 'help',                     desc: 'see everything else this can do' },
+    ];
+    const w = Math.max(...starters.map(s => s.cmd.length));
+    starters.forEach(s => print(`  ${s.cmd.padEnd(w)}  ${s.desc}`, 'info'));
   }
 }
 function saveState(){

@@ -331,13 +331,14 @@ import        # ← pick that file back up on any machine
 momentum.html          the entire application — markup, styles, logic, one file
 art-data.js            generated snapshot of both art folders (for file:// use)
 build_art_data.py      regenerates the above
+fonts/                 self-hosted IBM Plex Mono (woff2, the two weights actually used)
 ascii_art/             .txt artworks, subfolders = categories
   manifest.json        optional per-file overrides
 image_art/             image artworks, subfolders = categories
   manifest.json        optional per-file overrides
 ```
 
-`momentum.html` is deliberately self-contained: no build tooling, no bundler, no `node_modules`, no framework. Open it and it runs. The only external dependency is a Google Fonts stylesheet for IBM Plex Mono, and it degrades to your system monospace without it.
+`momentum.html` is deliberately self-contained: no build tooling, no bundler, no `node_modules`, no framework, no external requests. Open it and it runs — including offline: the IBM Plex Mono font is self-hosted under `fonts/` rather than pulled from Google Fonts, so the double-click-and-go `file://` path looks exactly like the served one instead of silently falling back to system monospace.
 
 ---
 
