@@ -304,6 +304,41 @@ Each folder has a `manifest.json` for overriding the auto-derived defaults. Ever
 
 `revealTasks` is how many completed tasks fully uncover that piece. `grid` is its default block layout (image mode only, and overridden by your `block size` setting if you've changed it).
 
+### Where your art came from, and why it matters
+
+If you only ever use your own files, skip this. If you're publishing your copy of this repo, read it.
+
+Almost every photograph and artwork is copyrighted **automatically**, the moment it's made — there's no flag on the file to find, and no tool that can tell you otherwise. Stripped metadata proves nothing either way. The only reliable record is *where you got it*, and the only place to keep that is a note you write down at the time.
+
+So `image_art/manifest.json` takes three more optional fields per image:
+
+```json
+{
+  "images": [
+    { "file": "space/heic0506a.jpg",
+      "source": "https://esahubble.org/images/heic0506a/",
+      "license": "CC-BY-4.0",
+      "credit": "ESA/Hubble & NASA" }
+  ]
+}
+```
+
+Then:
+
+```bash
+python3 build_credits.py           # regenerates IMAGE_CREDITS.md
+python3 build_credits.py --check   # exits 1 if any image has no recorded licence
+```
+
+This walks `image_art/` rather than the manifest, so an image dropped in without an entry is reported as unrecorded instead of quietly shipping uncredited. `--check` makes it usable as a gate before you publish.
+
+Two things worth knowing:
+
+- **"Free to use" often still means "with credit."** NASA/ESA/Hubble and ESO imagery, and most of Wikimedia Commons, is CC BY — genuinely free, but only if the credit line travels with it. `IMAGE_CREDITS.md` puts those in their own section so the requirement is visible rather than assumed.
+- **Good sources exist.** Your own photos; [Unsplash](https://unsplash.com) and [Pexels](https://pexels.com) (no attribution needed); [Wikimedia Commons](https://commons.wikimedia.org), [ESA/Hubble](https://esahubble.org/images/) and [ESO](https://www.eso.org/public/images/) (credit needed). You don't have to give up photography — you have to give up *unattributed* photography.
+
+Because the app discovers whatever is in the folder, the most robust thing to publish is a small set you can fully account for, and a line in your README telling people to drop in their own.
+
 ---
 
 ## Your data, and how not to lose it
@@ -331,11 +366,13 @@ import        # ← pick that file back up on any machine
 momentum.html          the entire application — markup, styles, logic, one file
 art-data.js            generated snapshot of both art folders (for file:// use)
 build_art_data.py      regenerates the above
+IMAGE_CREDITS.md       source + licence for every shipped image (generated)
+build_credits.py       regenerates the above from image_art/manifest.json
 fonts/                 self-hosted IBM Plex Mono (woff2, the two weights actually used)
 ascii_art/             .txt artworks, subfolders = categories
   manifest.json        optional per-file overrides
 image_art/             image artworks, subfolders = categories
-  manifest.json        optional per-file overrides
+  manifest.json        optional per-file overrides, plus source/licence/credit
 ```
 
 `momentum.html` is deliberately self-contained: no build tooling, no bundler, no `node_modules`, no framework, no external requests. Open it and it runs — including offline: the IBM Plex Mono font is self-hosted under `fonts/` rather than pulled from Google Fonts, so the double-click-and-go `file://` path looks exactly like the served one instead of silently falling back to system monospace.

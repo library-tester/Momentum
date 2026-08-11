@@ -85,3 +85,12 @@ My shortlist would be:
 [2]: https://taskbook.sh/?utm_source=chatgpt.com "Taskbook — Tasks, boards & notes for the command line"
 [3]: https://www.reddit.com/r/CLI/comments/1u9xglz/cli_task_tracker/?utm_source=chatgpt.com "CLI task tracker"
 [4]: https://github.com/toolleeo/awesome-cli-apps-in-a-csv?utm_source=chatgpt.com "GitHub - toolleeo/awesome-cli-apps-in-a-csv: The largest Awesome Curated list of command line programs (CLI/TUI) with source data organized into CSV files · GitHub"
+
+For your project
+I'd prioritize downloading/trying these five, in this order:
+
+Taskbook
+Taskwarrior
+Taskwarrior-tui
+lazygit
+Taskell
