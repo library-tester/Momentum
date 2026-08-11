@@ -1796,9 +1796,9 @@ function openGalleryFullscreen(idx){
     // leaves you exactly where you were rather than closing on a failed step.
     loadArtworkFile(entry).then(art => {
       const full = { order: Array.from({length: art.cellIndices.length}, (_,i)=>i), revealedCount: art.cellIndices.length };
-      fullscreenGalleryIdx = idx;
       galleryOpen = true; galleryDetailIdx = idx; renderPanel();
-      openAsciiFullscreen(art, full);
+      openAsciiFullscreen(art, full);   // mounts via closeFullscreen(), which clears fullscreenGalleryIdx — so this must be set after, not before
+      fullscreenGalleryIdx = idx;
     }).catch(() => {
       print(`could not load "${item.name}".`, 'err');
     });
@@ -2202,6 +2202,8 @@ const COMMANDS = [
   { usage: 'gallery', desc: 'your collection, as a contact sheet in the side panel' },
   { usage: 'gallery show <n|name>', desc: 'open one piece full-size — or just click its tile',
     extra: ['(the number is whatever "gallery" is showing on screen)'] },
+  { usage: 'gallery display [<n|name>]', desc: 'fullscreen a collected piece — bare form uses whatever "gallery show" has open',
+    extra: ['left/right arrow steps to the next/previous piece without leaving fullscreen'] },
   { usage: 'gallery close', desc: 'back to the live reveal' },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'folders [<numbers>]', desc: 'list the image_art folders, or flip one in/out of the random pool',
@@ -2228,7 +2230,8 @@ const COMMANDS = [
   { usage: 'close', desc: 'once complete: save it + start a new one' },
   { usage: 'download', desc: 'once complete: save the file to your computer' },
   { usage: 'display', desc: 'blow up the current piece — ascii or image, however',
-    extra: ['much of it is revealed  (esc, enter, space or click to exit)'] },
+    extra: ['much of it is revealed  (esc, enter, space or click to exit)',
+            '(for a collected piece instead, see "gallery display")'] },
   { usage: 'fullscreen [on|off]', desc: 'put the whole app fullscreen, like F11  (esc to leave)' },
   { usage: 'stats', desc: 'task summary' },
   { usage: 'streak', desc: "current/longest completion streak + a heatmap" },
