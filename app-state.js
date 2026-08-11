@@ -165,6 +165,13 @@ function localDateKey(d){
 // relative age since createdAt, for the "[3d ago]" detail field (see "show age").
 // coarsens as it goes further back — a task doesn't need day-level precision once
 // it's months old, and staying coarse keeps the detail line from getting noisy.
+// every rung above "days" is derived from the one below it: years come from the
+// month count, not from a second, independent days/365 division. those two
+// divisors used to disagree — at day 360 the month count already read 12 while
+// days/365 still floored to 0, so anything 360-364 days old printed the nonsense
+// "0y ago". deriving one from the other means a gap like that can't reopen. the
+// tradeoff is that a "year" here is 12x30 days, so the 1y mark lands ~5 days
+// early, which is well inside the precision this is already rounding away.
 function taskAgeText(createdAt){
   const days = Math.floor((Date.now() - createdAt) / 86400000);
   if(days <= 0) return 'today';
@@ -172,7 +179,7 @@ function taskAgeText(createdAt){
   if(days < 30) return `${days}d ago`;
   const months = Math.floor(days / 30);
   if(months < 12) return `${months}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  return `${Math.floor(months / 12)}y ago`;
 }
 
 function escapeHtml(s){
@@ -460,6 +467,17 @@ function cmd_import(){
     if(!file) return;
     const reader = new FileReader();
     reader.onload = async () => {
+      // import has to take its own undo snapshot, here, rather than leaning on the
+      // one handleCommand takes for every MUTATING command: "import" only opens a
+      // file picker and returns, so that command is long finished by the time this
+      // callback actually replaces anything. handleCommand's snapshot therefore saw
+      // a state that hadn't changed yet, pushUndo's no-op guard discarded it, and
+      // nothing was ever recorded for the import at all — which left "undo" popping
+      // the *previous* command's entry and restoring a state from before that,
+      // silently throwing away both the import and whatever came just before it.
+      // taken before the parse (not just before applyStateSnapshot) so it's still
+      // in hand if a malformed backup fails partway and leaves the state half-applied.
+      const before = JSON.stringify(buildStateSnapshot());
       try{
         const data = JSON.parse(reader.result);
         if(!data || !Array.isArray(data.tasks)) throw new Error('not a momentum backup file');
@@ -472,6 +490,10 @@ function cmd_import(){
       }catch(e){
         print(`could not import "${file.name}" — it doesn't look like a momentum backup file.`, 'err');
       }
+      // outside the try, so a half-applied import stays recoverable too. pushUndo's
+      // own no-op check means a cleanly-rejected file (nothing changed) still adds
+      // nothing to the stack.
+      pushUndo(`import ${file.name}`, before);
     };
     reader.readAsText(file);
   });

@@ -1787,7 +1787,11 @@ function cmd_gallery(sub, ...rest){
 // preferences (mode/split/switch) are deliberately left out — they're one keystroke
 // to reverse, and cluttering the undo stack with them would bury the real mistakes.
 // listed by canonical name only — aliases are resolved away before this is consulted.
-const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','import','recover','close','next','reveal','hide','block','archive','restore']);
+// "import" is deliberately NOT here: it changes nothing while it runs (it opens a
+// file picker and returns), so a snapshot taken around the command would always be
+// of an unchanged state. it records its own undo entry from inside the FileReader
+// callback that does the actual replacing — see cmd_import.
+const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
