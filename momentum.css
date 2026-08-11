@@ -37,18 +37,22 @@
      Contrast was measured, not eyeballed: body text clears 7:1 against its
      background and every coloured text clears WCAG AA's 4.5:1. */
 
-  /* "amber" — warm gold on near-black; the original look, and the fallback for
-     any unrecognized data-theme value */
+  /* "amber" — warm gold on near-black, one flat color for every text role — the
+     same move "night"/"day"/"solar"/"nord" each make with their own single color.
+     the color is --amber itself, #d9a441: the hue the theme is named for and
+     already used for the prompt/headings, so this is the theme's own identity
+     rather than a new pick. 8.4:1 against bg-dark, 7.8:1 against bg-panel (the two
+     backgrounds text sits on) — both well clear of WCAG AA's 4.5:1 floor. */
   :root{
     --bg-dark:     #15100c;
     --bg-panel:    #1f1811;
     --line:        #463726;
-    --text-dim:    #b49d7c;
-    --text-main:   #f0e5cf;
+    --text-dim:    #d9a441;
+    --text-main:   #d9a441;
     --amber:       #d9a441;
-    --accent:      #e6c079;
+    --accent:      #d9a441;
     --accent-dim:  #54401d;
-    --error:       #d6786a;
+    --error:       #d9a441;
   }
   :root[data-theme="night"]{
     --bg-dark:     #000000;
@@ -73,35 +77,40 @@
     --accent-dim:  #000000;
     --error:       #000000;
   }
-  /* "solar" — solarized-dark inspired. keeps solarized's iconic base03 background
-     and cyan, but drops its yellow: solarized's full accent set is a rainbow, and
-     one hue carries this UI fine. its greys are raised well above solarized's own
-     base01/base0, which are tuned for syntax highlighting where dim text is
-     genuinely decorative — here dim text carries tags and counts you have to read. */
+  /* "solar" — solarized-dark inspired: keeps solarized's iconic base03 background,
+     but every text color is the same one plain grey, no hue and no ramp — the same
+     move "night" makes with one red and "day" makes with one black, just landing on
+     grey instead. #c0c0c0 was picked for a comfortable read, not just a passing
+     one: 8.1:1 against bg-dark and 6.4:1 against bg-panel (the two backgrounds text
+     actually sits on here), well clear of WCAG AA's 4.5:1 floor. */
   :root[data-theme="solar"]{
     --bg-dark:     #002b36;
     --bg-panel:    #083d4a;
     --line:        #155a6b;
-    --text-dim:    #8b9c9c;
-    --text-main:   #bccaca;
-    --amber:       #35b5aa;
-    --accent:      #6ccbc0;
+    --text-dim:    #c0c0c0;
+    --text-main:   #c0c0c0;
+    --amber:       #c0c0c0;
+    --accent:      #c0c0c0;
     --accent-dim:  #0e4f5e;
-    --error:       #dd8078;
+    --error:       #c0c0c0;
   }
-  /* "nord" — arctic blue-gray. frost blue is the signature; nord's aurora yellow is
-     dropped for the same reason as solarized's. the aurora red is lightened enough
-     to actually be legible on the polar-night background. */
+  /* "nord" — arctic blue-gray, one flat color for every text role — the same move
+     "night" makes with one red, "day" with one black, and "solar" with one grey.
+     the color is nord's own old --text-dim: the "welcome to Momentum" line was
+     always printed in it (the terminal's dim/info style), so it's the one already
+     proven readable here rather than a new pick. 5.4:1 against bg-dark, 4.6:1
+     against bg-panel (the two backgrounds text sits on) — both clear WCAG AA's
+     4.5:1 floor. */
   :root[data-theme="nord"]{
     --bg-dark:     #2a303c;
     --bg-panel:    #343b4a;
     --line:        #4c5568;
     --text-dim:    #9aa7bd;
-    --text-main:   #e8ecf3;
-    --amber:       #88c0d0;
-    --accent:      #a8d3de;
+    --text-main:   #9aa7bd;
+    --amber:       #9aa7bd;
+    --accent:      #9aa7bd;
     --accent-dim:  #3d4a5c;
-    --error:       #d4818c;
+    --error:       #9aa7bd;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
