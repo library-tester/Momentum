@@ -133,7 +133,13 @@ function splitIds(idsStr, source){
       out.push(tok);
     }
   });
-  return out;
+  // deduplicated, because every caller treats this as a set of tasks rather than a
+  // list of mentions. "done 2,2,2,2" and overlapping ranges like "rm 1-3,2-4" name
+  // the same task more than once, which used to cost twice: the confirmation prompt
+  // counted "done 2,2,2,2" as four tasks, and the second pass over an id the first
+  // pass had already archived printed a spurious "no task #2" right after saying it
+  // was done. one entry per id makes both read correctly.
+  return [...new Set(out)];
 }
 
 // the help screen is generated from this table rather than hand-spaced, because
@@ -470,12 +476,29 @@ function computeCompletion(value){
   return { base: value.slice(0, start), candidates: pool.filter(c => c.toLowerCase().startsWith(prefix)) };
 }
 
+// one worked example per flag, so the "you left this dangling" message below can
+// show the shape that was missing instead of just naming the flag. shared by both
+// argument parsers (add's flags, and list/filter/archive's) so the two can't drift
+// into describing the same flag differently.
+const FLAG_EXAMPLES = { '-p': '-p high', '-d': '-d 2026-01-31', '-t': '-t urgent,home', '-proj': '-proj work' };
+function missingFlagError(flag){
+  return { text: `${flag} needs a value after it — e.g. ${FLAG_EXAMPLES[flag]}`, cls: 'err' };
+}
+
 function parseFlags(tokens){
   const args = { _: [] };
   const flagKeys = { '-p':'p', '-d':'d', '-t':'t', '-proj':'proj' };
   for(let i=0;i<tokens.length;i++){
     const tk = tokens[i];
-    if(flagKeys[tk]){ args[flagKeys[tk]] = tokens[++i]; }
+    if(flagKeys[tk]){
+      const value = tokens[++i];
+      // a flag sitting at the end with nothing after it used to store `undefined`,
+      // which every check downstream reads as "not supplied" — so "add milk -p"
+      // silently dropped the priority you were clearly in the middle of setting.
+      // recorded instead, and reported by the command before it does anything.
+      if(value === undefined){ args.missingFlag = tk; continue; }
+      args[flagKeys[tk]] = value;
+    }
     else { args._.push(tk); }
   }
   return args;
@@ -488,6 +511,7 @@ function cmd_add(args){
   // -like token it doesn't want mistaken for one (rare enough not to special-case).
   const title = args._.join(' ');
   if(!title){ print('add needs a title, e.g. add buy groceries', 'err'); return; }
+  if(args.missingFlag){ const bad = missingFlagError(args.missingFlag); print(bad.text, bad.cls); return; }
   let priority = null, due = null, tags = [], project = null;
   if(args.p){
     const p = args.p.toLowerCase();
@@ -550,6 +574,14 @@ function cmd_rename(idStr, newTitle){
 // listener only after its own triggering keystroke finishes bubbling.
 function cmd_edit(idStr){
   if(!idStr){ print('edit needs a task id, e.g. edit 3', 'err'); return; }
+  // the same one-id-only guard rename carries, for the same reason: this builds a
+  // rename command, so anything rename refuses to accept it must refuse to produce.
+  // without it, "edit 2,3" fell through to findTask's parseInt and silently offered
+  // to rename #2 alone — quietly answering a different question than the one asked.
+  if(/[,-]/.test(idStr) || idStr.toLowerCase() === 'all'){
+    print('edit takes one task id at a time — e.g. edit 3', 'err');
+    return;
+  }
   const t = findTask(idStr);
   if(!t){ print(`no task #${idStr}`, 'err'); return; }
   const quotable = !t.title.includes('"');
@@ -746,10 +778,17 @@ function cmd_project(sub, ...rest){
     const name = rest[0];
     if(!name || !projects.includes(name)){ print(`no such project "${name||''}"`, 'err'); return; }
     projects = projects.filter(p => p !== name);
-    let moved = 0;
+    // archived tasks get unassigned too, and are now counted rather than done
+    // silently: the old message named only the live ones, so removing a project
+    // whose work was already finished reported "removed project" with no numbers
+    // at all — no sign that it had just edited the archive as well.
+    let moved = 0, movedArchived = 0;
     tasks.forEach(t => { if(t.project === name){ t.project = null; moved++; } });
-    archive.forEach(t => { if(t.project === name){ t.project = null; } });
-    print(`removed project "${name}"${moved ? ` (${moved} task(s) unassigned)` : ''}`, 'ok');
+    archive.forEach(t => { if(t.project === name){ t.project = null; movedArchived++; } });
+    const unassigned = [];
+    if(moved) unassigned.push(`${moved} task${moved === 1 ? '' : 's'}`);
+    if(movedArchived) unassigned.push(`${movedArchived} archived`);
+    print(`removed project "${name}"${unassigned.length ? ` (${unassigned.join(' + ')} unassigned)` : ''}`, 'ok');
     saveState(); renderPanel();
   } else if(sub === 'list'){
     if(projects.length === 0){ print('no projects yet. create one:  project add <name>', 'info'); return; }
@@ -782,8 +821,14 @@ function parseListArgs(tokens){
   const out = { status:'all', proj:null, tag:null };
   for(let i=0;i<tokens.length;i++){
     const tk = tokens[i];
-    if(tk === '-proj'){ out.proj = tokens[++i]; }
-    else if(tk === '-t'){ out.tag = tokens[++i]; }
+    if(tk === '-proj' || tk === '-t'){
+      const value = tokens[++i];
+      // same dangling-flag trap parseFlags guards against: left as `undefined`, this
+      // read as "no filter on that field", so "filter -proj" reported setting a
+      // filter and then set nothing at all. listArgsError turns this into the error.
+      if(value === undefined){ out.missingFlag = tk; continue; }
+      if(tk === '-proj') out.proj = value; else out.tag = value;
+    }
     else { out.status = tk; }
   }
   return out;
@@ -808,6 +853,7 @@ function filterTasks(list, f){
 // wording (and info, not err) because it's a reasonable thing to ask for — the
 // tasks exist, they just live in the archive now.
 function listArgsError(f){
+  if(f.missingFlag) return missingFlagError(f.missingFlag);
   if(f.status === 'done') return { text: 'completed tasks are archived — try the "archive" command', cls: 'info' };
   if(!['all','pending','active'].includes(f.status)) return { text: `unknown filter "${f.status}" (use all|pending|active)`, cls: 'err' };
   return null;
@@ -1072,14 +1118,31 @@ function renderListPane(){
 function cmd_archive(...tokens){
   const first = (tokens[0] || '').toLowerCase();
   if(['rm','remove','delete'].includes(first)) return cmd_archiveRm(tokens[1]);
-  const { proj, tag } = parseListArgs(tokens || []);
+  const spec = parseListArgs(tokens || []);
+  if(spec.missingFlag){ const bad = listArgsError(spec); print(bad.text, bad.cls); return; }
+  // archive takes no status argument — everything in it is completed by definition —
+  // so a bare word here is a typo worth naming rather than dropping on the floor.
+  // "list" already rejects a status it doesn't recognize; this used to accept
+  // anything and quietly list the whole archive as if you'd asked for that.
+  if(spec.status !== 'all'){
+    print(`archive doesn't take "${spec.status}" — everything in it is completed already, so there's no status to narrow by. usage: archive [-proj name] [-t tag]`, 'err');
+    return;
+  }
+  const { proj, tag } = spec;
   let list = archive;
   if(proj){ list = list.filter(t => t.project === proj); }
   if(tag){
     const wanted = tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     list = list.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
   }
-  if(list.length === 0){ print('the archive is empty.', 'info'); return; }
+  // "the archive is empty" and "nothing in it matches what you asked for" are
+  // different answers, and giving the first for the second made a filtered archive
+  // look wiped — alarming for the one list in the app that "restore" reads from.
+  if(archive.length === 0){ print('the archive is empty.', 'info'); return; }
+  if(list.length === 0){
+    print(`nothing in the archive matches ${describeFilter(spec)} — "archive" on its own shows all ${archive.length}.`, 'info');
+    return;
+  }
 
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const items = list.map(t => ({
