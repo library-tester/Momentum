@@ -2072,9 +2072,10 @@ function print(text, cls){
 }
 // like print(), but for a single line built from differently-styled runs (e.g.
 // a bright title followed by dim [tag] fields) — each segment keeps its own class.
-function printSegments(segments){
+function printSegments(segments, indentCh){
   const div = document.createElement('div');
   div.className = 'line';
+  if(indentCh){ div.style.paddingLeft = indentCh + 'ch'; div.style.textIndent = '-' + indentCh + 'ch'; }
   segments.forEach(seg => {
     const span = document.createElement('span');
     if(seg.cls) span.className = seg.cls;
@@ -2094,11 +2095,10 @@ function printSegments(segments){
 // the overflow (which isn't affected by text-indent) picks up at the padding
 // edge instead of sliding back to column 0. 'ch' is exact here since the
 // terminal is monospace throughout — 1ch is 1 character, same as a real space.
-function printHanging(text, indentCh){
+function printHanging(text, indentCh, cls){
   const div = document.createElement('div');
-  div.className = 'line';
-  div.style.paddingLeft = indentCh + 'ch';
-  div.style.textIndent = '-' + indentCh + 'ch';
+  div.className = 'line' + (cls ? ' '+cls : '');
+  if(indentCh){ div.style.paddingLeft = indentCh + 'ch'; div.style.textIndent = '-' + indentCh + 'ch'; }
   div.textContent = text;
   const stick = isNearOutputBottom();
   outputEl.appendChild(div);
@@ -2870,7 +2870,10 @@ function printFramed(rows, summary, closingRule){
   const width = Math.max(FRAME_MIN, Math.min(FRAME_MAX, Math.max(...widths)));
   const rule = '- '.repeat(Math.ceil(width / 2)).trimEnd();
   print(rule, 'info');
-  rows.forEach(r => r.segments ? printSegments(r.segments) : print(r.text, r.cls));
+  // hanging-indented: a title long enough to wrap picks its continuation up under
+  // its own first letter, not back at column 0 behind the [id] — same technique
+  // printHanging already uses for help text, applied here via each row's .indent.
+  rows.forEach(r => r.segments ? printSegments(r.segments, r.indent) : printHanging(r.text, r.indent, r.cls));
   if(closingRule) print(rule, 'info');
   if(summary) print(summary, 'info');
 }
@@ -2888,6 +2891,13 @@ function detailFields(t, extra){
   return fields;
 }
 
+// every row this feeds (task list, archive) starts life as "  [<id>] <title>…" —
+// the hanging-indent column a wrapped title's continuation should land on, one
+// past the closing bracket's own space, so it picks up under the title's first
+// letter instead of sliding back under the id.
+function bracketIndent(text){
+  return text.indexOf(']') + 2;
+}
 // packs each row's tag fields onto the same line as its title instead of a row
 // underneath, right where the title ends. items: [{ left, fields, cls }] — cls,
 // if set, makes the whole row one color (e.g. overdue); otherwise the title
@@ -2895,10 +2905,12 @@ function detailFields(t, extra){
 function buildAlignedRows(items){
   return items.map(({ left, fields, cls }) => {
     const fieldsText = fields.join(' ');
-    if(!fieldsText) return { text: left, cls };
+    const indent = bracketIndent(left);
+    if(!fieldsText) return { text: left, cls, indent };
     return {
       text: `${left} ${fieldsText}`,
       cls,
+      indent,
       segments: cls ? null : [{ text: `${left} ` }, { text: fieldsText, cls: 'info' }]
     };
   });
@@ -3055,7 +3067,11 @@ function rowHtml(r, id){
     ? escapeHtml(raw.slice(bracketEnd)) + r.segments.slice(1).map(seg =>
         seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')
     : escapeHtml(raw.slice(bracketEnd));
-  return `<div class="line row${r.cls ? ' ' + r.cls : ''}" data-id="${id}">${idHtml}${restHtml}</div>`;
+  // same hanging-indent trick as printHanging/printFramed: a title long enough to
+  // wrap in the pane's own column picks its continuation up under its own first
+  // letter, not back at the pane's left edge behind the [id].
+  const style = `padding-left:${r.indent}ch;text-indent:-${r.indent}ch`;
+  return `<div class="line row${r.cls ? ' ' + r.cls : ''}" data-id="${id}" style="${style}">${idHtml}${restHtml}</div>`;
 }
 
 // the always-visible task list — the pane above the console in split view, and the
