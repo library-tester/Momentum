@@ -1,0 +1,492 @@
+/* Momentum — all styles. Extracted verbatim from index.html's <style> block;
+   linked as an ordinary stylesheet so index.html stays double-clickable under
+   file://. Relative urls (fonts/) resolve next to this file, same directory. */
+  /* self-hosted rather than Google Fonts: the app is meant to work fully offline
+     under file:// (see README), where a fonts.googleapis.com <link> just fails
+     silently and falls back to system monospace — the fastest way to run this
+     quietly wasn't running the app it was designed to look like. only the two
+     weights actually used (400 body, 700 header) are here, taken straight from
+     Google's own "latin" subset (fonts.gstatic.com) rather than the full
+     multi-script family, so this covers exactly the same characters the CDN
+     version did — including falling back to system monospace for the few glyphs
+     (→) that were never in the latin subset to begin with, same as before.
+     regenerating: fetch https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700
+     with a browser user-agent, take the "latin" block's two woff2 urls. */
+  @font-face{
+    font-family:'IBM Plex Mono';
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url('fonts/ibm-plex-mono-400.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'IBM Plex Mono';
+    font-style:normal;
+    font-weight:700;
+    font-display:swap;
+    src:url('fonts/ibm-plex-mono-700.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  /* Each theme below is built on one accent hue plus a red, and nothing else.
+     --amber is the signature (prompt, headings, and the ascii art itself) and
+     --accent is the same hue a step lighter, for "ok" lines — so confirmations
+     read as brighter rather than as a second colour. --error is the one place a
+     different hue is allowed, because "this is wrong" has to survive being
+     glanced at. Everything else is a neutral tinted toward the signature.
+     Contrast was measured, not eyeballed: body text clears 7:1 against its
+     background and every coloured text clears WCAG AA's 4.5:1. */
+
+  /* "amber" — warm gold on near-black; the original look, and the fallback for
+     any unrecognized data-theme value */
+  :root{
+    --bg-dark:     #15100c;
+    --bg-panel:    #1f1811;
+    --line:        #463726;
+    --text-dim:    #b49d7c;
+    --text-main:   #f0e5cf;
+    --amber:       #d9a441;
+    --accent:      #e6c079;
+    --accent-dim:  #54401d;
+    --error:       #d6786a;
+  }
+  :root[data-theme="night"]{
+    --bg-dark:     #000000;
+    --bg-panel:    #000000;
+    --line:        #ff3333;
+    --text-dim:    #ff3333;
+    --text-main:   #ff3333;
+    --amber:       #ff3333;
+    --accent:      #ff3333;
+    --accent-dim:  #ff3333;
+    --error:       #ff3333;
+  }
+  /* "day" — mirror image of nightmode: black on white, no other color at all */
+  :root[data-theme="day"]{
+    --bg-dark:     #ffffff;
+    --bg-panel:    #ffffff;
+    --line:        #000000;
+    --text-dim:    #000000;
+    --text-main:   #000000;
+    --amber:       #000000;
+    --accent:      #000000;
+    --accent-dim:  #000000;
+    --error:       #000000;
+  }
+  /* "solar" — solarized-dark inspired. keeps solarized's iconic base03 background
+     and cyan, but drops its yellow: solarized's full accent set is a rainbow, and
+     one hue carries this UI fine. its greys are raised well above solarized's own
+     base01/base0, which are tuned for syntax highlighting where dim text is
+     genuinely decorative — here dim text carries tags and counts you have to read. */
+  :root[data-theme="solar"]{
+    --bg-dark:     #002b36;
+    --bg-panel:    #083d4a;
+    --line:        #155a6b;
+    --text-dim:    #8b9c9c;
+    --text-main:   #bccaca;
+    --amber:       #35b5aa;
+    --accent:      #6ccbc0;
+    --accent-dim:  #0e4f5e;
+    --error:       #dd8078;
+  }
+  /* "nord" — arctic blue-gray. frost blue is the signature; nord's aurora yellow is
+     dropped for the same reason as solarized's. the aurora red is lightened enough
+     to actually be legible on the polar-night background. */
+  :root[data-theme="nord"]{
+    --bg-dark:     #2a303c;
+    --bg-panel:    #343b4a;
+    --line:        #4c5568;
+    --text-dim:    #9aa7bd;
+    --text-main:   #e8ecf3;
+    --amber:       #88c0d0;
+    --accent:      #a8d3de;
+    --accent-dim:  #3d4a5c;
+    --error:       #d4818c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg-dark);
+    color:var(--text-main);
+    font-family:'IBM Plex Mono', monospace;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+  }
+  header{
+    padding:14px 20px 10px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  header .title{
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:2px;
+    color:var(--amber);
+  }
+  header .title span{ color:var(--accent); }
+  body.no-title header .title{ display:none; }
+  /* the banner's own top padding goes with it, so hiding it isn't just a blank gap */
+  body.no-title header{ padding-top:8px; }
+  header .stats{
+    margin-top:4px;
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:0.5px;
+  }
+  body.no-statline header .stats{ display:none; }
+  /* only one of the two lines gone still needs the header's own padding; both gone
+     means nothing is left in it, so the bar (and its border) collapses entirely */
+  body.no-title.no-statline header{ display:none; }
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:row;
+    overflow:hidden;
+    min-height:0;
+  }
+  /* "mirror": swap which side each column is on. row-reverse flips the visual order
+     of #main's children without touching the DOM, so nothing moves between the two
+     columns — the side panel and the console column just trade edges. only the
+     horizontal arrangement flips; the stacked panel stays above the console. */
+  body.mirrored #main{ flex-direction:row-reverse; }
+  /* size (flex) and visibility (display) are not set here — they belong to whichever
+     slot this panel currently occupies; see the slot rules further down. */
+  #reveal-panel{
+    overflow:auto;
+    padding:18px 20px;
+    min-width:0;
+    font-size:13px;
+    line-height:1.15;
+    flex-direction:column;
+  }
+  .artwork-title{
+    font-size:13px;
+    color:var(--text-main);
+    margin-bottom:10px;
+    letter-spacing:0.5px;
+    flex-shrink:0;
+  }
+  .artwork-progress{
+    color:var(--text-dim);
+    font-size:12px;
+  }
+  .reveal-scene{
+    margin:0;
+    font-family:inherit;
+    font-size:13px;
+    line-height:1.15;
+    white-space:pre;
+    flex-shrink:0;
+  }
+  .image-stage{
+    flex:1;
+    min-height:0;
+    display:grid;
+    place-items:start;
+    overflow:hidden;
+    padding:22px;
+  }
+  .empty-panel{
+    color:var(--text-dim);
+    font-size:13px;
+    padding:10px 0 0;
+    line-height:1.5;
+  }
+  .empty-panel.err{ color:var(--error); }
+  /* the collected-art contact sheet — replaces what used to be a numbered text
+     dump into the terminal log. lives in the reveal panel itself (see
+     renderGalleryGrid/renderGalleryDetail), the same surface the live reveal
+     uses, since it's showing the same kind of thing: art, earned by tasks. */
+  /* fixed-width columns, not minmax(96px, 1fr): with a 1fr maximum the columns
+     share every spare pixel, so widening the panel grows all the thumbnails
+     continuously until there's room for one more column — at which point they
+     all snap back to the 96px minimum and start over. dragging the divider
+     across a few of those thresholds makes the whole sheet pulse bigger/smaller.
+     a fixed track means the tiles are always exactly one size and only their
+     *number* responds to the width, which is what a contact sheet should do.
+     the trade is some dead space at the right edge between thresholds — much
+     cheaper than art that changes size while you look at it. */
+  .gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, 96px);
+    justify-content:start;
+    gap:14px;
+    align-content:start;
+  }
+  .gallery-tile{ cursor:pointer; display:flex; flex-direction:column; gap:4px; }
+  .gallery-thumb{
+    aspect-ratio:1;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:3px;
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .gallery-tile:hover .gallery-thumb{ border-color:var(--amber); }
+  .gallery-thumb-img{ width:100%; height:100%; object-fit:cover; display:block; }
+  /* positioned absolute + top-left transform-origin so fitThumbToBox's scale()
+     shrinks it toward the corner it's measured from, not the tile's center —
+     matching the same reasoning openAsciiFullscreen uses for the full-size view. */
+  .gallery-thumb-ascii{
+    margin:0;
+    font-family:inherit;
+    color:var(--amber);
+    white-space:pre;
+    line-height:1.15;
+    position:absolute;
+    top:0; left:0;
+  }
+  .gallery-missing{ color:var(--text-dim); font-size:22px; }
+  .gallery-cap{
+    font-size:11px;
+    color:var(--text-dim);
+    line-height:1.3;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    line-clamp:2;
+    -webkit-box-orient:vertical;
+  }
+  .image-frame{
+    position:relative;
+    overflow:hidden;
+    background:var(--bg-panel);
+  }
+  .image-base{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .tile-grid{
+    position:absolute;
+    inset:0;
+    display:grid;
+  }
+  .tile{
+    background:var(--bg-panel);
+    box-shadow: inset 0 0 0 1px var(--bg-dark);
+    transition: transform .3s ease, opacity .3s ease;
+  }
+  .tile.revealed{
+    opacity:0;
+    transform:scale(0.4);
+    pointer-events:none;
+  }
+  #fullscreen-overlay{
+    position:fixed;
+    inset:0;
+    background:#000;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    z-index:1000;
+    cursor:pointer;
+  }
+  /* .image-frame/.tile normally follow the theme (var(--bg-panel)/var(--bg-dark)),
+     which is the right call inside the reveal panel — but fullscreen is a themeless
+     black stage by design (the overlay above is always #000, in every theme), and
+     day theme's --bg-panel is white: without this, the letterboxing around the
+     photo and every still-uncovered tile flash white inside what's supposed to be
+     a black fullscreen frame. pinned to #000 to match the overlay exactly, not to
+     var(--bg-dark), since a couple of themes (day being the extreme case) don't
+     have a black to give it. */
+  #fullscreen-overlay .image-frame{ background:#000; }
+  #fullscreen-overlay .tile{ background:#000; box-shadow: inset 0 0 0 1px #000; }
+  /* ascii keeps its real glyph size (see openAsciiFullscreen) — the grid centering
+     above places it, and scaling from the centre means an oversized piece shrinks
+     toward the middle instead of drifting off one edge */
+  .ascii-fullscreen{
+    transform-origin:center center;
+    color:var(--text-main);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .ascii-fullscreen .reveal-scene{ margin:0; text-align:left; }
+  /* day is the one theme that paints its art pure black — which is invisible against
+     the fullscreen overlay's black backdrop. inside the overlay only, the ascii goes
+     white instead. this redefines the *custom property* rather than `color`, because
+     buildArtworkScene writes an inline style="color:var(--amber)" on every character:
+     an inline style beats any `color` rule, but the var() it contains still resolves
+     against whatever --amber it inherits from here. the in-panel view is untouched —
+     it sits on the theme's own white background, where black is correct. */
+  :root[data-theme="day"] .ascii-fullscreen{
+    --amber:#ffffff;
+    color:#ffffff;
+  }
+  #term-wrap{
+    flex:1 1 45%;
+    display:flex;
+    flex-direction:column;
+    min-width:280px;
+  }
+  /* ---- layout slots ----
+     there are two panels — the task list and the reward art — and two places to
+     put them: "stacked", pinned above the console and toggled by "split", and
+     "side", the full-height column beside it. the view decides which panel goes
+     where: the art view keeps the art at the side and stacks the task list, the
+     tasks view swaps them. applyView() moves the elements and sets these classes,
+     which is what lets the sizing be written once against the slot instead of
+     twice against each panel.
+     flex-basis is assigned inline from the live ratio, so only grow/shrink and the
+     things that don't vary live here. */
+  .slot-side{ min-width:0; }
+  .slot-stacked{ min-height:0; }
+  #list-pane.slot-side, #list-pane.slot-stacked{ display:block; }
+  #reveal-panel.slot-side, #reveal-panel.slot-stacked{ display:flex; }
+  /* split off: nothing is pinned above the console, so the stacked slot and its
+     divider both go away and the console has the whole left column. */
+  body:not(.split) #list-pane.slot-stacked,
+  body:not(.split) #reveal-panel.slot-stacked,
+  body:not(.split) #split-divider{ display:none; }
+  #list-pane{
+    overflow-y:auto;
+    padding:12px 20px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  #list-pane .line{ white-space:pre-wrap; }
+  #list-pane .err{ color:var(--error); }
+  #list-pane .info{ color:var(--text-dim); }
+  /* the list pane is the one surface in the app you look at without typing a
+     command first — clicking a row inserts its id into whatever you're typing,
+     and the [id] bracket pre-fills "done <id>" without running it. no hover
+     styling: the pointer cursor alone is the affordance, so the pane stays as
+     plain to look at as everywhere else in the app. */
+  #list-pane .line.row{ cursor:pointer; }
+  .pane-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:6px;
+    color:var(--amber);
+    font-size:12px;
+    letter-spacing:1px;
+  }
+  .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
+  /* the "this list is narrowed" badge: an outline in the same dim ink as the count
+     beside it, so it reads as a condition on the list without competing with the
+     task titles — which are the only thing in this pane that should be at full
+     brightness. it doesn't need to shout: the count next to it already says
+     "2 of 3 shown", and the two together are plenty to notice.
+     (it was a filled --amber chip first, which in day theme is a solid black slab
+     that drowns the pane — the same "loud accent as a fill" problem the night-mode
+     scrollbar thumb has, and the same fix: outline it instead.)
+     needs to out-specify ".pane-head span" above, hence the descendant selector.
+     margin-right:auto keeps it next to TASKS and still pushes the count right, so
+     the header stays two groups rather than three evenly-spread items. */
+  .pane-head .filter-badge{
+    color:var(--text-dim);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:0 5px;
+    letter-spacing:0.5px;
+    margin-right:auto;
+    white-space:nowrap;
+  }
+  /* two dividers, one per axis. #split-divider is the horizontal one inside the
+     console column (stacked panel above / console below) and only exists when split
+     is on. #col-divider is the vertical one between the console column and the side
+     panel, and — unlike split-divider — is always there: the column boundary is
+     draggable in both views, so it's also this divider's border doing the job the
+     old fixed-45%-with-a-border-on-term-wrap used to do in the art view. its own
+     border is symmetric (both sides), so mirroring the columns needs no extra rule
+     here the way it would for a border painted on just one side. */
+  #split-divider, #col-divider{
+    flex:0 0 7px;
+    position:relative;
+    background:var(--bg-panel);
+  }
+  #split-divider{
+    display:none;
+    cursor:row-resize;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  #col-divider{
+    cursor:col-resize;
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
+  }
+  body.split #split-divider{ display:block; }
+  #split-divider::after, #col-divider::after{
+    content:"";
+    position:absolute;
+    left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    background:var(--text-dim);
+    opacity:0.55;
+  }
+  #split-divider::after{ width:40px; height:1px; }
+  #col-divider::after{ width:1px; height:40px; }
+  #split-divider:hover::after, #col-divider:hover::after{ background:var(--amber); opacity:1; }
+  body.dragging{ user-select:none; }
+  body.dragging-row{ cursor:row-resize; }
+  body.dragging-col{ cursor:col-resize; }
+  /* output + input move as one unit, so the whole console can be placed as a single
+     flex item — that's what lets the tasks view put it beside the list instead of
+     above it. in every other view this is just a transparent pass-through. */
+  #console{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  /* "view tasks" only has to change how the console column is sized — which panel is
+     on which side is handled by the slots above, not here. the column boundary is
+     draggable (#col-divider) in both views now, so this just drops the fixed 45%
+     basis that only ever made sense for the art view's column split. */
+  body.view-tasks #term-wrap{
+    flex:1 1 auto;
+  }
+  #output{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    padding:12px 20px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  #output .line{ white-space:pre-wrap; }
+  #output .ok{ color:var(--accent); }
+  #output .err{ color:var(--error); }
+  #output .info{ color:var(--text-dim); }
+  #output .echo{ color:var(--text-main); }
+  #output .echo::before{ content:"$ "; color:var(--amber); }
+  #input-row{
+    display:flex;
+    align-items:center;
+    padding:8px 20px 14px;
+    border-top:1px solid var(--line);
+    flex-shrink:0;
+  }
+  #prompt{ color:var(--amber); margin-right:8px; font-size:13px; }
+  #cmd{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text-main);
+    font-family:inherit;
+    font-size:13px;
+  }
+  ::selection{ background:var(--accent-dim); }
+  #output::-webkit-scrollbar, #reveal-panel::-webkit-scrollbar, #list-pane::-webkit-scrollbar{ width:8px; }
+  #output::-webkit-scrollbar-thumb, #reveal-panel::-webkit-scrollbar-thumb, #list-pane::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  /* night mode's --line is pure red — filling the whole thumb with it is a slab of
+     red down the side of the screen. an outline reads as the same "alert" accent
+     without becoming the loudest thing in the UI: black fill, red border only. */
+  :root[data-theme="night"] #output::-webkit-scrollbar-thumb,
+  :root[data-theme="night"] #reveal-panel::-webkit-scrollbar-thumb,
+  :root[data-theme="night"] #list-pane::-webkit-scrollbar-thumb{
+    background:var(--bg-dark);
+    border:1px solid var(--line);
+  }
