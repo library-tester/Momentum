@@ -345,8 +345,24 @@ async function loadArtworkFile(entry){
   return {
     id: entry.id, name: entry.name, category: entry.category,
     revealTasks: entry.revealTasks || 6,
-    rows, width, height: rows.length, cellIndices,
+    // `rows` is the padded rectangle the reveal panel draws: every line runs the
+    // full width of the piece so the block can't change size as cells fill in.
+    // `sourceRows` is the file exactly as written, unpadded — the artwork as a
+    // *document* rather than as a canvas. anything leaving the app (copy,
+    // download — see asciiArtText) has to use sourceRows: the padding is often
+    // far wider than the art itself (100+ trailing spaces a line on the widest
+    // pieces), and pasted into anything that wraps at a width, those invisible
+    // runs wrap every line and tear the picture apart.
+    rows, sourceRows: rawRows, width, height: rows.length, cellIndices,
   };
+}
+
+// the text of an ascii piece as it should leave the app — for the clipboard or a
+// downloaded .txt. trailing newline included, the way a text file normally ends.
+// falls back to the padded rows only for an art object built somewhere that
+// predates sourceRows, which shouldn't exist but costs nothing to tolerate.
+function asciiArtText(art){
+  return (art.sourceRows || art.rows).join('\n') + '\n';
 }
 
 const asciiTrack = createRevealTrack({

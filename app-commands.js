@@ -231,6 +231,9 @@ const COMMANDS = [
   { usage: 'close', desc: 'once complete: save it + start a new one  (also: save)' },
   { usage: 'download [<n|name>]', desc: 'once complete: save the file to your computer',
     extra: ['with a gallery number or name instead ("download 3"), downloads an already-collected piece'] },
+  { usage: 'copy [<n|name>]', desc: 'copy an ascii piece\'s text to your clipboard  (ascii only)',
+    extra: ['bare form copies whatever\'s in view — an open gallery piece, or the live piece once it\'s fully revealed',
+            'with a gallery number or name instead ("copy 3"), copies an already-collected piece'] },
   { usage: 'display', desc: 'blow up the current piece — ascii or image, however',
     extra: ['much of it is revealed  (esc, enter, space or click to exit)',
             '(for a collected piece instead, see "gallery display")'] },
@@ -288,7 +291,7 @@ const HELP_GROUPS = [
   { name:'tasks',  desc:'add, edit, finish and find tasks',
     members:['add','rename','edit','start','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
   { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
-    members:['gallery','mode','folders','art','next','reveal','hide','block','close','download','display'] },
+    members:['gallery','mode','folders','art','next','reveal','hide','block','close','download','copy','display'] },
   { name:'layout', desc:'panels, themes, and what shows on screen',
     members:['view','split','set','theme','fullscreen'] },
   { name:'data',   desc:'backups, and restoring from them',
@@ -1617,6 +1620,7 @@ function printCompletionPrompt(art){
   print('  close     (save it, start a new one — also: save)', 'info');
   print('  skip      (discard it, no gallery credit, start a new one)', 'info');
   print('  download  (save the file to your computer)', 'info');
+  if(displayMode === 'ascii') print('  copy      (copy the ascii text to your clipboard)', 'info');
 }
 
 function slugify(name){
@@ -1842,7 +1846,7 @@ async function downloadCollected(arg){
       triggerArtDownload('image', item.name, entry.file);
     } else {
       const art = await loadArtworkFile(entry);
-      triggerArtDownload('ascii', item.name, art.rows.join('\n'));
+      triggerArtDownload('ascii', item.name, asciiArtText(art));
     }
     print(`downloading "${item.name}"...`, 'ok');
   }catch(e){
@@ -1857,11 +1861,88 @@ async function cmd_download(arg){
   if(!track.pending){ print('nothing to download right now — or pass a gallery number/name, e.g. "download 3"', 'err'); return; }
   const art = track.current;
   try{
-    triggerArtDownload(displayMode, art.name, displayMode === 'image' ? art.file : art.rows.join('\n'));
+    triggerArtDownload(displayMode, art.name, displayMode === 'image' ? art.file : asciiArtText(art));
     print(`downloading "${art.name}"... type "close" when you're ready for a new one.`, 'ok');
   }catch(e){
     print('could not download the file', 'err');
   }
+}
+
+// ---------- copy ascii art to clipboard ----------
+// text only — an image has nothing sensible to "copy" as text, "download" is
+// its equivalent. tries the modern async Clipboard API first, and falls back
+// to the old execCommand('copy') trick (a temporary, off-screen, selected
+// <textarea>) when that's missing or refuses — some file:// origins, older
+// browsers, or a permission the user's declined. returns whether it worked
+// rather than throwing, so callers report success/failure without a try/catch
+// of their own.
+async function copyTextToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{ await navigator.clipboard.writeText(text); return true; }catch(e){ /* fall through to the legacy path below */ }
+  }
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    cmdInput.focus();
+    return ok;
+  }catch(e){
+    return false;
+  }
+}
+async function copyTextAndReport(text, name){
+  const ok = await copyTextToClipboard(text);
+  if(ok) print(`copied "${name}" to your clipboard.`, 'ok');
+  else print('could not copy to clipboard — your browser may be blocking clipboard access here.', 'err');
+}
+// shared by bare "copy" (when a gallery detail view is open) and "copy <n|name>" —
+// same type check and missing-file guard "download" uses on the same item.
+async function copyGalleryItem(item){
+  if(item.type !== 'ascii'){ print('only ascii pieces can be copied as text — "download" saves an image file instead.', 'err'); return; }
+  const entry = galleryManifestEntry(item);
+  if(!entry){ print(`the source file for "${item.name}" is missing — it can't be copied.`, 'err'); return; }
+  const art = await loadArtworkFile(entry);
+  await copyTextAndReport(asciiArtText(art), item.name);
+}
+async function copyCollected(arg){
+  const all = collectedGalleryList();
+  if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+  const idx = resolveGalleryArg(arg, all);
+  if(idx === -1){ print(`"${arg}" isn't in your collection yet — "gallery" lists what you've got, by number.`, 'err'); return; }
+  await copyGalleryItem(all[idx]);
+}
+// bare "copy" acts on whatever ascii piece is actually in view: an open gallery
+// detail view first (it's always fully revealed, so there's no "wait until
+// it's done" gate there), otherwise the live piece — which does need that gate,
+// same as "download" — a partial reveal is mostly blank space, not something
+// worth putting on the clipboard.
+async function cmd_copy(arg){
+  const argTrim = (arg || '').trim();
+  if(argTrim) return copyCollected(argTrim);
+  if(galleryOpen && galleryDetailIdx != null){
+    const all = collectedGalleryList();
+    const item = all[galleryDetailIdx];
+    if(!item){ print('nothing to copy right now', 'err'); return; }
+    return copyGalleryItem(item);
+  }
+  if(displayMode !== 'ascii'){
+    print('copy only works for ascii art — switch with "mode ascii", or pass a gallery number/name, e.g. "copy 3".', 'err');
+    return;
+  }
+  const track = activeTrack();
+  if(!track.current){ print('the ascii collection is still loading...', 'info'); return; }
+  if(!track.pending){
+    print(`"${track.current.name}" isn't fully revealed yet — keep completing tasks, "reveal" it (cheat), or pass a gallery number to copy an already-collected piece instead.`, 'err');
+    return;
+  }
+  await copyTextAndReport(asciiArtText(track.current), track.current.name);
 }
 
 // resolves "gallery show"/"gallery display"'s argument the same way — a number
@@ -2096,6 +2177,7 @@ function dispatch(cmd, rest){
     case 'close': return cmd_close();
     case 'undo': return cmd_undo();
     case 'download': return cmd_download(rest.join(' '));
+    case 'copy': return cmd_copy(rest.join(' '));
     case 'display': cmd_display(); break;
     case 'fullscreen': cmd_fullscreen(rest[0]); break;
     case 'stats': cmd_stats(); break;
