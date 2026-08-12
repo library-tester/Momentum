@@ -1621,6 +1621,7 @@ function printCompletionPrompt(art){
   print('  skip      (discard it, no gallery credit, start a new one)', 'info');
   print('  download  (save the file to your computer)', 'info');
   if(displayMode === 'ascii') print('  copy      (copy the ascii text to your clipboard)', 'info');
+  print('  display   (see it fullscreen — esc/click to exit)', 'info');
 }
 
 function slugify(name){
