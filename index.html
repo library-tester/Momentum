@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- without this a phone renders the page at a virtual 980px and then scales it
+     down to fit, so every one of the layout rules below is measured against a
+     width the device doesn't have — the media query never matches and the whole
+     app arrives zoomed out to unreadable. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Momentum - yet another task manager</title>
 <script src="art-data.js"></script>
 <link rel="stylesheet" href="momentum.css">

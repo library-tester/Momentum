@@ -1463,7 +1463,22 @@ function sideName(){ return viewMode === 'tasks' ? 'your task list' : 'the rewar
 function stackedName(){ return viewMode === 'tasks' ? 'the reward art' : 'your task list'; }
 function sideEdge(){ return mirrored ? 'left' : 'right'; }
 function consoleEdge(){ return mirrored ? 'right' : 'left'; }
+// on a narrow screen the stylesheet stacks the columns and drops the stacked
+// panel entirely (see the max-width breakpoint in momentum.css) — so every
+// sentence in this file about left/right columns and what "split" pins is simply
+// untrue there. rather than repeat the breakpoint's width as a second copy that
+// could drift from the CSS, this asks the browser what the layout actually came
+// out as: whatever the media query is doing right now is what these read.
+function stackedLayout(){
+  const main = document.getElementById('main');
+  return !!main && getComputedStyle(main).flexDirection.startsWith('column');
+}
 function describeLayout(){
+  if(stackedLayout()){
+    const other = viewMode === 'tasks' ? 'art' : 'tasks';
+    return `  ${sideName()} above the console — narrow screen, one panel at a time.`
+      + `  ("view ${other}" swaps it for ${stackedName()}.)`;
+  }
   return `  ${sideName()} on the ${sideEdge()}, console on the ${consoleEdge()}`
     + (splitOn ? `, ${stackedName()} above it.` : `. "split on" pins ${stackedName()} above the console.`);
 }
@@ -1480,7 +1495,9 @@ function cmd_view(arg){
   viewMode = target;
   applyView();
   renderPanel();      // the panel that just became visible was skipped while hidden — rebuild it
-  print(`view: ${viewMode} — ${sideName()} now has the ${sideEdge()}-hand column.`, 'ok');
+  print(stackedLayout()
+    ? `view: ${viewMode} — ${sideName()} is the panel above the console now.`
+    : `view: ${viewMode} — ${sideName()} now has the ${sideEdge()}-hand column.`, 'ok');
   print(describeLayout(), 'info');
   if(!splitOn && viewMode === 'tasks'){
     print('(the art keeps uncovering while it\'s off screen — "art" reports where it is, "display" shows it full-screen)', 'info');
@@ -1506,6 +1523,10 @@ function cmd_split(arg){
   print(splitOn
     ? `split view on — ${stackedName()} now stays put above the console. drag the divider between them to resize it.`
     : 'split view off — back to the full-height console.', 'ok');
+  // saved either way, so it's already set the way you want it on a wider screen —
+  // but on a phone there's only room for one panel and the setting has nothing to
+  // show for itself, which is worth saying rather than leaving it looking broken.
+  if(stackedLayout()) print('  (no visible change on a screen this narrow — only one panel fits, so it stays hidden until there\'s room for two.)', 'info');
   saveState();
 }
 
@@ -1540,9 +1561,14 @@ const SETTINGS = {
     label: 'flip the two columns left-for-right',
     get: () => mirrored,
     apply: v => { mirrored = v; applyView(); },
-    said: v => v
-      ? `mirrored — ${sideName()} is on the left now, the console on the right.`
-      : `unmirrored — ${sideName()} is back on the right.`,
+    // there are no left and right columns to trade while the layout is stacked,
+    // so the flag is recorded for a wider screen and says so instead of claiming
+    // a move you can't see happen.
+    said: v => stackedLayout()
+      ? `${v ? 'mirrored' : 'unmirrored'} — saved, but there's only one column on a screen this narrow, so nothing moves until there's room for two.`
+      : v
+        ? `mirrored — ${sideName()} is on the left now, the console on the right.`
+        : `unmirrored — ${sideName()} is back on the right.`,
   },
   age: {
     label: '"[3d ago]" on each task\'s details line',

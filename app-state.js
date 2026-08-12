@@ -359,8 +359,19 @@ async function loadState(){
       { cmd: 'done 1',                   desc: "mark it complete once it's done" },
       { cmd: 'help',                     desc: 'see everything else this can do' },
     ];
+    // two columns only while the console is actually wide enough to hold them:
+    // the padded command column plus a description is ~60 characters, and a phone's
+    // console is closer to 43, so this block — the first thing a new user ever
+    // sees — used to arrive as a ragged wrap with descriptions broken mid-phrase.
+    // the same accommodation buildHelpRows already makes for the help screen, and
+    // for the same reason. stacked below that width, indented so each description
+    // still reads as belonging to the command above it.
     const w = Math.max(...starters.map(s => s.cmd.length));
-    starters.forEach(s => print(`  ${s.cmd.padEnd(w)}  ${s.desc}`, 'info'));
+    const twoColumn = outputColumns() >= w + 4 + Math.max(...starters.map(s => s.desc.length));
+    starters.forEach(s => {
+      if(twoColumn){ printHanging(`  ${s.cmd.padEnd(w)}  ${s.desc}`, w + 4, 'info'); }
+      else { print(`  ${s.cmd}`, 'info'); printHanging(`      ${s.desc}`, 6, 'info'); }
+    });
   }
 }
 function saveState(){

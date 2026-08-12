@@ -736,6 +736,30 @@ wireDivider(document.getElementById('col-divider'), 'col', (ev) => {
   pane.style.flex = `0 0 ${pct}%`;
 });
 
+// ---------- the on-screen keyboard ----------
+// 100dvh (see momentum.css) sizes the app to the screen minus the browser's own
+// chrome — but a phone's soft keyboard is not chrome. It slides in over the page
+// without changing dvh at all, so the bottom row of a full-height layout, which
+// here is the command input, ends up underneath it: hidden at exactly the moment
+// you're typing into it. visualViewport is the only thing that reports the area
+// genuinely left visible, so while the keyboard is up the app is pinned to that
+// instead.
+// Only ever active at the stacked breakpoint: the inline height is cleared the
+// moment the query stops matching, so turning a phone to landscape (or any wide
+// viewport) is back on the plain CSS height with nothing to undo by hand.
+const smallScreenQuery = window.matchMedia('(max-width: 700px)');
+function syncViewportHeight(){
+  const vv = window.visualViewport;
+  if(!vv || !smallScreenQuery.matches){ document.body.style.height = ''; return; }
+  document.body.style.height = vv.height + 'px';
+}
+if(window.visualViewport) window.visualViewport.addEventListener('resize', syncViewportHeight);
+// addListener is the pre-2021 Safari spelling — this is the one file in the app
+// most likely to be read on an old phone, so it's worth the two extra lines.
+if(smallScreenQuery.addEventListener) smallScreenQuery.addEventListener('change', syncViewportHeight);
+else if(smallScreenQuery.addListener) smallScreenQuery.addListener(syncViewportHeight);
+syncViewportHeight();
+
 // ---------- boot ----------
 cmdHistory = loadCmdHistory();                            // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
 print('welcome to Momentum. type "help" to see what you can do.', 'info');

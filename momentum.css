@@ -121,7 +121,24 @@
     display:flex;
     flex-direction:column;
     height:100vh;
+    /* dvh is the *visible* viewport height: on a phone, 100vh is the height the
+       page would have with the browser's address bar hidden, so a 100vh app is
+       always a bar's worth taller than the screen and its bottom row — here, the
+       command input — sits just off the bottom edge until you scroll. declared
+       second so browsers that don't know dvh keep the vh above. (the soft
+       keyboard is a separate problem dvh does NOT solve; see syncViewportHeight
+       in app-render.js.) */
+    height:100dvh;
     overflow:hidden;
+    /* a phone would otherwise inflate the type in the console on its own
+       ("text autosizing"), which breaks the monospace grid the ascii art is
+       drawn on — every piece would come out sheared. */
+    -webkit-text-size-adjust:100%;
+    text-size-adjust:100%;
+    /* no pull-to-refresh / rubber-banding: this is a fixed, app-like layout with
+       its own scrolling regions, and an overscroll that reloads the page mid-drag
+       through the gallery is pure loss. */
+    overscroll-behavior:none;
   }
   header{
     padding:14px 20px 10px;
@@ -556,4 +573,75 @@
   :root[data-theme="night"] #list-pane::-webkit-scrollbar-thumb{
     background:var(--bg-dark);
     border:1px solid var(--line);
+  }
+
+  /* ---------- phones and small tablets ---------- */
+  /* Below this width the side-by-side layout can't hold: the console column alone
+     asks for 280px and the side panel takes a percentage of what's left, so on a
+     phone both arrive as unreadable slivers with the ascii art clipped to nothing.
+     Everything stacks instead — one panel on top, the console filling the rest.
+     700px is the crossover: below it there isn't room for two usable columns of
+     monospace text side by side, above it (landscape phone, tablet, desktop) there
+     is, and the desktop layout comes straight back with nothing to reset by hand. */
+  @media (max-width: 700px){
+    /* column-REVERSE, not column: the side panel is the last child of #main (see
+       applyView), so reversing is what lifts it above the console without moving a
+       single element in the DOM — the same trick body.mirrored already plays on the
+       row axis. listing that mirrored rule here too overrides it, since left/right
+       has nothing left to mean once the columns are stacked. */
+    #main, body.mirrored #main{ flex-direction:column-reverse; }
+    /* the console column's 280px minimum is wider than a small phone, and stacked
+       it can only force a horizontal scrollbar. min-height:0 is what actually lets
+       the console scroll internally instead of growing past the screen. */
+    #term-wrap, body.view-tasks #term-wrap{
+      flex:1 1 auto !important;
+      min-width:0;
+      min-height:0;
+    }
+    /* !important because applyView() writes flex-basis inline from the dragged
+       ratio — a *width*, which is meaningless now these are rows. A fixed 40/60
+       split takes over: enough art to actually look at, most of the screen for the
+       terminal you're typing into. The inline value is left untouched, so turning
+       the phone to landscape (past 700px) restores whatever width you'd dragged,
+       with no state to migrate either way. */
+    .slot-side{ flex:0 0 40% !important; min-height:0; }
+    /* two sections is all that fits. the stacked slot holds the *secondary* panel
+       (the task list in "view art", the art in "view tasks"), so hiding it costs
+       nothing you can't get back: "view tasks" swaps which panel is the visible
+       one, and "list" prints the tasks into the console from either view. */
+    body #list-pane.slot-stacked,
+    body #reveal-panel.slot-stacked,
+    body #split-divider{ display:none !important; }
+    /* the column divider becomes a plain rule between the two rows. its 7px grab
+       area and col-resize cursor mean nothing stacked, and wireDivider computes a
+       drag from clientX against #main's width — on this axis that reads the wrong
+       coordinate entirely, so it stops taking pointer events rather than resizing
+       something sideways under your thumb. */
+    #col-divider{
+      flex:0 0 1px;
+      border:none;
+      background:var(--line);
+      cursor:default;
+      pointer-events:none;
+    }
+    #col-divider::after{ display:none; }
+    /* 20px of side padding is a lot of a 360px screen — that's 11% of the width
+       gone before any text. tightened, not removed: the hanging "$" gutter still
+       needs somewhere to sit. */
+    header{ padding:10px 14px 8px; }
+    header .title{ font-size:15px; letter-spacing:1.5px; }
+    #output{ padding:10px 14px 10px calc(14px + var(--gutter)); }
+    #input-row{ padding:8px 14px 10px; }
+    #list-pane{ padding:10px 14px; }
+    #reveal-panel{ padding:14px; }
+    .image-stage{ padding:10px; }
+    /* 16px is the exact threshold under which iOS Safari zooms the page in when an
+       input takes focus — and it does not zoom back out afterwards, so every
+       command would leave the app a little further blown up and needing a pinch to
+       recover. only the focusable element needs this; the console's own type stays
+       at its normal size. */
+    #cmd, #prompt{ font-size:16px; }
+    /* a tap on a row shouldn't leave a grey flash box behind — the pointer/cursor
+       affordance already says these are clickable. */
+    #list-pane .line.row{ -webkit-tap-highlight-color:transparent; }
   }
