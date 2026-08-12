@@ -1,0 +1,21 @@
+   ,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
+  ,d'                             ,d"8          .  .          d,
+  8'   Welcome to SneezyMUD 3.0   8' 8         o .  .        d88,
+  8,                              8aP"          . O o .      Y88P
+  `b,                             "8,         O  .  .         "8'
+   `b,  Your options:              `b,          o O.           I ,a
+    `8                              `8          o o .          IaP8
+     8   0) Leave SneezyMUD          8        aaaaaaaa        a8I 8
+    ,8   1) Enter the game          ,8        "8. o 8"       8"8b 8
+   ,d'   2) Enter your character's ,d'         8 O .8        8 8I 8
+   8'       description            8'          8 o .8        8 Y' 8
+   8,    3) Read the background    8,          8. O 8        8 "  8
+   `b,      story of SneezyMUD     `b,         8 o. 8        8    8
+    `8   4) Change your character's `8      ,adP O .Yba,     8    8
+     8      password                 8     dP". O  o  "Yb    8    8
+    ,8   5) Delete your character    8    dP' O . o .O `Yb   8    8
+   ,d'                              ,8    8^^^^^^^^^^^^^^8   8    8
+ aadbaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ,d'    8              8  d888888b
+d"                            d"  ,d'     Yb,          ,dP """"""""""
+8,                            8, ,d'       "Ya,______,aP"
+`YaaaaaaaaaaaaaaaaaaaaaaaaaaaadbP"           `""""""""'
