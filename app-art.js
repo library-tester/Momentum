@@ -332,7 +332,24 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
 // ---------- ascii-art track ----------
 // artworks live as plain text files under ascii_art/, indexed by ascii_art/manifest.json,
 // so new ones can be dropped in without touching this code.
+
+// keyed by file path, unbounded for the session — same reasoning as imageDimsCache
+// just above: the files on disk don't change while the app is running, so once
+// parsed there's nothing left to gain by ever doing it again. this is what keeps
+// renderPanel() cheap to call after every single command (see its own comment —
+// "every task mutation already ends in renderPanel()"): without it, the gallery
+// grid's thumbnails and "gallery show <n>"'s detail view both call loadArtworkFile
+// again on every one of those re-renders, even when nothing about the gallery
+// itself changed — an unrelated "add" would re-fetch every ascii file in view on
+// every keystroke's worth of command. renderGalleryDetail in particular blanks
+// the panel to "loading..." before this resolves, so on an uncached miss that's a
+// real flash of the art disappearing and coming back; a cache hit resolves on the
+// same microtask turn as the "loading..." write, before the browser ever paints
+// it, so the piece you were already looking at never visibly moves.
+const asciiFileCache = new Map();
 async function loadArtworkFile(entry){
+  const cached = asciiFileCache.get(entry.file);
+  if(cached) return cached;
   const text = entry.content !== undefined ? entry.content : await (await fetch('ascii_art/' + entry.file)).text();
   const rawRows = text.replace(/\r\n/g, '\n').split('\n');
   while(rawRows.length && rawRows[rawRows.length - 1] === '') rawRows.pop();
@@ -342,7 +359,7 @@ async function loadArtworkFile(entry){
   rows.forEach((row, r) => {
     for(let c = 0; c < width; c++){ if(row[c] !== ' ') cellIndices.push(r * width + c); }
   });
-  return {
+  const art = {
     id: entry.id, name: entry.name, category: entry.category,
     revealTasks: entry.revealTasks || 6,
     // `rows` is the padded rectangle the reveal panel draws: every line runs the
@@ -355,6 +372,8 @@ async function loadArtworkFile(entry){
     // runs wrap every line and tear the picture apart.
     rows, sourceRows: rawRows, width, height: rows.length, cellIndices,
   };
+  asciiFileCache.set(entry.file, art);
+  return art;
 }
 
 // the text of an ascii piece as it should leave the app — for the clipboard or a
