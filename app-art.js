@@ -294,6 +294,21 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       await this.startNew();
       return finished;
     },
+    // drops collected entries whose source file is no longer in the manifest —
+    // deleted from ascii_art/image_art (and rebuilt out of manifest.json /
+    // art-data.js) since they were collected. called wherever the manifest or
+    // the collection could have just changed underneath `collected` (init, and
+    // every full-state restore: undo/import/recover), so a removed piece quietly
+    // drops out of the gallery instead of sitting there as a permanent "?" tile.
+    // returns whether anything was actually dropped, so callers only re-save
+    // state when there's something to persist.
+    pruneMissing(){
+      if(!this.manifest) return false;
+      const known = new Set(this.manifest[itemsField].map(e => e.id));
+      const before = this.collected.length;
+      this.collected = this.collected.filter(c => known.has(c.id));
+      return this.collected.length !== before;
+    },
     serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending, banked: this.banked }; },
     restore(data){
       if(!data) return;

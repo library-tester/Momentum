@@ -203,6 +203,8 @@ const COMMANDS = [
   { usage: 'gallery display [<n|name>]', desc: 'fullscreen a collected piece — bare form uses whatever "gallery show" has open',
     extra: ['left/right arrow steps to the next/previous piece without leaving fullscreen'] },
   { usage: 'gallery close', desc: 'back to the live reveal' },
+  { usage: 'gallery rm <n|name|n,n,...|n-m|all>', desc: 'remove piece(s) from your collection  (also: remove, delete)',
+    extra: ['numbers are the same ones "gallery" shows on screen; "download" it first if you want to keep the file'] },
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'folders [<numbers>]', desc: 'list the image_art folders, or flip one in/out of the random pool',
     extra: ['(exclude <numbers> / include <numbers> force a direction instead)'] },
@@ -218,15 +220,17 @@ const COMMANDS = [
     extra: ['(also: switch, and the classic nightmode/daymode)'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
     extra: ['(also: image — same command either way)'] },
-  { usage: 'next', desc: 'skip to a new piece (no credit for it)' },
+  { usage: 'next', desc: 'skip to a new piece (no credit for it)  (also: skip)',
+    extra: ['works on a just-completed piece too — discards it instead of close/download'] },
   { usage: 'reveal', desc: 'cheat: instantly finish revealing it' },
   { usage: 'hide', desc: 'cheat: re-mask it back to 0%' },
   { usage: 'block size [<tier>]', desc: 'show or set the image reveal block size',
     extra: ['tiers: very small, small, medium, big, very big, full',
             'redrawn at the new block size  (image mode only)'] },
   { usage: 'block count [<1-20>|auto]', desc: 'blocks uncovered per completed task  (image mode only)' },
-  { usage: 'close', desc: 'once complete: save it + start a new one' },
-  { usage: 'download', desc: 'once complete: save the file to your computer' },
+  { usage: 'close', desc: 'once complete: save it + start a new one  (also: save)' },
+  { usage: 'download [<n|name>]', desc: 'once complete: save the file to your computer',
+    extra: ['with a gallery number or name instead ("download 3"), downloads an already-collected piece'] },
   { usage: 'display', desc: 'blow up the current piece — ascii or image, however',
     extra: ['much of it is revealed  (esc, enter, space or click to exit)',
             '(for a collected piece instead, see "gallery display")'] },
@@ -254,7 +258,7 @@ const SHORTCUTS = { a:'add', d:'done', l:'list', s:'split', g:'gallery', u:'undo
 // longer spellings of the same commands, kept working out of habit/compatibility.
 // they're not advertised as shortcuts; the command they resolve to says "also: ..."
 // in its own help line.
-const SPELLINGS = { remove:'rm', delete:'rm', image:'art', switch:'theme' };
+const SPELLINGS = { remove:'rm', delete:'rm', image:'art', switch:'theme', save:'close', skip:'next' };
 const ALIASES = { ...SHORTCUTS, ...SPELLINGS };
 function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 
@@ -477,7 +481,7 @@ const ARG_COMPLETIONS = {
   rm:         () => ['all'],
   restore:    () => ['all'],
   archive:    pos => pos === 0 ? ['rm'] : ['all'],
-  gallery:    pos => pos === 0 ? ['list', 'show', 'display', 'close'] : [],
+  gallery:    pos => pos === 0 ? ['list', 'show', 'display', 'close', 'rm'] : [],
   project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
   recover:    pos => pos === 0 ? ['list'] : [],
   tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
@@ -1610,7 +1614,8 @@ function printCompletionPrompt(art){
   const kind = displayMode === 'image' ? 'Image' : 'Artwork';
   print(`${kind} completed! "${art.name}" is fully revealed.`, 'ok');
   print('What do you want to do?', 'info');
-  print('  close     (save it, start a new one)', 'info');
+  print('  close     (save it, start a new one — also: save)', 'info');
+  print('  skip      (discard it, no gallery credit, start a new one)', 'info');
   print('  download  (save the file to your computer)', 'info');
 }
 
@@ -1799,27 +1804,60 @@ async function cmd_close(){
   saveState(); renderPanel();
 }
 
-async function cmd_download(){
+// shared by "download" (the in-progress piece) and "download <n|name>" (an
+// already-collected one) — same two file shapes either way. for an image,
+// `source` is its path under image_art/, downloaded via a direct <a download>
+// to that path rather than a fetch()+blob round trip — fetch() of a local file
+// is blocked outright when this page is opened via file:// (see art-data.js),
+// but the browser's native download of a same-origin/local resource works
+// either way. for ascii, `source` is the already-loaded, rectangle-padded text.
+function triggerArtDownload(type, name, source){
+  if(type === 'image'){
+    const ext = source.split('.').pop();
+    const a = document.createElement('a');
+    a.href = 'image_art/' + source;
+    a.download = `${slugify(name)}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } else {
+    const blob = new Blob([source], { type:'text/plain' });
+    triggerDownload(blob, `${slugify(name)}.txt`);
+  }
+}
+
+// downloads a piece already sitting in the gallery, resolved the same way
+// "gallery show"/"gallery display" resolve their own argument — a number first
+// (whatever "gallery" last showed on screen), a name as the fallback.
+async function downloadCollected(arg){
+  const all = collectedGalleryList();
+  if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+  const idx = resolveGalleryArg(arg, all);
+  if(idx === -1){ print(`"${arg}" isn't in your collection yet — "gallery" lists what you've got, by number.`, 'err'); return; }
+  const item = all[idx];
+  const entry = galleryManifestEntry(item);
+  if(!entry){ print(`the source file for "${item.name}" is missing — it can't be downloaded.`, 'err'); return; }
+  try{
+    if(item.type === 'image'){
+      triggerArtDownload('image', item.name, entry.file);
+    } else {
+      const art = await loadArtworkFile(entry);
+      triggerArtDownload('ascii', item.name, art.rows.join('\n'));
+    }
+    print(`downloading "${item.name}"...`, 'ok');
+  }catch(e){
+    print('could not download the file', 'err');
+  }
+}
+
+async function cmd_download(arg){
+  const argTrim = (arg || '').trim();
+  if(argTrim) return downloadCollected(argTrim);
   const track = activeTrack();
-  if(!track.pending){ print('nothing to download right now', 'err'); return; }
+  if(!track.pending){ print('nothing to download right now — or pass a gallery number/name, e.g. "download 3"', 'err'); return; }
   const art = track.current;
   try{
-    if(displayMode === 'image'){
-      // a direct <a download> to the file's own path, not a fetch()+blob round trip —
-      // fetch() of a local file is blocked outright when this page is opened via
-      // file:// (see art-data.js), but the browser's native download of a
-      // same-origin/local resource works either way.
-      const ext = art.file.split('.').pop();
-      const a = document.createElement('a');
-      a.href = 'image_art/' + art.file;
-      a.download = `${slugify(art.name)}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      const blob = new Blob([art.rows.join('\n')], { type:'text/plain' });
-      triggerDownload(blob, `${slugify(art.name)}.txt`);
-    }
+    triggerArtDownload(displayMode, art.name, displayMode === 'image' ? art.file : art.rows.join('\n'));
     print(`downloading "${art.name}"... type "close" when you're ready for a new one.`, 'ok');
   }catch(e){
     print('could not download the file', 'err');
@@ -1838,6 +1876,56 @@ function resolveGalleryArg(arg, all){
   return all.findIndex(c => c.name.toLowerCase() === arg.toLowerCase());
 }
 
+// "gallery rm"'s counterpart to splitIds — the same n[,n...]/n-m/all vocabulary
+// used everywhere else in the app, but over collectedGalleryList()'s 1-based
+// display numbers (or names) instead of task ids, since a collected piece has
+// no id of its own that's ever shown on screen. returns the matched items
+// (not indices) so the caller can remove them by identity regardless of how
+// the list re-sorts/re-numbers after any of them are gone.
+function resolveGalleryTargets(argsStr, all){
+  const raw = (argsStr || '').trim();
+  if(!raw) return [];
+  if(raw.toLowerCase() === 'all') return all.slice();
+  const out = [];
+  const seen = new Set();
+  const add = item => { if(item && !seen.has(item)){ seen.add(item); out.push(item); } };
+  raw.split(',').map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)-(\d+)$/);
+    if(m){
+      let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if(a > b) [a, b] = [b, a];
+      b = Math.min(b, all.length);
+      for(let i = a; i <= b; i++){ if(i >= 1) add(all[i - 1]); }
+    } else {
+      const idx = resolveGalleryArg(tok, all);
+      if(idx !== -1) add(all[idx]);
+    }
+  });
+  return out;
+}
+
+// removes already-resolved gallery items from whichever track each belongs to,
+// matched by id + collectedAt (a collected item has no other stable identity —
+// the same piece can be collected again later with a fresh timestamp). undoable
+// like everything else MUTATING covers ("gallery" is in that set), but there's
+// no dedicated "restore" for it the way archived tasks get one, hence the
+// confirmation past the usual threshold in cmd_gallery below.
+function performGalleryRm(targets){
+  let changed = false;
+  targets.forEach(item => {
+    const track = item.type === 'image' ? imageTrack : asciiTrack;
+    const i = track.collected.findIndex(c => c.id === item.id && c.collectedAt === item.collectedAt);
+    if(i === -1) return;
+    track.collected.splice(i, 1);
+    print(`removed "${item.name}" from your gallery.`, 'ok');
+    changed = true;
+  });
+  if(changed){
+    if(galleryDetailIdx != null) galleryDetailIdx = null;   // whatever it pointed at may now be a different piece — back out to the grid
+    saveState(); renderPanel();
+  }
+}
+
 // the collection lives in the reveal panel now (see renderGalleryGrid/Detail),
 // not the terminal log — a numbered dump you then had to re-type the exact
 // humanizeName'd name back into "show" was never actually usable off its own
@@ -1847,6 +1935,20 @@ function resolveGalleryArg(arg, all){
 // moly 2091" from memory than look at the panel first.
 function cmd_gallery(sub, ...rest){
   sub = (sub || 'list').toLowerCase();
+  if(['rm','remove','delete'].includes(sub)){
+    const argsStr = rest.join(' ').trim();
+    if(!argsStr){ print('usage: gallery rm <n|name|n,n,...|n-m|all>', 'err'); return; }
+    const all = collectedGalleryList();
+    if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
+    const targets = resolveGalleryTargets(argsStr, all);
+    if(targets.length === 0){ print(`"${argsStr}" isn't in your collection — "gallery" lists what you've got, by number.`, 'err'); return; }
+    if(targets.length > CONFIRM_THRESHOLD){
+      askConfirm(`remove ${targets.length} pieces from your gallery? "download" first if you want to keep any of the files.`, `gallery rm ${argsStr}`, () => performGalleryRm(targets));
+      return;
+    }
+    performGalleryRm(targets);
+    return;
+  }
   if(sub === 'list'){
     const all = collectedGalleryList();
     if(all.length === 0){ print('no artworks collected yet — keep completing tasks!', 'info'); return; }
@@ -1893,7 +1995,7 @@ function cmd_gallery(sub, ...rest){
     openGalleryFullscreen(idx);
     return;
   }
-  print('usage: gallery [list|show <n|name>|display [<n|name>]|close]', 'err');
+  print('usage: gallery [list|show <n|name>|display [<n|name>]|rm <n|name|...>|close]', 'err');
 }
 
 // commands that can change saved state. each one gets a snapshot taken before it
@@ -1905,7 +2007,7 @@ function cmd_gallery(sub, ...rest){
 // file picker and returns), so a snapshot taken around the command would always be
 // of an unchanged state. it records its own undo entry from inside the FileReader
 // callback that does the actual replacing — see cmd_import.
-const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore']);
+const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore','gallery']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -1966,7 +2068,7 @@ function dispatch(cmd, rest){
     case 'archive': cmd_archive(...rest); break;
     case 'restore': cmd_restore(rest[0]); break;
     case 'find': cmd_find(rest); break;
-    case 'gallery': cmd_gallery(rest[0], ...rest.slice(1)); break;
+    case 'gallery': return cmd_gallery(rest[0], ...rest.slice(1));
     case 'mode': cmd_mode(rest[0]); break;
     case 'folders': cmd_folders(rest); break;
     case 'include': cmd_include(rest); break;
@@ -1993,7 +2095,7 @@ function dispatch(cmd, rest){
     case 'block': return cmd_block(rest[0], rest.slice(1));
     case 'close': return cmd_close();
     case 'undo': return cmd_undo();
-    case 'download': return cmd_download();
+    case 'download': return cmd_download(rest.join(' '));
     case 'display': cmd_display(); break;
     case 'fullscreen': cmd_fullscreen(rest[0]); break;
     case 'stats': cmd_stats(); break;

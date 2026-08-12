@@ -298,6 +298,7 @@ async function cmd_undo(){
   applyTitle();
   applyStatLine();
   await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
+  asciiTrack.pruneMissing(); imageTrack.pruneMissing();            // ditto for a since-deleted piece the rewind brought back
   saveState();
   renderPanel();
   print(`undid "${entry.label}" — ${tasks.length} task(s) in the list.`, 'ok');
@@ -328,6 +329,13 @@ async function loadState(){
   applyStatLine();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
+    // a piece collected in an earlier session can have been deleted from disk
+    // since — rebuilt out of the manifest / art-data.js snapshot this just
+    // loaded — so it's pruned from the gallery right here, once, rather than
+    // sitting there forever as a "?" tile. only worth a re-save when it
+    // actually found something to drop.
+    const prunedAscii = asciiTrack.pruneMissing(), prunedImage = imageTrack.pruneMissing();
+    if(prunedAscii || prunedImage) saveState();
   }catch(e){
     collectionLoadError = location.protocol === 'file:'
       ? 'could not load the art collection — art-data.js is missing or out of date. run "python3 build_art_data.py" next to this file, then reopen it.'
@@ -485,6 +493,7 @@ function cmd_import(){
         // same wholesale replacement undo does, so the same repair: the backup names
         // the piece and grid it was saved with, and the loaded art has to follow.
         await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
+        asciiTrack.pruneMissing(); imageTrack.pruneMissing();
         saveState(); renderPanel(); cmd_list([]);
         print(`imported ${tasks.length} task(s) + ${archive.length} archived from "${file.name}".`, 'ok');
       }catch(e){
@@ -531,6 +540,7 @@ function cmd_recover(arg){
       applyStateSnapshot(chosen.data);
       applyTheme(); applyView(); applyTitle(); applyStatLine();
       await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
+      asciiTrack.pruneMissing(); imageTrack.pruneMissing();
       saveState(); renderPanel(); cmd_list([]);
       print(`restored the backup from ${new Date(chosen.at).toLocaleString()}.`, 'ok');
     }
