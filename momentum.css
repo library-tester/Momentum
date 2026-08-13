@@ -611,6 +611,21 @@
     background:var(--text-main);
     color:var(--bg-dark);
   }
+  /* night mode's --text-main is pure red, so the reverse-video fill above lands as a
+     solid red block — the loudest thing on a black screen, and for the *cursor* of a
+     list rather than anything urgent. Same objection, and same answer, as the
+     scrollbar thumb below: black fill, red outline only.
+     outline rather than border, because a border would add 2px to the cell and
+     nudge its text sideways as the highlight moves through the grid; an outline is
+     drawn outside the box model and shifts nothing. offset:-1px pulls it just
+     inside the padding edge so it reads as a neat box around the word instead of
+     crowding the columns either side. */
+  :root[data-theme="night"] #tab-hint span.active{
+    background:var(--bg-dark);
+    color:var(--text-main);
+    outline:1px solid var(--line);
+    outline-offset:-1px;
+  }
   #tab-hint::-webkit-scrollbar{ width:8px; }
   #tab-hint::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
   /* reverse video, not a new color: swaps the same --text-main/--bg-dark pair every

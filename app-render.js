@@ -588,6 +588,42 @@ function applyCompletion(){
   completionState.applied = base + candidates[idx];
   cmdInput.value = completionState.applied;
 }
+// how many columns the panel is actually showing. it can't be assumed or stored:
+// the grid is auto-fill (see momentum.css), so the browser picks the count from
+// the console's width at layout time, and it changes when the window or the
+// dragged column divider does. reading the resolved track list back is the only
+// way Up/Down can know what "one row" currently means.
+function completionColumns(){
+  const tracks = getComputedStyle(tabHintEl).gridTemplateColumns;
+  if(!tracks || tracks === 'none') return 1;               // display:none, or a browser that didn't resolve it
+  return Math.max(1, tracks.trim().split(/\s+/).length);
+}
+const COMPLETION_ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+// left/right step through the list in order; up/down step by a whole row. both
+// wrap, because Tab already wraps and having the arrows dead-end instead would be
+// two different rules for moving through one list. the wrap targets are computed
+// rather than clamped so they always land on a real candidate: the last row of a
+// grid is usually ragged, so "the item above" from row 0 is the bottom-most item
+// *in that column*, which isn't the last item in the list.
+function moveCompletion(key){
+  const { candidates, idx } = completionState;
+  const cols = completionColumns();
+  const col = idx % cols;
+  let next = idx;
+  if(key === 'ArrowRight')     next = (idx + 1) % candidates.length;
+  else if(key === 'ArrowLeft') next = (idx - 1 + candidates.length) % candidates.length;
+  else if(key === 'ArrowDown'){
+    next = idx + cols;
+    if(next >= candidates.length) next = col;              // off the bottom — back to the top of this column
+  }
+  else if(key === 'ArrowUp'){
+    next = idx - cols;
+    if(next < 0) next = col + Math.floor((candidates.length - 1 - col) / cols) * cols;
+  }
+  completionState.idx = next;
+  applyCompletion();
+  renderCompletionHint();
+}
 function handleTab(){
   if(completionState && cmdInput.value === completionState.applied){
     completionState.idx = (completionState.idx + 1) % completionState.candidates.length;
@@ -648,6 +684,16 @@ cmdInput.addEventListener('keydown', (e)=>{
     e.preventDefault();                                  // Tab would otherwise move focus out of the input
     handleTab();
     historyWalk = null;                                  // Tab isn't history navigation — a suspended search shouldn't outlive it
+    return;
+  }
+  // while the panel is open the arrows belong to it, not to the command history
+  // (Up/Down) or the text caret (Left/Right) — the panel is the thing you're
+  // looking at, so it's the thing they should move. it only opens on Tab and
+  // closes on the next ordinary keystroke, so this never shadows history for
+  // long, and Escape (falling through below) closes it deliberately.
+  if(completionState && COMPLETION_ARROWS.includes(e.key)){
+    moveCompletion(e.key);
+    e.preventDefault();
     return;
   }
   completionState = null;                                // any other key invalidates the completion cycle

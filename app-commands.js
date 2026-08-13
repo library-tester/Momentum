@@ -464,7 +464,8 @@ function cmd_help(arg){
     printHanging('  help all     every command at once, the long way', 14);
     print('');
     print('  "help <command>" explains just that one, e.g. help done', 'info');
-    print('  Tab completes command names and their options; press it again to cycle.', 'info');
+    print('  Tab completes command names and their options; press it again to cycle,', 'info');
+    print('  or use the arrow keys to move through the choices it lists.', 'info');
     print('');
     printShortcutsRow();
     return;
