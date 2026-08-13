@@ -514,6 +514,10 @@
      the actual answer reads first. still the one theme color, only softened: with
      every role sharing a hue, opacity is what's left to rank them by. */
   #output .info{ color:var(--text-dim); opacity:0.72; }
+  /* same color and weight as a typed command's echo (.echo below), for lines that
+     should read with the same weight without actually being one — no "$" marker,
+     no echo's extra top margin. */
+  #output .command-weight{ color:var(--text-main); font-weight:700; }
   /* pulled left by exactly the gutter, so the "$" lands in the margin and the
      command text itself starts in the same column as every response under it. */
   #output .echo{

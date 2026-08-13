@@ -209,7 +209,7 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | `mirror` | Flips the two columns left-for-right |
 | `age` | The `[3d ago]` field on each task's details line |
 
-> The old spellings still work — `title off`, `statline on`, `mirror`, `show age off` — they just route into `set` rather than being their own implementations. `set <key> toggle` flips one without naming a direction.
+> The old spellings still work — `title off`, `statline on`, `mirror` — they just route into `set` rather than being their own implementations. Task age is `set age on|off` only; it never earned a command word of its own. `set <key> toggle` flips one without naming a direction.
 
 ### Backups
 

@@ -1,7 +1,7 @@
 // ===== Momentum — app-commands.js =====
 // the terminal itself plus every command: the COMMANDS table, help, tab completion,
 // did-you-mean, guard rails, filters, and the cmd_* implementations with their
-// task-list text rendering. Also builds outputEl/COMMAND_NAMES/ALIASES at load time.
+// task-list text rendering. Also builds outputEl/ALIASES at load time.
 // Loaded by index.html as a plain <script src> (no modules: ES imports are blocked
 // under file://, which this app has to keep working). Everything here is a global,
 // shared across the four app-*.js files. Load order is fixed: app-state.js -> app-art.js -> app-commands.js -> app-render.js
@@ -171,8 +171,13 @@ function splitIds(idsStr, source){
 // hand-spacing drifts: the descriptions had crept out to four different columns
 // (55/56/57/58) as commands were added over time. one source of truth, padding
 // computed, so a new command can't misalign the block.
+// a row's `feat`, when set, ties it to a feature flag: the row disappears from
+// help — and its command from Tab and did-you-mean — while that feature is off,
+// so nothing is ever advertised that would only refuse. `usage` may be a function
+// for the rows that *list* the optional flags, since which flags exist depends on
+// which features are on; usageOf() below resolves either form.
 const COMMANDS = [
-  { usage: 'add <task title> [-p high|med|low] [-d YYYY-MM-DD] [-t tag1,tag2] [-proj name]', desc: 'add a new task  (quotes around the title are optional)' },
+  { usage: () => `add <task title>${addFlagsHint()}`, desc: 'add a new task  (quotes around the title are optional)' },
   { usage: 'rename <id> "new title"', desc: 'fix a typo — one task at a time, no delete-and-retype' },
   { usage: 'edit <id>', desc: 'load a task\'s current title into the command line to tweak, enter to save',
     extra: ['(fills in "rename <id> ...", cursor inside the quotes — for a full retype, "rename" works directly)'] },
@@ -180,23 +185,23 @@ const COMMANDS = [
   { usage: 'done <id[,id...]|all>', desc: 'complete task(s) — moves them to the archive' },
   { usage: 'rm <id[,id...]|1-4|all>', desc: 'delete task(s)  (also: remove, delete)' },
   { usage: 'undo', desc: 'undo the last command that changed anything' },
-  { usage: 'priority <id[,id...]|all> <high|med|low>', desc: 'change priority' },
-  { usage: 'due <id[,id...]|all> <YYYY-MM-DD|none>', desc: 'set or clear a due date' },
-  { usage: 'tag <id[,id...]|all> add <tag>', desc: 'add a tag to task(s)' },
-  { usage: 'tag <id[,id...]|all> rm <tag>', desc: 'remove a tag from task(s)' },
-  { usage: 'tag <id[,id...]|all> set <tag1,tag2,...>', desc: "replace all of task(s)' tags" },
-  { usage: 'tags', desc: 'list every tag in use' },
-  { usage: 'project add <name>', desc: 'create a project' },
-  { usage: 'project rm <name>', desc: 'delete a project' },
-  { usage: 'project set <id[,id...]|all> <name|none>', desc: 'assign task(s) to a project' },
-  { usage: 'project list', desc: 'list all projects (or: projects)' },
-  { usage: 'list [all|pending|active] [-proj name] [-t tag]', desc: 'show tasks as text, once (excludes archived)' },
+  { usage: 'priority <id[,id...]|all> <high|med|low>', desc: 'change priority', feat: 'priority' },
+  { usage: 'due <id[,id...]|all> <YYYY-MM-DD|none>', desc: 'set or clear a due date', feat: 'due' },
+  { usage: 'tag <id[,id...]|all> add <tag>', desc: 'add a tag to task(s)', feat: 'tags' },
+  { usage: 'tag <id[,id...]|all> rm <tag>', desc: 'remove a tag from task(s)', feat: 'tags' },
+  { usage: 'tag <id[,id...]|all> set <tag1,tag2,...>', desc: "replace all of task(s)' tags", feat: 'tags' },
+  { usage: 'tags', desc: 'list every tag in use', feat: 'tags' },
+  { usage: 'project add <name>', desc: 'create a project', feat: 'projects' },
+  { usage: 'project rm <name>', desc: 'delete a project', feat: 'projects' },
+  { usage: 'project set <id[,id...]|all> <name|none>', desc: 'assign task(s) to a project', feat: 'projects' },
+  { usage: 'project list', desc: 'list all projects (or: projects)', feat: 'projects' },
+  { usage: () => `list [all|pending|active]${filterFlagsHint()}`, desc: 'show tasks as text, once (excludes archived)' },
   { usage: 'filter [<same arguments as list>|off]', desc: 'narrow the always-visible task pane and keep it that way',
     extra: ['bare "filter" says what\'s applied; "filter off" clears it'] },
-  { usage: 'archive [-proj name] [-t tag]', desc: 'show completed/archived tasks' },
+  { usage: () => `archive${filterFlagsHint()}`, desc: 'show completed/archived tasks' },
   { usage: 'archive rm <id[,id...]|1-4|all>', desc: 'permanently delete archived task(s) — no coming back from this one' },
   { usage: 'restore <id[,id...]|1-4|all>', desc: 'move archived task(s) back to your list' },
-  { usage: 'find <text>', desc: 'search titles + tags, pending/active and archive together' },
+  { usage: 'find <text>', desc: () => `search titles${featureOn('tags') ? ' + tags' : ''}, pending/active and archive together` },
   { usage: 'gallery', desc: 'your collection, as a contact sheet in the side panel' },
   { usage: 'gallery show <n|name>', desc: 'open one piece full-size — or just click its tile',
     extra: ['(the number is whatever "gallery" is showing on screen)'] },
@@ -213,9 +218,9 @@ const COMMANDS = [
   { usage: 'split [on|off]', desc: 'pin the *other* panel above the console — the task list in the art',
     extra: ['view, the reward art in the tasks view',
             '(drag the divider between them to resize)'] },
-  { usage: 'set [<key>] [on|off|toggle]', desc: 'the on/off display settings — keys: title, statline, mirror, age',
-    extra: ['bare "set" lists all four with their current state',
-            '(title/statline/mirror/"show age" still work as their own commands)'] },
+  { usage: 'set [<key>] [on|off|toggle]', desc: 'every on/off switch, display and feature alike',
+    extra: ['bare "set" (or "help set") lists them all with their current state',
+            '(title/statline/mirror still work as their own commands)'] },
   { usage: 'theme [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
     extra: ['(also: switch, and the classic nightmode/daymode)'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
@@ -239,7 +244,7 @@ const COMMANDS = [
             '(for a collected piece instead, see "gallery display")'] },
   { usage: 'fullscreen [on|off]', desc: 'put the whole app fullscreen, like F11  (esc to leave)' },
   { usage: 'stats', desc: 'task summary' },
-  { usage: 'streak', desc: "current/longest completion streak + a heatmap" },
+  { usage: 'streak', desc: "current/longest completion streak + a heatmap", feat: 'streak' },
   { usage: 'export', desc: 'download a backup of all your tasks + progress' },
   { usage: 'import', desc: 'restore tasks + progress from a backup file' },
   { usage: 'recover [list|<n>]', desc: 'restore an automatic in-browser backup',
@@ -271,7 +276,7 @@ function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 // word swap, so dispatch handles the call and this only points help at the row
 // that now documents them. keeps "help title" useful instead of answering "no
 // help for that" about a command that demonstrably works.
-const HELP_ALIASES = { title:'set', statline:'set', mirror:'set', show:'set', age:'set', exclude:'folders', include:'folders' };
+const HELP_ALIASES = { title:'set', statline:'set', mirror:'set', age:'set', exclude:'folders', include:'folders' };
 
 // the dispatchable command word a help row documents: the first token of its
 // usage, which is exactly what dispatch() switches on. "archive [-proj name]"
@@ -280,7 +285,41 @@ const HELP_ALIASES = { title:'set', statline:'set', mirror:'set', show:'set', ag
 // declared on every row, so a row can't drift out of sync with the command it
 // documents.
 function commandNameOf(usage){ return usage.split(' ')[0]; }
-const COMMAND_NAMES = [...new Set(COMMANDS.map(c => commandNameOf(c.usage)))];
+// the flag lists the "add" and "list"/"archive" usage rows advertise. built from
+// whichever features are on rather than written out, so help can't offer a flag
+// that parseFlags would turn around and reject.
+function addFlagsHint(){
+  return [
+    featureOn('priority') ? ' [-p high|med|low]' : '',
+    featureOn('due')      ? ' [-d YYYY-MM-DD]'   : '',
+    featureOn('tags')     ? ' [-t tag1,tag2]'    : '',
+    featureOn('projects') ? ' [-proj name]'      : '',
+  ].join('');
+}
+function filterFlagsHint(){
+  return (featureOn('projects') ? ' [-proj name]' : '') + (featureOn('tags') ? ' [-t tag]' : '');
+}
+function usageOf(c){ return typeof c.usage === 'function' ? c.usage() : c.usage; }
+// false only for a command word whose feature is switched off. commands with no
+// feature attached (the great majority) are always allowed.
+function featureAllows(cmd){
+  const feat = FEATURE_OF_COMMAND[cmd];
+  return !feat || featureOn(feat);
+}
+// every help/completion path reads this rather than COMMANDS directly, so a
+// switched-off feature drops out of all of them at once. a function, not a const:
+// the answer changes the moment "set tags off" runs.
+function activeCommands(){ return COMMANDS.filter(c => !c.feat || featureOn(c.feat)); }
+function commandNames(){ return [...new Set(activeCommands().map(c => commandNameOf(usageOf(c))))]; }
+// which feature a dispatchable command word belongs to — the gate in dispatch()
+// and the one thing that has to list the alias spellings too, since "projects"
+// and "tags" reach the same features by a different word than their help row.
+const FEATURE_OF_COMMAND = {
+  priority: 'priority', due: 'due',
+  tag: 'tags', tags: 'tags',
+  project: 'projects', projects: 'projects',
+  streak: 'streak',
+};
 
 // ---------- help groups ----------
 // the full command list is ~70 printed lines, which is a wall you have to read
@@ -305,8 +344,8 @@ function commandsInGroup(groupName){
   const group = HELP_GROUPS.find(g => g.name === groupName);
   if(!group) return [];
   const placed = new Set(HELP_GROUPS.flatMap(g => g.members));
-  return COMMANDS.filter(c => {
-    const name = commandNameOf(c.usage);
+  return activeCommands().filter(c => {
+    const name = commandNameOf(usageOf(c));
     return group.members.includes(name) || (groupName === 'other' && !placed.has(name));
   });
 }
@@ -329,6 +368,9 @@ const HELP_MIN_DESC = 26;
 // subset being printed, so a single group's block is as tight as it can be
 // rather than padded out to the widest usage in the whole app.
 function buildHelpRows(list){
+  // resolve the dynamic rows once, before anything measures them: usage and desc
+  // may both be functions of the current feature flags (see the COMMANDS comment).
+  list = list.map(c => ({ ...c, usage: usageOf(c), desc: typeof c.desc === 'function' ? c.desc() : c.desc }));
   const fitting = list.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
   // capped to what this console can actually show. the description column is only
   // worth having if real width is left over for the description; when it isn't, col
@@ -383,7 +425,7 @@ function cmd_help(arg){
     print('commands:');
     printHanging('  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)', 2);
     print('');
-    printHelpRows(buildHelpRows(COMMANDS));
+    printHelpRows(buildHelpRows(activeCommands()));
     print('');
     printShortcutsRow();
     return;
@@ -401,13 +443,19 @@ function cmd_help(arg){
   // the real command rather than reporting that the letter is unknown, and the
   // folded-away commands ("help title") land on the row that now covers them.
   const name = HELP_ALIASES[raw] || resolveAlias(raw);
-  const rows = COMMANDS.filter(c => commandNameOf(c.usage) === name);
+  const rows = activeCommands().filter(c => commandNameOf(usageOf(c)) === name);
   if(rows.length){
     printHelpRows(buildHelpRows(rows));
     const alias = [...Object.entries(ALIASES), ...Object.entries(HELP_ALIASES)]
       .filter(([k,v]) => v === name).map(([k]) => k);
     if(alias.length) print(`  also: ${alias.join(', ')}`, 'info');
     print(`  group: ${groupOfCommand(name)}  ("help ${groupOfCommand(name)}" for its neighbours)`, 'info');
+    // "set" is the one command whose useful detail is a list of what it can act on
+    // and where each of those currently stands — which the help table can't render
+    // (fixed two columns) and would go stale in anyway. so "help set" hands over to
+    // the same overview bare "set" prints, live state and all. last, after the row's
+    // own also/group footer, so that footer stays attached to the row it describes.
+    if(name === 'set') printSettingsOverview();
     return;
   }
 
@@ -443,10 +491,14 @@ function editDistance(a, b){
 // "match" one of them at distance 1, which is noise rather than a suggestion.
 // the tolerance scales with length so short words don't get wild guesses —
 // "lst" -> "list" is worth offering, "abc" -> "add" is not.
-const SUGGESTABLE = [...new Set([...COMMAND_NAMES, 'projects', ...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES)])].filter(n => n.length > 1);
+function suggestable(){
+  const off = new Set(Object.entries(FEATURE_OF_COMMAND).filter(([, f]) => !featureOn(f)).map(([w]) => w));
+  return [...new Set([...commandNames(), 'projects', ...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES)])]
+    .filter(n => n.length > 1 && !off.has(n));
+}
 function suggestCommand(cmd){
   let best = null, bestDist = Infinity;
-  SUGGESTABLE.forEach(name => {
+  suggestable().forEach(name => {
     const d = editDistance(cmd, name);
     if(d < bestDist){ bestDist = d; best = name; }
   });
@@ -466,7 +518,7 @@ const LEGACY_COMMAND_NAMES = [...new Set([...Object.keys(SPELLINGS), ...Object.k
 const ON_OFF = () => ['on', 'off'];
 const ARG_COMPLETIONS = {
   theme:      () => THEMES,
-  set:        pos => pos === 0 ? Object.keys(SETTINGS) : SETTING_VALUES,
+  set:        pos => pos === 0 ? [...Object.keys(SETTINGS), ...Object.keys(FEATURES)] : SETTING_VALUES,
   mode:       () => ['ascii', 'image'],
   view:       () => VIEW_MODES,
   split:      ON_OFF,
@@ -476,7 +528,6 @@ const ARG_COMPLETIONS = {
   mirror:     ON_OFF,
   title:      ON_OFF,
   statline:   ON_OFF,
-  show:       pos => pos === 0 ? ['age'] : ON_OFF(),
   list:       () => ['all', 'pending', 'active'],
   filter:     () => ['all', 'pending', 'active', 'off'],
   done:       () => ['all'],
@@ -492,7 +543,7 @@ const ARG_COMPLETIONS = {
                 : prior[0] === 'size'  ? BLOCK_SIZE_NAMES
                 : prior[0] === 'count' ? ['auto']
                 : [],
-  help:       pos => pos === 0 ? [...HELP_GROUPS.map(g => g.name), 'all', ...COMMAND_NAMES] : [],
+  help:       pos => pos === 0 ? [...HELP_GROUPS.map(g => g.name), 'all', ...commandNames()] : [],
 };
 
 // splits on plain whitespace rather than reusing tokenize(): completion only
@@ -511,10 +562,14 @@ function computeCompletion(value){
     // …) are a fallback tier rather than part of that list: they only surface when
     // nothing canonical matches, which keeps them typeable from muscle memory
     // without padding out every ordinary completion with retired synonyms.
-    pool = COMMAND_NAMES.filter(c => c.toLowerCase().startsWith(prefix));
-    if(pool.length === 0) pool = LEGACY_COMMAND_NAMES;
+    pool = commandNames().filter(c => c.toLowerCase().startsWith(prefix));
+    if(pool.length === 0) pool = LEGACY_COMMAND_NAMES.filter(c => featureAllows(c));
   } else {
-    const fn = ARG_COMPLETIONS[resolveAlias(prior[0].toLowerCase())];
+    const head = resolveAlias(prior[0].toLowerCase());
+    // a switched-off command completes to nothing rather than to its subcommands:
+    // it's still typeable (dispatch explains itself), but Tab shouldn't help you
+    // build out an argument list for something that's only going to refuse.
+    const fn = featureAllows(head) ? ARG_COMPLETIONS[head] : null;
     pool = fn ? fn(prior.length - 1, prior.slice(1)) : [];
   }
   return { base: value.slice(0, start), candidates: pool.filter(c => c.toLowerCase().startsWith(prefix)) };
@@ -529,11 +584,19 @@ function missingFlagError(flag){
   return { text: `${flag} needs a value after it — e.g. ${FLAG_EXAMPLES[flag]}`, cls: 'err' };
 }
 
+// which feature each flag belongs to, so a flag whose feature is off is reported
+// rather than quietly swallowed into a task nobody can see the value of.
+const FLAG_FEATURE = { '-p':'priority', '-d':'due', '-t':'tags', '-proj':'projects' };
 function parseFlags(tokens){
   const args = { _: [] };
   const flagKeys = { '-p':'p', '-d':'d', '-t':'t', '-proj':'proj' };
   for(let i=0;i<tokens.length;i++){
     const tk = tokens[i];
+    if(flagKeys[tk] && !featureOn(FLAG_FEATURE[tk])){
+      args.offFlag = tk;
+      i++;                                    // its value goes with it, rather than landing in the title
+      continue;
+    }
     if(flagKeys[tk]){
       const value = tokens[++i];
       // a flag sitting at the end with nothing after it used to store `undefined`,
@@ -556,6 +619,12 @@ function cmd_add(args){
   const title = args._.join(' ');
   if(!title){ print('add needs a title, e.g. add buy groceries', 'err'); return; }
   if(args.missingFlag){ const bad = missingFlagError(args.missingFlag); print(bad.text, bad.cls); return; }
+  if(args.offFlag){
+    const feat = FLAG_FEATURE[args.offFlag];
+    print(`${args.offFlag} sets ${feat}, which is switched off — nothing was added.`, 'err');
+    print(`  turn it back on with:  set ${feat} on   (or drop the flag and add the task without it)`, 'info');
+    return;
+  }
   let priority = null, due = null, tags = [], project = null;
   if(args.p){
     const p = args.p.toLowerCase();
@@ -866,6 +935,9 @@ function parseListArgs(tokens){
   for(let i=0;i<tokens.length;i++){
     const tk = tokens[i];
     if(tk === '-proj' || tk === '-t'){
+      // filtering on a field that's switched off would narrow the list by something
+      // you can't see and can't set — reported the same way an off flag on "add" is.
+      if(!featureOn(FLAG_FEATURE[tk])){ out.offFlag = tk; i++; continue; }
       const value = tokens[++i];
       // same dangling-flag trap parseFlags guards against: left as `undefined`, this
       // read as "no filter on that field", so "filter -proj" reported setting a
@@ -886,8 +958,12 @@ function parseListArgs(tokens){
 function filterTasks(list, f){
   let out = list;
   if(f.status === 'pending' || f.status === 'active') out = out.filter(t => t.status === f.status);
-  if(f.proj) out = out.filter(t => t.project === f.proj);
-  if(f.tag){
+  // a standing "filter -proj work" that's still saved when projects get switched
+  // off would go on hiding tasks by a field the list no longer shows and you can
+  // no longer clear — so a switched-off field simply stops narrowing. the filter
+  // itself is kept, and starts applying again the moment the feature comes back.
+  if(f.proj && featureOn('projects')) out = out.filter(t => t.project === f.proj);
+  if(f.tag && featureOn('tags')){
     const wanted = f.tag.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     out = out.filter(t => (t.tags||[]).some(x => wanted.includes(x.toLowerCase())));
   }
@@ -897,18 +973,19 @@ function filterTasks(list, f){
 // wording (and info, not err) because it's a reasonable thing to ask for — the
 // tasks exist, they just live in the archive now.
 function listArgsError(f){
+  if(f.offFlag) return { text: `${f.offFlag} filters on ${FLAG_FEATURE[f.offFlag]}, which is switched off — turn it back on with: set ${FLAG_FEATURE[f.offFlag]} on`, cls: 'err' };
   if(f.missingFlag) return missingFlagError(f.missingFlag);
   if(f.status === 'done') return { text: 'completed tasks are archived — try the "archive" command', cls: 'info' };
   if(!['all','pending','active'].includes(f.status)) return { text: `unknown filter "${f.status}" (use all|pending|active)`, cls: 'err' };
   return null;
 }
-function isFilterActive(f){ return !!f && (f.status !== 'all' || !!f.proj || !!f.tag); }
+function isFilterActive(f){ return !!f && (f.status !== 'all' || (!!f.proj && featureOn('projects')) || (!!f.tag && featureOn('tags'))); }
 // compact, for the pane's badge and the command's own read-out
 function describeFilter(f){
   const parts = [];
   if(f.status !== 'all') parts.push(f.status);
-  if(f.proj) parts.push(`proj=${f.proj}`);
-  if(f.tag) parts.push(`tag=${f.tag}`);
+  if(f.proj && featureOn('projects')) parts.push(`proj=${f.proj}`);
+  if(f.tag && featureOn('tags')) parts.push(`tag=${f.tag}`);
   return parts.join(' · ');
 }
 
@@ -941,10 +1018,10 @@ function printFramed(rows, summary, closingRule){
 // separately so callers can skip appending anything when there's nothing in it.
 function detailFields(t, extra){
   const fields = [];
-  if(t.priority) fields.push(`[${t.priority}]`);
-  if(t.project) fields.push(`[${t.project}]`);
-  if(t.tags) t.tags.forEach(tag => fields.push(`[${tag}]`));
-  if(t.due) fields.push(`[due:${t.due}]`);
+  if(t.priority && featureOn('priority')) fields.push(`[${t.priority}]`);
+  if(t.project && featureOn('projects')) fields.push(`[${t.project}]`);
+  if(t.tags && featureOn('tags')) t.tags.forEach(tag => fields.push(`[${tag}]`));
+  if(t.due && featureOn('due')) fields.push(`[due:${t.due}]`);
   if(showAge && t.createdAt) fields.push(`[${taskAgeText(t.createdAt)}]`);
   (extra || []).forEach(f => fields.push(f));
   return fields;
@@ -986,7 +1063,7 @@ function buildTaskRows(list, archivedIds){
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const items = list.map(t=>{
     const archived = !!(archivedIds && archivedIds.has(t.id));
-    const overdue = !archived && isOverdue(t);
+    const overdue = !archived && featureOn('due') && isOverdue(t);
     const extra = overdue ? ['[OVERDUE]'] : [];
     if(archived) extra.push('[archived]');
     const fields = detailFields(t, extra);
@@ -1005,7 +1082,15 @@ function buildTaskRows(list, archivedIds){
 // their original (insertion) order rather than shuffling on every render.
 const PRIORITY_RANK = { high: 0, med: 1, low: 2 };
 function taskSortKey(t){
-  return [isOverdue(t) ? 0 : 1, t.status === 'active' ? 0 : 1, t.priority ? PRIORITY_RANK[t.priority] : 3];
+  // a switched-off field drops out of the ordering as well as the display: sorting
+  // by something invisible is exactly the kind of "why is this at the top?" the
+  // flags exist to avoid. with both off this is a plain active-first sort, and
+  // sort()'s stability leaves everything else in insertion order.
+  return [
+    (featureOn('due') && isOverdue(t)) ? 0 : 1,
+    t.status === 'active' ? 0 : 1,
+    (featureOn('priority') && t.priority) ? PRIORITY_RANK[t.priority] : 3,
+  ];
 }
 function sortForDisplay(list){
   return [...list].sort((a, b) => {
@@ -1019,7 +1104,7 @@ function sortForDisplay(list){
 // silently looking like that's all there is.
 function taskSummaryLine(list, total){
   const activeCount = list.filter(t => t.status === 'active').length;
-  const overdueCount = list.filter(isOverdue).length;
+  const overdueCount = featureOn('due') ? list.filter(isOverdue).length : 0;
   const hiding = total !== undefined && total !== list.length;
   const parts = [hiding ? `${list.length} of ${total} shown` : `${list.length} task${list.length === 1 ? '' : 's'}`];
   if(activeCount) parts.push(`${activeCount} active`);
@@ -1097,7 +1182,7 @@ function cmd_find(tokens){
   const query = (tokens || []).join(' ').trim();
   if(!query){ print('find needs something to search for, e.g. find groceries', 'err'); return; }
   const q = query.toLowerCase();
-  const matches = t => t.title.toLowerCase().includes(q) || (t.tags||[]).some(tag => tag.toLowerCase().includes(q));
+  const matches = t => t.title.toLowerCase().includes(q) || (featureOn('tags') && (t.tags||[]).some(tag => tag.toLowerCase().includes(q)));
   const activeHits = tasks.filter(matches);
   const archivedHits = archive.filter(matches);
   const total = activeHits.length + archivedHits.length;
@@ -1258,7 +1343,8 @@ function cmd_stats(){
   // "2" onto the next line away from the "pending:" it belongs to.
   const pairs = [
     ['total', total], ['completed', archive.length], ['active', active], ['pending', pending],
-    ['overdue', overdue], ['projects', projects.length],
+    ...(featureOn('due') ? [['overdue', overdue]] : []),
+    ...(featureOn('projects') ? [['projects', projects.length]] : []),
     ['ascii collected', asciiTrack.collected.length], ['image collected', imageTrack.collected.length],
   ];
   print(pairs.map(([label, n]) => `${label.replace(/ /g, ' ')}: ${n}`).join('  ·  '));
@@ -1581,28 +1667,115 @@ const SETTINGS = {
 };
 const SETTING_VALUES = ['on', 'off', 'toggle'];
 
+// ---------- the on/off feature flags ----------
+// same shape as SETTINGS above, and reached through the same "set" command, but a
+// different kind of thing: SETTINGS decide how the app *looks*, these decide which
+// halves of it *exist*. they're listed as their own block in the overview for that
+// reason — switching the title bar off is cosmetic, switching due dates off changes
+// what a task is.
+// see the FEATURE_KEYS comment in app-state.js for the contract each one keeps;
+// the short version is that nothing is deleted, so "off" is always reversible.
+const FEATURES = {
+  priority: {
+    label: 'the [high|med|low] field — its command, -p flag, and its place in the sort',
+    get: () => featureOn('priority'),
+    apply: v => { features.priority = v; renderPanel(); },
+    said: v => v
+      ? 'priority on — every task that had one still has it.'
+      : 'priority off — the command, the -p flag and the [high|med|low] field are gone from the list. nothing was deleted: switch it back on and every task has its priority again.',
+  },
+  due: {
+    label: 'due dates — the command, -d flag, [due:…] field and the overdue marker',
+    get: () => featureOn('due'),
+    apply: v => { features.due = v; renderPanel(); },
+    said: v => v
+      ? 'due dates on — every date that was set is still set.'
+      : 'due dates off — no more [due:…], no [OVERDUE], and overdue tasks stop sorting to the top. the dates themselves are kept.',
+  },
+  tags: {
+    label: 'tags — the tag/tags commands, -t flag and filter, and the [tag] fields',
+    get: () => featureOn('tags'),
+    apply: v => { features.tags = v; renderPanel(); },
+    said: v => v
+      ? 'tags on — every tag that was set is still set.'
+      : 'tags off — the tag commands and -t filter are gone, and tags stop showing on the list. they stay on the tasks that had them.',
+  },
+  projects: {
+    label: 'projects — the project command, -proj flag and filter, and the [project] field',
+    get: () => featureOn('projects'),
+    apply: v => { features.projects = v; renderPanel(); updateStats(); },
+    said: v => v
+      ? 'projects on — your project list and every assignment are still there.'
+      : 'projects off — the project commands and -proj filter are gone, and projects stop showing on the list or the stat line. nothing was deleted.',
+  },
+  streak: {
+    label: 'the "streak" command and its completion heatmap',
+    get: () => featureOn('streak'),
+    apply: v => { features.streak = v; },
+    said: v => v ? 'streak on.' : 'streak off — your completion history is untouched, just not reported.',
+  },
+};
+
+// "set" covers both registries, so there's one command and one overview rather
+// than two near-identical ones. a key can't sit in both — this is the guard that
+// says so out loud if one ever gets added to both by mistake.
+function settingEntry(key){ return SETTINGS[key] || FEATURES[key]; }
+
+// the one rendering of "here is every switch and where it stands", printed by bare
+// "set" and by "help set" alike — so the two can't drift into describing the same
+// switches differently, and so the help row doesn't have to carry a list of keys
+// that goes stale the moment one is added.
+//
+// state reads first, in a fixed-width bracket, because that's the column you scan:
+// down the left edge, every [on ]/[off] lines up regardless of how long the key
+// next to it is. brackets rather than bare words to match the [tag]/[active]/
+// [OVERDUE] fields the task list already uses. an off row prints dim, so the
+// switched-on half reads first — the same brightness ranking the rest of the
+// terminal uses, and the only one available when a theme is a single colour.
+function printSettingsOverview(){
+  const w = Math.max(...[...Object.keys(SETTINGS), ...Object.keys(FEATURES)].map(k => k.length));
+  const block = (heading, note, registry) => {
+    print('');
+    printSegments([{ text: `  ${heading}` }, ...(note ? [{ text: `   ${note}`, cls: 'info' }] : [])]);
+    Object.keys(registry).forEach(k => {
+      const on = registry[k].get();
+      printSegments([
+        { text: `    [${on ? 'on ' : 'off'}]  ${k.padEnd(w)}   `, cls: on ? undefined : 'info' },
+        { text: registry[k].label, cls: 'info' },
+      ], w + 12);
+    });
+  };
+  block('display', 'how the app looks', SETTINGS);
+  block('features', 'switching one off hides its commands and fields, but deletes nothing', FEATURES);
+}
+
 function cmd_set(key, value){
-  const keys = Object.keys(SETTINGS);
+  const keys = [...Object.keys(SETTINGS), ...Object.keys(FEATURES)];
 
   // bare "set" — the whole point of folding these together: one place that shows
-  // every display flag and its current state at once.
+  // every flag and its current state at once. the two registries print as separate
+  // blocks because they answer different questions ("how does it look" vs "what's
+  // switched on"), and an off row prints dim so the on ones read first — the same
+  // brightness ranking the rest of the terminal uses, and the only one available
+  // when every theme is a single colour.
   if(!key){
-    print('display settings  —  change one with:  set <key> on|off');
-    const w = Math.max(...keys.map(k => k.length));
-    keys.forEach(k => printHanging(`  ${k.padEnd(w)}  ${SETTINGS[k].get() ? 'on ' : 'off'}   ${SETTINGS[k].label}`, w + 9));
+    print('settings  —  change one with:  set <key> on|off');
+    printSettingsOverview();
     return;
   }
 
   key = key.toLowerCase();
-  const setting = SETTINGS[key];
+  const setting = settingEntry(key);
   if(!setting){
     // same did-you-mean treatment unknown commands get — a mistyped key is the
     // same kind of mistake and deserves the same help.
     let guess = null, best = Infinity;
     keys.forEach(k => { const d = editDistance(key, k); if(d < best){ best = d; guess = k; } });
     if(best > (key.length <= 4 ? 1 : 2)) guess = null;
-    print(`no display setting "${key}"${guess ? ` — did you mean "${guess}"?` : ''}`, 'err');
-    print(`  keys: ${keys.join(', ')}   ("set" alone shows them with their current state)`, 'info');
+    print(`no setting "${key}"${guess ? ` — did you mean "${guess}"?` : ''}`, 'err');
+    print(`  display:  ${Object.keys(SETTINGS).join(', ')}`, 'info');
+    print(`  features: ${Object.keys(FEATURES).join(', ')}`, 'info');
+    print('  ("set" alone shows them all with their current state)', 'info');
     return;
   }
 
@@ -2157,6 +2330,17 @@ async function handleCommand(raw){
 }
 
 function dispatch(cmd, rest){
+  // a command belonging to a switched-off feature is refused here, before the
+  // switch, rather than being removed from it. typing "due 3 friday" with due off
+  // should say what's actually true — the feature is off, here's the one line that
+  // brings it back — instead of falling through to "unknown command", which reads
+  // like the app forgot how to do something it did yesterday.
+  if(!featureAllows(cmd)){
+    const feat = FEATURE_OF_COMMAND[cmd];
+    print(`"${cmd}" is part of the ${feat} feature, which is switched off.`, 'err');
+    print(`  turn it back on with:  set ${feat} on   (nothing was deleted — every task is exactly as you left it)`, 'info');
+    return;
+  }
   switch(cmd){
     case 'help': cmd_help(rest[0]); break;
     case 'add': cmd_add(parseFlags(rest)); break;
@@ -2185,17 +2369,16 @@ function dispatch(cmd, rest){
     case 'split': cmd_split(rest[0]); break;
     case 'set': cmd_set(rest[0], rest[1]); break;
     case 'theme': cmd_theme(rest[0]); break;
-    // the four display toggles "set" absorbed. they rewrite into it rather than
-    // having their own implementations, so there's one code path per setting —
-    // the same rule the SHORTCUTS map follows. bare "mirror" keeps toggling, which
-    // is what it always did and what "set mirror toggle" now spells explicitly.
+    // the display toggles "set" absorbed. they rewrite into it rather than having
+    // their own implementations, so there's one code path per setting — the same
+    // rule the SHORTCUTS map follows. bare "mirror" keeps toggling, which is what
+    // it always did and what "set mirror toggle" now spells explicitly.
+    // "show age" used to live here too, as the one two-word member of the set; it's
+    // gone in favour of "set age on|off" alone, since a whole command word existing
+    // to introduce a single key earned nothing that "set" didn't already do.
     case 'title': cmd_set('title', rest[0]); break;
     case 'statline': cmd_set('statline', rest[0]); break;
     case 'mirror': cmd_set('mirror', rest[0] || 'toggle'); break;
-    case 'show':
-      if((rest[0] || '').toLowerCase() !== 'age'){ print('usage: show age on|off   (or: set age on|off)', 'err'); break; }
-      cmd_set('age', rest[1]);
-      break;
     case 'art': cmd_art(); break;
     case 'next': return cmd_next();
     case 'reveal': return cmd_reveal();

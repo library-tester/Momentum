@@ -528,11 +528,14 @@ function renderPanel(){
 
 function updateStats(){
   const total = tasks.length;
-  const active = tasks.filter(t=>t.status==='active').length;
-  const overdue = tasks.filter(isOverdue).length;
-  const collectedTxt = ` · ${asciiTrack.collected.length + imageTrack.collected.length} art collected`;
-  document.getElementById('stats').textContent =
-    `${total} total · ${archive.length} completed · ${active} in progress · ${overdue} overdue · ${projects.length} project${projects.length===1?'':'s'}${collectedTxt}`;
+  const collected = asciiTrack.collected.length + imageTrack.collected.length;
+  const parts = [
+    `${total} total`,
+    `${archive.length} completed`,
+    ...(featureOn('projects') ? [`${projects.length} project${projects.length===1?'':'s'}`] : []),
+    `${collected} art collected`,
+  ];
+  document.getElementById('stats').textContent = parts.join(' · ');
 }
 
 
@@ -762,5 +765,5 @@ syncViewportHeight();
 
 // ---------- boot ----------
 cmdHistory = loadCmdHistory();                            // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
-print('welcome to Momentum. type "help" to see what you can do.', 'info');
+printSegments([{ text: 'Welcome to Momentum. type "help" to see what you can do.', cls: 'command-weight' }]);
 loadState();

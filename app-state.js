@@ -30,7 +30,29 @@ let galleryOpen = false;
 let galleryDetailIdx = null;
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
-let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "show age"
+let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "set age"
+// ---------- feature flags ----------
+// the optional halves of the app, switchable from "set <feature> on|off". this
+// exists because the task fields kept being all-or-nothing: they were ripped out
+// wholesale once for a cleaner list, then wanted back, and a rip-out/put-back
+// cycle is expensive and lossy. a flag makes that a one-word decision instead.
+//
+// the contract every one of them keeps, so "off" means the same thing everywhere:
+//   1. data is never destroyed. a task keeps its priority/due/tags/project while
+//      the feature is off — turning it back on restores every task exactly as it
+//      was, which is the whole point of a flag rather than a deletion.
+//   2. commands are refused with an explanation, not removed from dispatch, so
+//      typing one gets "that's switched off, here's how to switch it on" rather
+//      than an "unknown command" that reads like the app is broken.
+//   3. help and Tab hide them, so nothing is advertised that would refuse — the
+//      same rule printShortcutsRow already follows for shortcuts.
+//   4. the fields vanish from list rows, sorting, stats and filters, which is the
+//      "cleaner list" the removal was originally reaching for.
+// all default on: an existing save (or a first run) behaves exactly as before,
+// and you only ever see a difference by asking for one.
+const FEATURE_KEYS = ['priority', 'due', 'tags', 'projects', 'streak'];
+let features = Object.fromEntries(FEATURE_KEYS.map(k => [k, true]));
+function featureOn(key){ return features[key] !== false; }
 let excludedImageFolders = [];                           // top-level image_art/ subfolders left out of the random pool — see "exclude"/"include"
 // the standing filter on the always-visible task pane — same {status, proj, tag}
 // shape "list" parses its arguments into, set by "filter". a *view* preference, not
@@ -162,7 +184,7 @@ function localDateKey(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// relative age since createdAt, for the "[3d ago]" detail field (see "show age").
+// relative age since createdAt, for the "[3d ago]" detail field (see "set age").
 // coarsens as it goes further back — a task doesn't need day-level precision once
 // it's months old, and staying coarse keeps the detail line from getting noisy.
 // every rung above "days" is derived from the one below it: years come from the
@@ -238,7 +260,7 @@ function materializeOrder(progress, total){
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge,
+    tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
     blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -256,6 +278,11 @@ function applyStateSnapshot(data){
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
   showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
+  // read key by key rather than trusted wholesale, so a save from before feature
+  // flags existed (or one naming a feature this version has since dropped) still
+  // lands on "everything on" — the state it was actually written in — instead of
+  // silently switching half the app off.
+  features = Object.fromEntries(FEATURE_KEYS.map(k => [k, (data.features || {})[k] !== false]));
   excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
   // rebuilt field by field rather than trusted wholesale: a saved filter is the one
   // setting that can hide your tasks, so a malformed one has to fail open (show
@@ -353,7 +380,7 @@ async function loadState(){
     // it only earns its keep when there's no pane to have shown it already.
     if(!listPaneVisible()) cmd_list([]);
   } else {
-    print('no tasks yet — a few commands to get going:', 'info');
+    print('no tasks yet — a few commands to get going:');
     const starters = [
       { cmd: 'add "organize your desk"', desc: 'create your first task' },
       { cmd: 'done 1',                   desc: "mark it complete once it's done" },
@@ -366,11 +393,14 @@ async function loadState(){
     // the same accommodation buildHelpRows already makes for the help screen, and
     // for the same reason. stacked below that width, indented so each description
     // still reads as belonging to the command above it.
+    // plain (full-opacity, un-bolded) rather than the dimmed .info style — this
+    // block used to be near-unreadable in some themes since .info is the same hue
+    // as everything else, just faded to 72% opacity.
     const w = Math.max(...starters.map(s => s.cmd.length));
     const twoColumn = outputColumns() >= w + 4 + Math.max(...starters.map(s => s.desc.length));
     starters.forEach(s => {
-      if(twoColumn){ printHanging(`  ${s.cmd.padEnd(w)}  ${s.desc}`, w + 4, 'info'); }
-      else { print(`  ${s.cmd}`, 'info'); printHanging(`      ${s.desc}`, 6, 'info'); }
+      if(twoColumn){ printHanging(`  ${s.cmd.padEnd(w)}  ${s.desc}`, w + 4); }
+      else { print(`  ${s.cmd}`); printHanging(`      ${s.desc}`, 6); }
     });
   }
 }
