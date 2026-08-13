@@ -183,6 +183,7 @@ const COMMANDS = [
   { usage: 'edit <id>', desc: 'load a task\'s current title into the command line to tweak, enter to save',
     extra: ['(fills in "rename <id> ...", cursor inside the quotes — for a full retype, "rename" works directly)'] },
   { usage: 'start <id[,id...]|all>', desc: 'mark task(s) active' },
+  { usage: 'stop <id[,id...]|all>', desc: 'put active task(s) back to pending' },
   { usage: 'done <id[,id...]|all>', desc: 'complete task(s) — moves them to the archive' },
   { usage: 'rm <id[,id...]|1-4|all>', desc: 'delete task(s)  (also: remove, delete)' },
   { usage: 'undo', desc: 'undo the last command that changed anything' },
@@ -368,7 +369,7 @@ function activeTopics(){
 // *name*, so every row of a multi-row command travels together automatically.
 const HELP_GROUPS = [
   { name:'tasks',  desc:'add, edit, finish and find tasks',
-    members:['add','rename','edit','start','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
+    members:['add','rename','edit','start','stop','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
   { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
     members:['gallery','mode','folders','art','next','reveal','hide','block','close','download','copy','display'] },
   { name:'layout', desc:'panels, themes, and what shows on screen',
@@ -585,6 +586,7 @@ const ARG_COMPLETIONS = {
   filter:     () => ['all', 'pending', 'active', 'off'],
   done:       () => ['all'],
   start:      () => ['all'],
+  stop:       () => ['all'],
   rm:         () => ['all'],
   restore:    () => ['all'],
   archive:    pos => pos === 0 ? ['rm'] : ['all'],
@@ -931,6 +933,27 @@ function cmd_start(idsStr){
   if(changed){ saveState(); renderPanel(); }
 }
 
+// the inverse of start, and the reason it exists: "active" was a one-way door —
+// once a task was started the only ways out were finishing it or deleting it, so
+// picking something up to look at it left the list permanently claiming you were
+// mid-way through it. this puts it back to pending.
+function cmd_stop(idsStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('stop needs a task id, e.g. stop 3 or stop 3,5,6', 'err'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    // not an error: "stop" on something already pending asked for a state it's
+    // already in, which is what "stop all" means when only some are active.
+    if(t.status !== 'active'){ print(`#${t.id} wasn't active`, 'info'); return; }
+    t.status = 'pending';
+    print(`#${t.id} "${t.title}" is back to pending`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderPanel(); }
+}
+
 // ---------- guard rails ----------
 // "rm all" used to be a single keystroke away from wiping everything, with no
 // confirmation and no way back. two independent safety nets now: anything sweeping
@@ -1235,6 +1258,13 @@ function printFramed(rows, summary, closingRule){
 
 // the [priority] [project] [tag] [due] [age] tags that trail a task — returned
 // separately so callers can skip appending anything when there's nothing in it.
+// every field uses the same square brackets, project included. project and tags are
+// the only pair here that can actually be confused — both are arbitrary words you
+// chose, where priority is a fixed vocabulary, due is prefixed "due:", age reads as
+// a duration, and the status marks are fixed words — so "[work] [urgent]" doesn't
+// say which is which. giving the project its own delimiter was tried ({}, |…|, #)
+// and each one cost more in how the column reads than the ambiguity was worth, so
+// it's deliberately left plain for now rather than unnoticed.
 function detailFields(t, extra){
   const fields = [];
   if(t.priority && featureOn('priority')) fields.push(`[${t.priority}]`);
@@ -2507,7 +2537,7 @@ function cmd_gallery(sub, ...rest){
 // file picker and returns), so a snapshot taken around the command would always be
 // of an unchanged state. it records its own undo entry from inside the FileReader
 // callback that does the actual replacing — see cmd_import.
-const MUTATING = new Set(['add','rename','start','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore','gallery']);
+const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore','gallery']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -2566,6 +2596,7 @@ function dispatch(cmd, rest){
     case 'rename': cmd_rename(rest[0], rest.slice(1).join(' ')); break;
     case 'edit': cmd_edit(rest[0]); break;
     case 'start': cmd_start(rest[0]); break;
+    case 'stop': cmd_stop(rest[0]); break;
     case 'done': return cmd_done(rest[0]);
     case 'rm': cmd_rm(rest[0]); break;
     case 'priority': cmd_priority(rest[0], rest[1]); break;

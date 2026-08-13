@@ -136,6 +136,7 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | `add <title> #project` | ...assigned to a project (created if new) |
 | `rename <id> <new title>` | Fix a typo without delete-and-retype. One task at a time. |
 | `start <id\|ids\|all>` | Mark task(s) active |
+| `stop <id\|ids\|all>` | Put active task(s) back to pending |
 | `done <id\|ids\|all>` | Complete task(s) → moves to archive, **pays out reveal progress** |
 | `rm <id\|ids\|all>` | Delete task(s). Also `remove`, `delete`. Does *not* archive them. |
 | `undo` | Reverse the last command that changed anything (20 deep, this session) |
