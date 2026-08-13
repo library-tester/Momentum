@@ -131,9 +131,9 @@ Anything that would affect more than three tasks at once asks for confirmation f
 |---|---|
 | `add <title>` | Add a task. Quotes are optional — `add buy milk` works. |
 | `add <title> -p high\|med\|low` | ...with a priority |
-| `add <title> -d YYYY-MM-DD` | ...with a due date |
-| `add <title> -t tag1,tag2` | ...with tags |
-| `add <title> -proj name` | ...assigned to a project (created if new) |
+| `add <title> -d <date>` | ...with a due date — `friday`, `tomorrow`, `+3d`, `eom`, or `2026-01-31` |
+| `add <title> +tag` / `+car,home,key` | ...with tags |
+| `add <title> #project` | ...assigned to a project (created if new) |
 | `rename <id> <new title>` | Fix a typo without delete-and-retype. One task at a time. |
 | `start <id\|ids\|all>` | Mark task(s) active |
 | `done <id\|ids\|all>` | Complete task(s) → moves to archive, **pays out reveal progress** |
@@ -145,7 +145,7 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | Command | What it does |
 |---|---|
 | `priority <ids> <high\|med\|low>` | Change priority |
-| `due <ids> <YYYY-MM-DD\|none>` | Set or clear a due date |
+| `due <ids> <date\|none>` | Set or clear a due date. Takes `friday`, `tomorrow`, `+2w`, `eom`, or `2026-01-31`. |
 | `tag <ids> add <tag>` | Add a tag |
 | `tag <ids> rm <tag>` | Remove a tag |
 | `tag <ids> set <tag1,tag2>` | Replace all tags |
@@ -161,8 +161,8 @@ Anything that would affect more than three tasks at once asks for confirmation f
 |---|---|
 | `list` | Show active + pending tasks |
 | `list all\|pending\|active` | Filter by status |
-| `list -proj name` / `list -t tag` | Filter by project or tag |
-| `archive` | Show completed tasks (also accepts `-proj` / `-t`) |
+| `list #project` / `list +tag` | Filter by project or tag |
+| `archive` | Show completed tasks (also accepts `#project` / `+tag`) |
 | `find <text>` | **Search titles and tags — across your list *and* your archive at once** |
 | `stats` | One-line summary of everything |
 
