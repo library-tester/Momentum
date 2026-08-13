@@ -558,6 +558,61 @@
     font-family:inherit;
     font-size:13px;
   }
+  /* Tab used to cycle candidates one at a time with nothing on screen to say how
+     many there were or which one you were looking at — you learned the list by
+     pressing Tab repeatedly and watching the input box change. This is that list,
+     shown instead of hidden, with whichever candidate Tab has currently written
+     into the input picked out from the rest.
+     It floats *over* the output rather than taking a row in the console's flex
+     column, and that placement is the whole design. In-flow, it was a sibling of
+     #output (the one element with flex:1, so the one that absorbs every sibling's
+     size change) — meaning any growth in the hint shrank #output and dragged
+     #input-row's border, the line right above where you type, up with it. Bare
+     Tab offers ~40 commands, which is 7 grid rows: no amount of reserved height
+     fixes that, it just picks which size of jump you get. Out of flow, the
+     question disappears — the list can be exactly as tall as it needs and nothing
+     else on screen moves, which is also how every autocomplete popup people
+     already know behaves.
+     bottom:100% pins its bottom edge to the top of #input-area, i.e. it grows
+     upward from the input line rather than downward off the bottom of the screen. */
+  #input-area{ position:relative; flex-shrink:0; }
+  #tab-hint{
+    position:absolute;
+    bottom:100%;
+    left:0;
+    right:0;
+    display:none;                          /* .open (set only when there are candidates) switches this to grid */
+    /* aligned columns, not a wrapped inline run: 41 candidates set inline wrap into
+       a ragged block that's hard to scan and moves every entry whenever the active
+       one changes width. auto-fill sizes the column count to the console width, so
+       this reflows sensibly from a phone (1-2 columns) to a wide window (6+). */
+    grid-template-columns:repeat(auto-fill, minmax(14ch, 1fr));
+    gap:0 2ch;
+    /* the cap only bites on the longest lists; everything shorter is fully visible
+       with no scrollbar at all. when it does bite, renderCompletionHint() keeps the
+       active item scrolled into view, so cycling never runs off into the dark. */
+    max-height:15em;
+    overflow-y:auto;
+    padding:8px 20px;
+    /* opaque, since it sits on top of live output text — bg-panel rather than
+       bg-dark so it reads as a layer above the console, the same distinction the
+       list pane and reveal panel already draw against the terminal. */
+    background:var(--bg-panel);
+    border-top:1px solid var(--line);
+    font-size:13px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+  #tab-hint.open{ display:grid; }
+  #tab-hint span{ padding:0 0.4ch; border-radius:2px; }
+  /* the same swap ::selection uses below, for the same reason: guaranteed-readable
+     in every theme without a hand-picked highlight color of its own. */
+  #tab-hint span.active{
+    background:var(--text-main);
+    color:var(--bg-dark);
+  }
+  #tab-hint::-webkit-scrollbar{ width:8px; }
+  #tab-hint::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
   /* reverse video, not a new color: swaps the same --text-main/--bg-dark pair every
      theme already tunes to clear 7:1 (see the contrast note up top), so a selection
      is guaranteed readable in every theme automatically rather than needing its own
@@ -636,6 +691,10 @@
     header .title{ font-size:15px; letter-spacing:1.5px; }
     #output{ padding:10px 14px 10px calc(14px + var(--gutter)); }
     #input-row{ padding:8px 14px 10px; }
+    /* same 14px gutter the input row drops to, so the candidates stay aligned with
+       the prompt below them. the height cap comes down too: on a phone the console
+       is short enough that a 15em panel would bury most of the output behind it. */
+    #tab-hint{ padding:8px 14px; max-height:9em; }
     #list-pane{ padding:10px 14px; }
     #reveal-panel{ padding:14px; }
     .image-stage{ padding:10px; }

@@ -556,6 +556,33 @@ function runCommandLine(val){
 // holds it — type anything at all and the next Tab starts a fresh completion
 // against the new text instead of continuing a stale candidate list.
 let completionState = null;
+const tabHintEl = document.getElementById('tab-hint');
+// the whole point of keeping `candidates` around instead of just the one Tab
+// picked: this renders every option computeCompletion() found, with whichever
+// one is currently sitting in the input box picked out from the rest — so
+// finding out what Tab offers stops requiring pressing it repeatedly and
+// watching the input box change underneath you.
+function renderCompletionHint(){
+  tabHintEl.innerHTML = '';
+  // .open is what makes it visible at all (it's display:none otherwise), so
+  // toggling the class here is also what hides the panel the moment there's
+  // nothing to show — no separate teardown path to keep in step.
+  tabHintEl.classList.toggle('open', !!completionState);
+  if(!completionState) return;
+  const { candidates, idx } = completionState;
+  let activeEl = null;
+  candidates.forEach((c, i) => {
+    const span = document.createElement('span');
+    span.textContent = c;
+    if(i === idx){ span.className = 'active'; activeEl = span; }
+    tabHintEl.appendChild(span);
+  });
+  // only the longest lists overflow the panel's max-height, but when one does,
+  // cycling would otherwise walk the highlight off the bottom and leave you
+  // pressing Tab against a list you can no longer see. 'nearest' scrolls the
+  // minimum needed, so a candidate already on screen doesn't shift anything.
+  if(activeEl && activeEl.scrollIntoView) activeEl.scrollIntoView({ block: 'nearest' });
+}
 function applyCompletion(){
   const { base, candidates, idx } = completionState;
   completionState.applied = base + candidates[idx];
@@ -565,10 +592,11 @@ function handleTab(){
   if(completionState && cmdInput.value === completionState.applied){
     completionState.idx = (completionState.idx + 1) % completionState.candidates.length;
     applyCompletion();
+    renderCompletionHint();
     return;
   }
   const { base, candidates } = computeCompletion(cmdInput.value);
-  if(candidates.length === 0){ completionState = null; return; }
+  if(candidates.length === 0){ completionState = null; renderCompletionHint(); return; }
   completionState = { base, candidates, idx: 0, applied: null };
   applyCompletion();
   // an unambiguous completion finishes the word and moves on: the trailing space
@@ -578,6 +606,10 @@ function handleTab(){
     cmdInput.value += ' ';
     completionState = null;
   }
+  // a single, now-applied match clears completionState right above, so this
+  // renders nothing for it — correct: with only one candidate there was never
+  // anything to disambiguate, so there's nothing worth showing before it vanishes.
+  renderCompletionHint();
 }
 // Up/Down search cmdHistory by the prefix you'd already typed when you first
 // pressed Up, not just walk it linearly — type "do", press Up, and only past
@@ -619,6 +651,7 @@ cmdInput.addEventListener('keydown', (e)=>{
     return;
   }
   completionState = null;                                // any other key invalidates the completion cycle
+  renderCompletionHint();                                // ...and clears whatever candidate list was on screen for it
   if(e.key === 'ArrowUp'){
     historyUp();
     e.preventDefault();
