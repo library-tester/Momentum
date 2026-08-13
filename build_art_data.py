@@ -29,6 +29,11 @@ def humanize_name(stem):
     words = [w for w in re.split(r'[-_\s]+', stem) if w]
     if not words:
         return stem
+    # drop purely-numeric tokens (track/page numbering like "062" in "062 Cottage
+    # And Christmas Tree Night") — but only when doing so leaves something behind;
+    # an all-numeric stem (e.g. "00027-143724114") has no title to fall back to.
+    worded = [w for w in words if not re.fullmatch(r'\d+', w)]
+    words = worded or words
     out = []
     for w in words:
         if w == w.upper() and re.search(r'[A-Z]', w):

@@ -40,7 +40,12 @@
 function humanizeName(stem){
   const words = stem.split(/[-_\s]+/).filter(Boolean);
   if(!words.length) return stem;
-  return words.map(w => (w === w.toUpperCase() && /[A-Z]/.test(w)) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  // drop purely-numeric tokens (track/page numbering like "062" in "062 Cottage
+  // And Christmas Tree Night") — but only when doing so leaves something behind;
+  // an all-numeric stem (e.g. "00027-143724114") has no title to fall back to.
+  const worded = words.filter(w => !/^\d+$/.test(w));
+  const kept = worded.length ? worded : words;
+  return kept.map(w => (w === w.toUpperCase() && /[A-Z]/.test(w)) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 async function fetchDirListing(url){
   const res = await fetch(url);
