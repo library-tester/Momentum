@@ -214,13 +214,21 @@ function localDateKey(d){
 // tradeoff is that a "year" here is 12x30 days, so the 1y mark lands ~5 days
 // early, which is well inside the precision this is already rounding away.
 function taskAgeText(createdAt){
-  const days = Math.floor((Date.now() - createdAt) / 86400000);
+  // calendar days apart, not elapsed 24h periods: a task added at 11pm is
+  // "yesterday" by 1am, two hours later — and yesterday is the word you'd
+  // actually use for it. the old elapsed-time version called that "today" for
+  // another 22 hours. rounded rather than floored because DST makes a day 23 or
+  // 25 hours twice a year, which quietly shifts a floored difference by one.
+  const created = new Date(createdAt); created.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((today - created) / 86400000);
   if(days <= 0) return 'today';
-  if(days === 1) return '1d ago';
-  if(days < 30) return `${days}d ago`;
+  if(days === 1) return 'yesterday';
+  if(days < 30) return `${days} days ago`;
   const months = Math.floor(days / 30);
-  if(months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+  if(months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+  const years = Math.floor(months / 12);
+  return `${years} year${years === 1 ? '' : 's'} ago`;
 }
 
 function escapeHtml(s){

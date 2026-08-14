@@ -357,6 +357,9 @@ const HELP_TOPICS = {
       });
       print('');
       printHanging('  all of them resolve to a plain calendar day, and the day they land on is echoed back — "due 3 friday" answers with the date itself.', 2, 'info');
+      print('');
+      printHanging('  the two-word forms work as-is after "due" ("due 3 in 2 weeks"), but need quotes behind -d, which can\'t tell where the date ends and the title starts again:  add water the plants -d "2 days"', 2, 'info');
+      printHanging('  in the list a due date reads back the same way — "tomorrow", "in 3 days" — switching to the plain date once it\'s more than a week out, where the date says more than the count does.', 2, 'info');
     },
   },
 };
@@ -718,7 +721,9 @@ function parseDue(raw){
 
   // "+3d" / "+2w" / "+1m". months land on the same day number, and JS rolls a short
   // month over on its own (Jan 31 + 1m = Mar 3), which is the usual convention.
-  const rel = s.match(/^\+(\d+)\s*([dwmy])$/);
+  // the "+" is optional, so "3d" works too — it can only match digits followed by
+  // one of d/w/m/y, which no other date form here looks like.
+  const rel = s.match(/^\+?(\d+)\s*([dwmy])$/);
   if(rel){
     const n = Number(rel[1]);
     if(rel[2] === 'd') base.setDate(base.getDate() + n);
@@ -728,15 +733,75 @@ function parseDue(raw){
     return { date: ymd(base) };
   }
 
+  // the same arithmetic spelled the way people say it out loud: "2 days",
+  // "in 3 weeks", "1 month". singular and plural both, since "1 days" is what you
+  // get from typing fast and refusing it teaches nothing.
+  const spelled = s.match(/^(?:in\s+)?(\d+)\s*(day|week|month|year)s?$/);
+  if(spelled){
+    const n = Number(spelled[1]), unit = spelled[2];
+    if(unit === 'day') base.setDate(base.getDate() + n);
+    if(unit === 'week') base.setDate(base.getDate() + n * 7);
+    if(unit === 'month') base.setMonth(base.getMonth() + n);
+    if(unit === 'year') base.setFullYear(base.getFullYear() + n);
+    return { date: ymd(base) };
+  }
+
+  // "next week" as seven days out, not "the monday after this one" — the reading
+  // that matches "+1w" and the one a task list actually wants, since the point is
+  // when it's due rather than which week it falls in. "next <weekday>" is left
+  // out on purpose: english genuinely disagrees about whether that means the
+  // coming friday or the one after, and a due date is the wrong place to guess.
+  // "friday" already covers the unambiguous half of that.
+  const nextUnit = s.match(/^next\s+(week|month|year)$/);
+  if(nextUnit){
+    if(nextUnit[1] === 'week') base.setDate(base.getDate() + 7);
+    if(nextUnit[1] === 'month') base.setMonth(base.getMonth() + 1);
+    if(nextUnit[1] === 'year') base.setFullYear(base.getFullYear() + 1);
+    return { date: ymd(base) };
+  }
+
   return { error: `"${raw}" isn't a date i understand` };
 }
+// how many calendar days from today a stored "YYYY-MM-DD" is — negative for past.
+// rounded, not floored: DST makes a day 23 or 25 hours twice a year, and a floored
+// difference silently slips by one across those boundaries.
+function daysUntil(dateStr){
+  const m = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return null;
+  const [, y, mo, d] = m.map(Number);
+  const target = new Date(y, mo - 1, d);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - startOfToday()) / 86400000);
+}
+// a due date as a person would say it, for the "[due:...]" field. the reverse of
+// parseDue: that turns "tomorrow" into a date to store, this turns the stored date
+// back into "tomorrow" to read.
+//
+// only inside a week either way, though — past that it falls back to the calendar
+// date, because the relative form stops being the more useful one. "in 3 days" is
+// exactly what you want to know about something due this week; "in 412 days" tells
+// you nothing you'd act on, where "2027-10-01" at least says which month. the same
+// cutoff in reverse keeps an overdue task saying how late it is ("5 days ago"),
+// which is the thing worth knowing about it, until that stops being actionable too.
+const DUE_RELATIVE_DAYS = 7;
+function dueText(dateStr){
+  const n = daysUntil(dateStr);
+  if(n === null) return dateStr;
+  if(n === 0) return 'today';
+  if(n === 1) return 'tomorrow';
+  if(n === -1) return 'yesterday';
+  if(n > 1 && n <= DUE_RELATIVE_DAYS) return `in ${n} days`;
+  if(n < -1 && n >= -DUE_RELATIVE_DAYS) return `${-n} days ago`;
+  return dateStr;
+}
+
 // the accepted spellings, written out for humans. kept right here next to the
 // parser so the two get edited together — a date form the parser learns and the
 // help never mentions is a form nobody uses.
 // DATE_HELP is the terse one-liner errors print; DATE_FORMS is the table "help
 // dates" lays out. same vocabulary, two lengths, because an error should stay on
 // one line and a reference shouldn't have to.
-const DATE_HELP = 'try: 2026-01-31 · today · tomorrow · a weekday (friday, fri) · eow/eom/eoy · +3d, +2w, +1m';
+const DATE_HELP = 'try: 2026-01-31 · today · tomorrow · a weekday (friday, fri) · "2 days", "in 3 weeks" · next week · eow/eom/eoy · +3d, +2w, +1m';
 const DATE_FORMS = [
   ['2026-01-31',      'an exact day'],
   ['today',           ''],
@@ -746,7 +811,9 @@ const DATE_FORMS = [
   ['eow',             'end of week (sunday)'],
   ['eom',             'end of month'],
   ['eoy',             'end of year'],
-  ['+3d  +2w  +1m',   '3 days / 2 weeks / 1 month from today  (also +1y)'],
+  ['2 days   in 3 weeks', 'spelled out — days, weeks, months or years from today'],
+  ['next week',       'seven days out  (also next month, next year)'],
+  ['+3d  +2w  +1m',   'the same, tersely — 3 days / 2 weeks / 1 month  (also +1y, and the + is optional)'],
   ['none',            'clear the date again  ("due" only)'],
 ];
 
@@ -1072,8 +1139,15 @@ function cmd_due(idsStr, dateStr){
     if(!t){ print(`no task #${idStr}`, 'err'); return; }
     if(parsed.clear){ t.due = null; print(`#${t.id} due date cleared`, 'ok'); }
     // the resolved date is echoed rather than what was typed: "due 3 friday" is only
-    // useful if it tells you which friday it landed on.
-    else { t.due = parsed.date; print(`#${t.id} due ${parsed.date}`, 'ok'); }
+    // useful if it tells you which friday it landed on. the relative form trails it
+    // in brackets — that's what the list will show, so this is where the two
+    // spellings get introduced as the same day. dropped when it would just repeat
+    // the date (anything more than a week out renders as the date itself).
+    else {
+      t.due = parsed.date;
+      const rel = dueText(parsed.date);
+      print(`#${t.id} due ${parsed.date}${rel === parsed.date ? '' : ` (${rel})`}`, 'ok');
+    }
     changed = true;
   });
   if(changed){ saveState(); renderPanel(); }
@@ -1296,7 +1370,7 @@ function detailFields(t, extra){
   // comma-list (+a,b,c) is a typing shorthand, not a claim that the tags it
   // creates are one thing; the display shouldn't imply otherwise.
   if(t.tags && featureOn('tags')) t.tags.forEach(tag => field(FIELD_LABELS.tag, tag));
-  if(t.due && featureOn('due')) field(FIELD_LABELS.due, t.due);
+  if(t.due && featureOn('due')) field(FIELD_LABELS.due, dueText(t.due));
   if(showAge && t.createdAt) field(FIELD_LABELS.age, taskAgeText(t.createdAt));
   (extra || []).forEach(f => fields.push(f));
   return fields;
@@ -2710,7 +2784,11 @@ function dispatch(cmd, rest){
     case 'done': return cmd_done(rest[0]);
     case 'rm': cmd_rm(rest[0]); break;
     case 'priority': cmd_priority(rest[0], rest[1]); break;
-    case 'due': cmd_due(rest[0], rest[1]); break;
+    // everything after the ids is the date, joined rather than just the next token,
+    // so the spelled-out forms ("due 3 in 2 weeks") work unquoted here. the "-d"
+    // flag can't do that — it has no way to know where the date ends and the title
+    // resumes — so there it's "-d "2 weeks"", which tokenize() already handles.
+    case 'due': cmd_due(rest[0], rest.slice(1).join(' ')); break;
     case 'tag': cmd_tag(rest[0], rest[1], rest[2]); break;
     case 'tags': cmd_tags(); break;
     case 'project': cmd_project(rest[0], ...rest.slice(1)); break;
