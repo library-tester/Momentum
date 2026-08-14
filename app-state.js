@@ -109,6 +109,19 @@ const GRID_MAX_SIDE = 100;
 const BLOCK_COUNT_MAX = 20;
 let blockCountOverride = 10;                             // default: 10 blocks per completed task
 
+// the ascii equivalent, set by "character count <n>". a much bigger span than
+// block count's 1-20: ascii pieces are cells-per-non-space-character rather than
+// a coarse grid, so the biggest pieces run into the thousands and a block-sized
+// cap would leave them needing hundreds of tasks to fully reveal. 'all' is its
+// own special value rather than just "set the number as high as totalCells" —
+// a fixed number would only fully-reveal-in-one-task the pieces at or below it,
+// while 'all' keeps that true piece to piece regardless of size (see asciiTrack's
+// perTaskOverride, which turns it into Infinity so cellsPerCompletion's own
+// Math.min against totalCells does the clamping). null = leave each piece on its
+// own manifest pace.
+const CHAR_COUNT_MAX = 1000;
+let charCountOverride = null;                            // default: each piece's own pace
+
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', theme);
 }
@@ -261,7 +274,7 @@ function materializeOrder(progress, total){
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
-    blockSizePref, blockCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
+    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -297,6 +310,9 @@ function applyStateSnapshot(data){
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
+  charCountOverride = data.charCountOverride === 'all' ? 'all'
+    : Number.isFinite(data.charCountOverride) && data.charCountOverride > 0
+    ? Math.min(CHAR_COUNT_MAX, Math.round(data.charCountOverride)) : null;
   asciiTrack.restore(data.ascii);
   imageTrack.restore(data.image);
 }

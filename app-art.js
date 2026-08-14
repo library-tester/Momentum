@@ -225,10 +225,10 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       await this.startNew();
     },
     totalCells(){ return totalCellsFor(this.current); },
-    // how many cells one completed task uncovers. perTaskOverride (image track only —
-    // see "block count") is a direct value that replaces the usual derivation from
-    // revealTasks entirely, so it holds steady across images with different totals
-    // rather than scaling with them.
+    // how many cells one completed task uncovers. perTaskOverride ("block count" for
+    // images, "character count" for ascii) is a direct value that replaces the usual
+    // derivation from revealTasks entirely, so it holds steady across pieces with
+    // different totals rather than scaling with them.
     cellsPerCompletion(){
       if(perTaskOverride && perTaskOverride()) return Math.min(perTaskOverride(), this.totalCells());
       return Math.max(1, Math.ceil(this.totalCells() / (this.current.revealTasks || 6)));
@@ -397,6 +397,11 @@ const asciiTrack = createRevealTrack({
   dataKey: 'ascii',
   loadItem: loadArtworkFile,
   totalCellsFor: item => item.cellIndices.length,
+  // 'all' means "every completed task fully reveals the piece, whatever its size" —
+  // translated to Infinity here so cellsPerCompletion's Math.min(override, totalCells)
+  // clamps it down to exactly totalCells for each piece, rather than this needing to
+  // know any piece's size itself.
+  perTaskOverride: () => charCountOverride === 'all' ? Infinity : charCountOverride,
 });
 
 // ---------- image track ----------

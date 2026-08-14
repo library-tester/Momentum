@@ -239,6 +239,8 @@ const COMMANDS = [
     extra: ['tiers: very small, small, medium, big, very big, full',
             'redrawn at the new block size  (image mode only)'] },
   { usage: 'block count [<1-20>|auto]', desc: 'blocks uncovered per completed task  (image mode only)' },
+  { usage: `character count [<1-${CHAR_COUNT_MAX}>|all|auto]`, desc: 'characters uncovered per completed task  (ascii mode only)',
+    extra: ['"all" fully reveals the piece every completed task, whatever its size'] },
   { usage: 'close', desc: 'once complete: save it + start a new one  (also: save)' },
   { usage: 'download [<n|name>]', desc: 'once complete: save the file to your computer',
     extra: ['with a gallery number or name instead ("download 3"), downloads an already-collected piece'] },
@@ -371,7 +373,7 @@ const HELP_GROUPS = [
   { name:'tasks',  desc:'add, edit, finish and find tasks',
     members:['add','rename','edit','start','stop','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
   { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
-    members:['gallery','mode','folders','art','next','reveal','hide','block','close','download','copy','display'] },
+    members:['gallery','mode','folders','art','next','reveal','hide','block','character','close','download','copy','display'] },
   { name:'layout', desc:'panels, themes, and what shows on screen',
     members:['view','split','set','theme','fullscreen'] },
   { name:'data',   desc:'backups, and restoring from them',
@@ -597,6 +599,9 @@ const ARG_COMPLETIONS = {
   block:      (pos, prior) => pos === 0 ? ['size', 'count']
                 : prior[0] === 'size'  ? BLOCK_SIZE_NAMES
                 : prior[0] === 'count' ? ['auto']
+                : [],
+  character:  (pos, prior) => pos === 0 ? ['count']
+                : prior[0] === 'count' ? ['all', 'auto']
                 : [],
   help:       pos => pos === 0 ? [...HELP_GROUPS.map(g => g.name), 'all', ...activeTopics(), ...commandNames()] : [],
   due:        pos => pos === 0 ? ['all'] : [...DATE_WORDS, ymd(startOfToday()), 'none'],
@@ -2241,6 +2246,51 @@ function cmd_blockCount(arg){
   describe();
 }
 
+// ---------- character count ----------
+// ascii's equivalent of "block count": how many characters one completed task
+// uncovers. no "character size" alongside it — a block's size is a choice (how
+// finely to grid the image), but an ascii piece's cells are just its own non-space
+// characters, nothing to tune there.
+function cmd_character(sub, args){
+  sub = (sub || '').toLowerCase();
+  if(sub === 'count') return cmd_charCount(args[0]);
+  print(`usage: character count <1-${CHAR_COUNT_MAX}>|all|auto`, 'err');
+}
+function cmd_charCount(arg){
+  if(displayMode !== 'ascii'){
+    print('character count is an ascii-mode setting — images uncover in blocks, tuned with "block count". switch with "mode ascii".', 'err');
+    return;
+  }
+  const track = asciiTrack;
+  if(!track.current){ print('the art collection is still loading...', 'info'); return; }
+  const describe = () => {
+    const per = track.cellsPerCompletion();
+    const src = charCountOverride === 'all' ? 'your setting: every completed task fully reveals the piece'
+      : charCountOverride ? 'your setting, for every piece'
+      : "this piece's own pace, from the manifest";
+    print(`${per} character${per === 1 ? '' : 's'} uncovered per completed task  —  ${track.tasksToFullyReveal()} tasks to fully reveal "${track.current.name}"  (${src})`);
+  };
+  if(!arg){ describe(); return; }
+
+  arg = arg.toLowerCase();
+  let next;
+  if(/^(auto|reset|off|manifest|default)$/.test(arg)) next = null;
+  else if(arg === 'all') next = 'all';
+  else if(/^\d+$/.test(arg) && +arg >= 1) next = Math.min(CHAR_COUNT_MAX, +arg);
+  else { print(`usage: character count <1-${CHAR_COUNT_MAX}>|all|auto`, 'err'); return; }
+  if(/^\d+$/.test(arg) && +arg > CHAR_COUNT_MAX){
+    print(`capped at ${CHAR_COUNT_MAX} — past that use "character count all" to fully reveal every task instead`, 'info');
+  }
+
+  charCountOverride = next;
+  showLiveReveal();
+  saveState(); renderPanel();
+  print(next === 'all' ? 'character count set: every completed task fully reveals the piece'
+    : next ? `character count set: ${next} character${next === 1 ? '' : 's'} per completed task`
+    : "character count back to each piece's own pace", 'ok');
+  describe();
+}
+
 async function cmd_close(){
   const track = activeTrack();
   if(!track.pending){ print('nothing to close right now', 'err'); return; }
@@ -2532,7 +2582,7 @@ function cmd_gallery(sub, ...rest){
 // file picker and returns), so a snapshot taken around the command would always be
 // of an unchanged state. it records its own undo entry from inside the FileReader
 // callback that does the actual replacing — see cmd_import.
-const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','archive','restore','gallery']);
+const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','character','archive','restore','gallery']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -2629,6 +2679,7 @@ function dispatch(cmd, rest){
     case 'reveal': return cmd_reveal();
     case 'hide': cmd_hide(); break;
     case 'block': return cmd_block(rest[0], rest.slice(1));
+    case 'character': return cmd_character(rest[0], rest.slice(1));
     case 'close': return cmd_close();
     case 'undo': return cmd_undo();
     case 'download': return cmd_download(rest.join(' '));
