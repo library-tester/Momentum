@@ -1256,19 +1256,14 @@ function printFramed(rows, summary, closingRule){
   if(summary) print(summary, 'info');
 }
 
-// the [priority] [project] [tag] [due] [age] tags that trail a task — returned
+// the [priority] <project> [tag] [due] [age] tags that trail a task — returned
 // separately so callers can skip appending anything when there's nothing in it.
-// every field uses the same square brackets, project included. project and tags are
-// the only pair here that can actually be confused — both are arbitrary words you
-// chose, where priority is a fixed vocabulary, due is prefixed "due:", age reads as
-// a duration, and the status marks are fixed words — so "[work] [urgent]" doesn't
-// say which is which. giving the project its own delimiter was tried ({}, |…|, #)
-// and each one cost more in how the column reads than the ambiguity was worth, so
-// it's deliberately left plain for now rather than unnoticed.
+// project gets its own delimiter (<…>) so it reads apart from the square-bracketed
+// fields at a glance, instead of "[work] [urgent]" leaving it ambiguous which is which.
 function detailFields(t, extra){
   const fields = [];
   if(t.priority && featureOn('priority')) fields.push(`[${t.priority}]`);
-  if(t.project && featureOn('projects')) fields.push(`[${t.project}]`);
+  if(t.project && featureOn('projects')) fields.push(`<${t.project}>`);
   if(t.tags && featureOn('tags')) t.tags.forEach(tag => fields.push(`[${tag}]`));
   if(t.due && featureOn('due')) fields.push(`[due:${t.due}]`);
   if(showAge && t.createdAt) fields.push(`[${taskAgeText(t.createdAt)}]`);
