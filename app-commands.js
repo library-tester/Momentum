@@ -1289,10 +1289,13 @@ function detailFields(t, extra){
   const field = (label, value) => fields.push(`[${label}:${value}]`);
   if(t.priority && featureOn('priority')) field(FIELD_LABELS.priority, t.priority);
   if(t.project && featureOn('projects')) field(FIELD_LABELS.project, t.project);
-  // every tag in one bracket instead of a bracket each: "[tag:a] [tag:b] [tag:c]"
-  // spends more room repeating the label than saying which tags, and the input
-  // grammar already groups them exactly this way (+a,b,c).
-  if(t.tags && t.tags.length && featureOn('tags')) field(FIELD_LABELS.tag, t.tags.join(','));
+  // one bracket per tag, not one bracket for all of them: "[tag:a,b,c]" reads as a
+  // single field with a comma in it, which is exactly wrong the moment those are
+  // three separate tags you can remove or filter by individually — "tag 1 rm b"
+  // and "list +b" both act on just one of the three. the input grammar's own
+  // comma-list (+a,b,c) is a typing shorthand, not a claim that the tags it
+  // creates are one thing; the display shouldn't imply otherwise.
+  if(t.tags && featureOn('tags')) t.tags.forEach(tag => field(FIELD_LABELS.tag, tag));
   if(t.due && featureOn('due')) field(FIELD_LABELS.due, t.due);
   if(showAge && t.createdAt) field(FIELD_LABELS.age, taskAgeText(t.createdAt));
   (extra || []).forEach(f => fields.push(f));
@@ -1321,15 +1324,28 @@ function bracketIndent(text){
 //
 // items: [{ left, fields, cls, id }] — cls, if set, colors both of a task's rows
 // (e.g. overdue), so the pair still reads as one task.
-function buildAlignedRows(items){
+//
+// isExpanded(id) decides whether a task's own metadata line actually prints —
+// defaulting to "always" keeps every existing caller (list/find/archive, all
+// printed to the terminal as a snapshot of the command you just typed) exactly
+// as before. the list pane is the one caller that passes something else: there,
+// the fields are a click away rather than always on screen (see "row-toggle" in
+// app-render.js), which is what keeps a loaded task list to one line per task
+// until you actually ask to see more of one.
+function buildAlignedRows(items, isExpanded){
+  isExpanded = isExpanded || (() => true);
   return items.flatMap(({ left, fields, cls, id }) => {
     const indent = bracketIndent(left);
-    const rows = [{ text: left, cls, indent, taskId: id, meta: false }];
-    const fieldsText = fields.join(' ');
+    const hasFields = fields.length > 0;
+    const expanded = hasFields && isExpanded(id);
+    // the toggle mark itself only exists when there's something behind it to
+    // toggle — a bare task (nothing in `fields`) gets no [+] at all, not a dead
+    // one that opens onto nothing.
+    const rows = [{ text: left, cls, indent, taskId: id, meta: false, toggle: hasFields ? { expanded } : null }];
     // dimmed as a whole line rather than as a trailing segment of a mixed one:
     // there's no bright title sharing the row for it to need contrasting against.
-    if(fieldsText){
-      rows.push({ text: ' '.repeat(indent) + fieldsText, cls: cls || 'info', indent, taskId: id, meta: true });
+    if(expanded){
+      rows.push({ text: ' '.repeat(indent) + fields.join(' '), cls: cls || 'info', indent, taskId: id, meta: true });
     }
     return rows;
   });
@@ -1342,7 +1358,7 @@ function buildAlignedRows(items){
 // archivedIds — a Set of ids drawn from the archive, mixed in alongside pending/
 // active ones, since ids are unique across both: a task lives in exactly one of
 // the two arrays at a time).
-function buildTaskRows(list, archivedIds){
+function buildTaskRows(list, archivedIds, isExpanded){
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const items = list.map(t=>{
     const archived = !!(archivedIds && archivedIds.has(t.id));
@@ -1355,7 +1371,7 @@ function buildTaskRows(list, archivedIds){
     if(!archived && t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
     return { left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined, id: t.id };
   });
-  return buildAlignedRows(items);
+  return buildAlignedRows(items, isExpanded);
 }
 
 // meaningful order instead of pure insertion order: overdue first (they're the
@@ -1482,12 +1498,17 @@ function cmd_find(tokens){
 // wraps one buildTaskRows() row for the clickable list pane. the [id] bracket
 // becomes its own span — click it and the list-pane click handler below
 // pre-fills "done <id>" into the command line without running it, so clicking a
-// task never finishes it on its own; click anywhere else on the row and the id
+// task never finishes it on its own; click anywhere else on the title and the id
 // gets appended into whatever's being typed instead. the row always starts with
 // "  [<id>] " (see buildTaskRows), so slicing off through the first "]" reliably
 // isolates the bracket without needing buildTaskRows to hand back id/title as
 // separate fields — rows printed to the terminal (list/find/archive) go through
 // buildTaskRows too, so that shape has to stay a single string for those callers.
+//
+// a title row that has metadata (r.toggle is set) also gets a [+]/[–] span of
+// its own — a third click target, distinct from both the [id] bracket and the
+// title text, so opening/closing the metadata line never collides with either of
+// those two existing behaviours.
 function rowHtml(r, id){
   // same hanging-indent trick as printHanging/printFramed: a title long enough to
   // wrap in the pane's own column picks its continuation up under its own first
@@ -1500,7 +1521,10 @@ function rowHtml(r, id){
   if(r.meta) return `<div class="${cls}" data-id="${id}" style="${style}">${escapeHtml(r.text)}</div>`;
   const bracketEnd = r.text.indexOf(']') + 1;
   const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(r.text.slice(0, bracketEnd))}</span>`;
-  return `<div class="${cls}" data-id="${id}" style="${style}">${idHtml}${escapeHtml(r.text.slice(bracketEnd))}</div>`;
+  const toggleHtml = r.toggle
+    ? ` <span class="row-toggle" data-id="${id}">${r.toggle.expanded ? '[-]' : '[+]'}</span>`
+    : '';
+  return `<div class="${cls}" data-id="${id}" style="${style}">${idHtml}${escapeHtml(r.text.slice(bracketEnd))}${toggleHtml}</div>`;
 }
 
 // the always-visible task list — the pane above the console in split view, and the
@@ -1530,8 +1554,10 @@ function renderListPane(){
   }
   const sorted = sortForDisplay(shown);
   // each row carries its own taskId now — a task can occupy two rows, so the old
-  // index-into-sorted pairing no longer lines up.
-  const rows = buildTaskRows(sorted).map(r => rowHtml(r, r.taskId)).join('');
+  // index-into-sorted pairing no longer lines up. metadata starts collapsed for
+  // every task (expandedTaskIds empty) and stays that way until its own [+] is
+  // clicked — see the list-pane click handler in app-render.js.
+  const rows = buildTaskRows(sorted, null, id => expandedTaskIds.has(id)).map(r => rowHtml(r, r.taskId)).join('');
   pane.innerHTML = head(taskSummaryLine(shown, tasks.length)) + rows;
 }
 

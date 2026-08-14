@@ -28,6 +28,12 @@ let brokenImageStreak = 0;                                // consecutive images 
 // that's since changed shape is a bug waiting to happen for no real benefit.
 let galleryOpen = false;
 let galleryDetailIdx = null;
+// which tasks currently have their [label:value] metadata line open in the list
+// pane — see "row-toggle" in app-render.js. session-only like the gallery state
+// just above and for the same reason: which tasks you had expanded isn't a
+// preference worth restoring on reload, and a stale id left in here from a task
+// that's since been deleted is harmless — it just never matches a rendered row.
+let expandedTaskIds = new Set();
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
 let showAge = false;                                     // the "[created:3d ago]" detail field, computed from createdAt — see "set age". off by default: it's the one field that shows up on every task whether or not you gave it anything, and it's the least load-bearing of them

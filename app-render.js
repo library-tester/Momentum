@@ -741,6 +741,16 @@ document.getElementById('list-pane').addEventListener('click', (e) => {
   const row = e.target.closest('.line[data-id]');
   if(!row) return;
   const id = row.getAttribute('data-id');
+  // a third click target, checked before the other two: the [+]/[–] mark that
+  // opens or closes one task's metadata line. its own thing entirely — not "done
+  // <id>", not an id inserted into the command line — so it returns immediately
+  // rather than falling into either of those.
+  if(e.target.closest('.row-toggle')){
+    const numId = Number(id);
+    if(expandedTaskIds.has(numId)) expandedTaskIds.delete(numId); else expandedTaskIds.add(numId);
+    renderListPane();
+    return;
+  }
   if(e.target.closest('.row-id')){
     // pre-fills the command, doesn't run it — clicking a task is not the same
     // as deciding it's done. replaces the input outright rather than inserting,

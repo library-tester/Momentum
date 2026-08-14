@@ -53,6 +53,12 @@
     --accent:      #d9a441;
     --accent-dim:  #54401d;
     --error:       #d9a441;
+    /* how opaque dimmed/metadata text (".info", "row-toggle") renders — see
+       "#output .info" further down for what this trades off and why it isn't one
+       flat number for every theme. 0.75 is the default every theme gets unless it
+       says otherwise below; amber measures 4.9:1 here, comfortably past WCAG AA's
+       4.5:1 floor, and wasn't reported as a problem. */
+    --info-opacity: 0.75;
   }
   :root[data-theme="night"]{
     --bg-dark:     #000000;
@@ -64,6 +70,17 @@
     --accent:      #ff3333;
     --accent-dim:  #ff3333;
     --error:       #ff3333;
+    /* raised from the 0.75 default in steps (0.85, then 0.95) chasing readability
+       that opacity alone kept falling short of on this theme specifically — pure
+       red dims to an eye faster than the WCAG contrast math says it does (that
+       formula weights red at 0.2126 of luminance vs green's 0.7152, so a
+       saturated red loses less *measured* contrast per step of opacity than the
+       same move on amber's gold or nord's blue-grey, but it doesn't look that
+       way). at 1 there's nothing left to chase: metadata renders at exactly the
+       same brightness as the title above it, so this is the one theme where
+       title and metadata are told apart by position and brackets alone, the way
+       every field already reads in a single-line task with nothing dimmed. */
+    --info-opacity: 1;
   }
   /* "day" — mirror image of nightmode: black on white, no other color at all */
   :root[data-theme="day"]{
@@ -76,6 +93,9 @@
     --accent:      #000000;
     --accent-dim:  #000000;
     --error:       #000000;
+    /* left at the inherited 0.75 default — pure black on white has so much
+       headroom (10.4:1 even at 0.75) that this was the theme it looked "perfect"
+       in, so there's nothing here to trade against. */
   }
   /* "solar" — solarized-dark inspired: keeps solarized's iconic base03 background,
      but every text color is the same one plain grey, no hue and no ramp — the same
@@ -93,6 +113,12 @@
     --accent:      #c0c0c0;
     --accent-dim:  #0e4f5e;
     --error:       #c0c0c0;
+    /* raised alongside night, to the same 0.85 — measured contrast at 0.75 (4.3:1)
+       wasn't as far under the floor as night's, but reported as hard to read
+       regardless, which matches how this grey sits: low-saturation text loses
+       what little hue it has as opacity drops, the same problem night has just
+       reached by a different color. 0.85 brings it to 5.1:1. */
+    --info-opacity: 0.85;
   }
   /* "nord" — arctic blue-gray, one flat color for every text role — the same move
      "night" makes with one red, "day" with one black, and "solar" with one grey.
@@ -111,6 +137,10 @@
     --accent:      #9aa7bd;
     --accent-dim:  #3d4a5c;
     --error:       #9aa7bd;
+    /* left at the inherited 0.75 default, per what was actually asked (night and
+       solar) — but measured contrast here (3.3:1) is the lowest of any theme at
+       that value, lower than night's own starting point. worth the same fix if
+       nord turns out to have the same problem in practice. */
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
@@ -380,13 +410,26 @@
   }
   #list-pane .line{ white-space:pre-wrap; }
   #list-pane .err{ color:var(--error); }
-  #list-pane .info{ color:var(--text-dim); }
+  /* this pane is the one place metadata rows are on screen at all times rather
+     than scrolled past in the terminal log, so it's the one place their dimming
+     mattered most — and the one place it was missing: unlike "#output .info" just
+     below, this rule never carried an opacity, so a task's metadata line rendered
+     exactly as bright as its title. same fix, same value, for the same reason —
+     see that rule's comment for why it's 0.75 and not the 0.6 this started at. */
+  #list-pane .info{ color:var(--text-dim); opacity:var(--info-opacity); }
   /* the list pane is the one surface in the app you look at without typing a
      command first — clicking a row inserts its id into whatever you're typing,
      and the [id] bracket pre-fills "done <id>" without running it. no hover
      styling: the pointer cursor alone is the affordance, so the pane stays as
      plain to look at as everywhere else in the app. */
   #list-pane .line.row{ cursor:pointer; }
+  /* the [+]/[–] that opens or closes one task's metadata line — dimmed like
+     metadata itself (same 0.75 as "#list-pane .info" above; a barely-visible mark
+     is a discoverability problem, not just a readability one — nobody clicks a
+     control they can't see is there) and left without its own hover treatment for
+     the same reason the comment above gives for the row as a whole: the cursor
+     alone is the affordance here already. */
+  .row-toggle{ opacity:var(--info-opacity); }
   .pane-head{
     display:flex;
     justify-content:space-between;
@@ -512,8 +555,20 @@
   #output .err{ color:var(--error); }
   /* secondary lines — hints, counts, the parenthetical asides — step back a tone so
      the actual answer reads first. still the one theme color, only softened: with
-     every role sharing a hue, opacity is what's left to rank them by. */
-  #output .info{ color:var(--text-dim); opacity:0.72; }
+     every role sharing a hue, opacity is what's left to rank them by.
+     this was 0.6 briefly, chosen to widen the gap between a title and the metadata
+     line under it — but that traded away the thing that actually matters more: the
+     dimmed text's own legibility. at 0.6, night and nord (the two themes with the
+     least headroom) landed at 2.3–2.7:1 against their background, which is where
+     "quieter than the title" tips into "hard to read on its own", and it showed —
+     this is the opacity that was reported as barely readable.
+     0.75 keeps every theme's worst case (night 3.5:1, nord 3.3:1) at or just past the
+     3:1 floor conventionally used for secondary/UI-weight text, amber/solar/day all
+     comfortably past WCAG AA's 4.5:1, and still reads as visibly softer than a
+     full-opacity title — the two-row split itself (own line, indented, bracketed,
+     shown only on request in the pane) was already carrying most of that distinction
+     structurally, so opacity no longer has to do all of the work by itself. */
+  #output .info{ color:var(--text-dim); opacity:var(--info-opacity); }
   /* same color and weight as a typed command's echo (.echo below), for lines that
      should read with the same weight without actually being one — no "$" marker,
      no echo's extra top margin. */
