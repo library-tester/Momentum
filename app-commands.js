@@ -349,17 +349,43 @@ const HELP_TOPICS = {
     feat: 'due',
     print(){
       print('dates — every form "-d" and "due" understand:');
-      print('');
-      const w = Math.max(...DATE_FORMS.map(([form]) => form.length));
-      DATE_FORMS.forEach(([form, note]) => {
-        if(note) printSegments([{ text: `  ${form.padEnd(w)}  ` }, { text: note, cls: 'info' }], w + 4);
-        else print(`  ${form}`);
+      // both columns measured across every group, not per group, so the notes line
+      // up in one straight column down the whole page instead of stepping in and
+      // out as each section's longest entry changes.
+      const all = DATE_FORMS.flatMap(([, rows]) => rows);
+      const formW = Math.max(...all.map(([form]) => form.length));
+      const altW = Math.max(...all.map(([, alt]) => alt.length));
+      // the alt column collapses to nothing when no group uses it, rather than
+      // leaving a fixed gap of blank space between form and note.
+      const altGap = altW ? altW + 2 : 0;
+      const indent = 4 + formW + 2 + altGap;
+      // the same accommodation buildHelpRows makes for the command table: keep the
+      // note beside its form only while the console is actually wide enough to give
+      // it a readable column, and stack it underneath when it isn't — otherwise a
+      // narrow console frays every note into a one-word-per-line ribbon.
+      const sideBySide = outputColumns() - indent >= HELP_MIN_DESC;
+      DATE_FORMS.forEach(([heading, rows]) => {
+        // a space, not '' — an empty line box has no height, so print('') renders
+        // nothing at all and the groups run together with no gap between them.
+        print(' ');
+        print(`  ${heading}`);
+        rows.forEach(([form, alt, note]) => {
+          const left = `    ${form.padEnd(formW)}  ${altGap ? alt.padEnd(altW) + '  ' : ''}`;
+          if(!note){ print(left.trimEnd()); return; }
+          if(sideBySide) printSegments([{ text: left }, { text: note, cls: 'info' }], indent);
+          else { print(left.trimEnd()); printHanging(`      ${note}`, 6, 'info'); }
+        });
       });
-      print('');
-      printHanging('  all of them resolve to a plain calendar day, and the day they land on is echoed back — "due 3 friday" answers with the date itself.', 2, 'info');
-      print('');
-      printHanging('  the two-word forms work as-is after "due" ("due 3 in 2 weeks"), but need quotes behind -d, which can\'t tell where the date ends and the title starts again:  add water the plants -d "2 days"', 2, 'info');
-      printHanging('  in the list a due date reads back the same way — "tomorrow", "in 3 days" — switching to the plain date once it\'s more than a week out, where the date says more than the count does.', 2, 'info');
+      print(' ');
+      // separated by blank lines rather than stacked: three consecutive wrapped
+      // paragraphs read as one block of prose, which is the thing this page was
+      // rewritten to stop doing.
+      printHanging('  whichever you type, it lands on one calendar day — and that day is echoed back, so "due 3 friday" answers with the date itself.', 2, 'info');
+      print(' ');
+      printHanging('  two-word forms need quotes behind -d, which can\'t tell where the date ends and the title picks up again:  -d "2 days"', 2, 'info');
+      printHanging('  after "due" they\'re fine as they are:  due 3 in 2 weeks', 2, 'info');
+      print(' ');
+      printHanging('  the list reads them back the same way — "tomorrow", "in 3 days" — until they\'re over a week out, where it shows the date instead.', 2, 'info');
     },
   },
 };
@@ -802,19 +828,50 @@ function dueText(dateStr){
 // dates" lays out. same vocabulary, two lengths, because an error should stay on
 // one line and a reference shouldn't have to.
 const DATE_HELP = 'try: 2026-01-31 · today · tomorrow · a weekday (friday, fri) · "2 days", "in 3 weeks" · next week · eow/eom/eoy · +3d, +2w, +1m';
+
+// the weekday rows, built from the parser's own WEEKDAYS rather than typed out
+// again — the abbreviation column is literally the same slice(0,3) the parser
+// matches on, so the two can't drift into disagreeing about what "wed" means.
+// re-ordered to start on monday: "eow" resolves to sunday, which only makes sense
+// on a week that starts monday, so the table should read the same way.
+const WEEKDAY_ROWS = [...WEEKDAYS.slice(1), WEEKDAYS[0]].map(day => [
+  day, day.slice(0, 3),
+  // the one row that needs a note gets it, sitting on the example it explains
+  // rather than in a paragraph underneath where you'd have to connect it yourself.
+  day === 'friday' ? 'on a friday, that means today' : '',
+]);
+
+// grouped, because a flat list of twelve forms mixing calendar dates, bare words,
+// weekday names and arithmetic gives you nothing to navigate by — you read all of
+// it to find any of it. each row is also exactly one form now: the old table put
+// two unrelated examples in a single cell ("2 days   in 3 weeks"), which ran
+// together into one phrase that read like a single nonsense date.
+// shape: [heading, [[form, alt, note], ...]] — alt is a second spelling of the
+// same form (a weekday's abbreviation), blank where there isn't one.
 const DATE_FORMS = [
-  ['2026-01-31',      'an exact day'],
-  ['today',           ''],
-  ['tomorrow',        ''],
-  ['yesterday',       ''],
-  ['friday   fri',    'the next one, counting today — so "friday" on a friday means today'],
-  ['eow',             'end of week (sunday)'],
-  ['eom',             'end of month'],
-  ['eoy',             'end of year'],
-  ['2 days   in 3 weeks', 'spelled out — days, weeks, months or years from today'],
-  ['next week',       'seven days out  (also next month, next year)'],
-  ['+3d  +2w  +1m',   'the same, tersely — 3 days / 2 weeks / 1 month  (also +1y, and the + is optional)'],
-  ['none',            'clear the date again  ("due" only)'],
+  ['a day, written out', [
+    ['2026-01-31', '', 'year-month-day'],
+  ]],
+  ['the ones with names', [
+    ['today', '', ''],
+    ['tomorrow', '', ''],
+    ['yesterday', '', ''],
+  ]],
+  ['a weekday — the next one, counting today', WEEKDAY_ROWS],
+  ['counting forward from today', [
+    ['2 days', '', 'also 3 weeks, 1 month, 2 years'],
+    ['in 2 days', '', 'the same, with "in" in front'],
+    ['next week', '', '7 days out (also next month, next year)'],
+    ['+3d', '', 'terse: +2w +1m +1y  (the + is optional)'],
+  ]],
+  ['the end of a period', [
+    ['eow', '', 'end of week (sunday)'],
+    ['eom', '', 'end of month'],
+    ['eoy', '', 'end of year'],
+  ]],
+  ['clearing it again', [
+    ['none', '', 'removes the due date  ("due" only)'],
+  ]],
 ];
 
 // one worked example per flag, so the "you left this dangling" message below can
