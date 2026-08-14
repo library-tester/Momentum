@@ -863,11 +863,13 @@ function cmd_add(args){
   }
   const t = { id: nextFreeId(), title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
   tasks.push(t);
-  const priTxt = priority ? ` [${priority}]` : '';
-  const dueTxt = due ? ` due ${due}` : '';
-  const projTxt = project ? ` proj:${project}` : '';
-  const tagsTxt = tags.length ? ` tags:${tags.join(',')}` : '';
-  print(`added #${t.id} "${title}"${priTxt}${dueTxt}${projTxt}${tagsTxt}`, 'ok');
+  // echoed back in the same marks the list uses, from the same function — this line
+  // is where you first meet the notation, so it teaching a different one ("[high]
+  // due X proj:Y") than the list shows a second later was the worst place for the
+  // two to disagree. createdAt is blanked on the copy purely to drop the age mark:
+  // "added ... ~today" is noise on a task created a moment ago.
+  const marks = detailFields({ ...t, createdAt: null }).join(' ');
+  print(`added #${t.id} "${title}"${marks ? ' ' + marks : ''}`, 'ok');
   saveState(); renderPanel();
 }
 
@@ -1261,17 +1263,38 @@ function printFramed(rows, summary, closingRule){
   if(summary) print(summary, 'info');
 }
 
-// the [priority] <project> [tag] [due] [age] tags that trail a task — returned
-// separately so callers can skip appending anything when there's nothing in it.
-// project gets its own delimiter (<…>) so it reads apart from the square-bracketed
-// fields at a glance, instead of "[work] [urgent]" leaving it ambiguous which is which.
+// the [label:value] fields that trail a task title. every field is bracketed, the
+// project included — the brackets are what group a value with its label into one
+// visual chunk, which is also what lets a value contain a space ("[created:3d ago]")
+// without reading as two fields.
+//
+// labelled rather than bare: "[home] [urgent]" could never say which of the two was
+// the project and which the tag, because both are just words you picked. the label
+// is the only thing that can carry that, so it's worth the few characters — every
+// other way of encoding it (a different bracket per field, a symbol per field) asks
+// the reader to have memorised a key first.
+const FIELD_LABELS = {
+  priority:  'prior',
+  project:   'proj',
+  tag:       'tag',
+  due:       'due',
+  age:       'created',
+  completed: 'completed',
+};
+
+// returned as a list rather than a string so callers can skip appending anything
+// when there's nothing in it — a plain task stays one clean line.
 function detailFields(t, extra){
   const fields = [];
-  if(t.priority && featureOn('priority')) fields.push(`[${t.priority}]`);
-  if(t.project && featureOn('projects')) fields.push(`<${t.project}>`);
-  if(t.tags && featureOn('tags')) t.tags.forEach(tag => fields.push(`[${tag}]`));
-  if(t.due && featureOn('due')) fields.push(`[due:${t.due}]`);
-  if(showAge && t.createdAt) fields.push(`[${taskAgeText(t.createdAt)}]`);
+  const field = (label, value) => fields.push(`[${label}:${value}]`);
+  if(t.priority && featureOn('priority')) field(FIELD_LABELS.priority, t.priority);
+  if(t.project && featureOn('projects')) field(FIELD_LABELS.project, t.project);
+  // every tag in one bracket instead of a bracket each: "[tag:a] [tag:b] [tag:c]"
+  // spends more room repeating the label than saying which tags, and the input
+  // grammar already groups them exactly this way (+a,b,c).
+  if(t.tags && t.tags.length && featureOn('tags')) field(FIELD_LABELS.tag, t.tags.join(','));
+  if(t.due && featureOn('due')) field(FIELD_LABELS.due, t.due);
+  if(showAge && t.createdAt) field(FIELD_LABELS.age, taskAgeText(t.createdAt));
   (extra || []).forEach(f => fields.push(f));
   return fields;
 }
@@ -1283,21 +1306,32 @@ function detailFields(t, extra){
 function bracketIndent(text){
   return text.indexOf(']') + 2;
 }
-// packs each row's tag fields onto the same line as its title instead of a row
-// underneath, right where the title ends. items: [{ left, fields, cls }] — cls,
-// if set, makes the whole row one color (e.g. overdue); otherwise the title
-// stays bright and the trailing fields render dim via a separate segment.
+// each task becomes up to two rows: its title on one line, and — only when there's
+// actually something to put there — its [label:value] fields on a second line
+// underneath, indented to start under the title's first letter.
+//
+// the fields used to ride along on the title's own line, which packed more into
+// less height. what killed that was labels: once a field is "[proj:home]" rather
+// than "[home]", a loaded task no longer fits a normal console width, so the line
+// wrapped anyway — but at whatever character the width ran out at, which put the
+// same field beside one title and beneath the next, and chopped up the column of
+// titles that is the thing you actually scan. a deliberate second line costs the
+// same height the accidental wrap was already costing and spends it on a straight
+// title column instead.
+//
+// items: [{ left, fields, cls, id }] — cls, if set, colors both of a task's rows
+// (e.g. overdue), so the pair still reads as one task.
 function buildAlignedRows(items){
-  return items.map(({ left, fields, cls }) => {
-    const fieldsText = fields.join(' ');
+  return items.flatMap(({ left, fields, cls, id }) => {
     const indent = bracketIndent(left);
-    if(!fieldsText) return { text: left, cls, indent };
-    return {
-      text: `${left} ${fieldsText}`,
-      cls,
-      indent,
-      segments: cls ? null : [{ text: `${left} ` }, { text: fieldsText, cls: 'info' }]
-    };
+    const rows = [{ text: left, cls, indent, taskId: id, meta: false }];
+    const fieldsText = fields.join(' ');
+    // dimmed as a whole line rather than as a trailing segment of a mixed one:
+    // there's no bright title sharing the row for it to need contrasting against.
+    if(fieldsText){
+      rows.push({ text: ' '.repeat(indent) + fieldsText, cls: cls || 'info', indent, taskId: id, meta: true });
+    }
+    return rows;
   });
 }
 
@@ -1313,11 +1347,13 @@ function buildTaskRows(list, archivedIds){
   const items = list.map(t=>{
     const archived = !!(archivedIds && archivedIds.has(t.id));
     const overdue = !archived && featureOn('due') && isOverdue(t);
+    // these three carry no label: they're flags, not key/value pairs — the word is
+    // already the whole of what they say.
     const extra = overdue ? ['[OVERDUE]'] : [];
     if(archived) extra.push('[archived]');
     const fields = detailFields(t, extra);
     if(!archived && t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
-    return { left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined };
+    return { left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined, id: t.id };
   });
   return buildAlignedRows(items);
 }
@@ -1453,18 +1489,18 @@ function cmd_find(tokens){
 // separate fields — rows printed to the terminal (list/find/archive) go through
 // buildTaskRows too, so that shape has to stay a single string for those callers.
 function rowHtml(r, id){
-  const raw = r.segments ? r.segments[0].text : r.text;
-  const bracketEnd = raw.indexOf(']') + 1;
-  const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(raw.slice(0, bracketEnd))}</span>`;
-  const restHtml = r.segments
-    ? escapeHtml(raw.slice(bracketEnd)) + r.segments.slice(1).map(seg =>
-        seg.cls ? `<span class="${seg.cls}">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text)).join('')
-    : escapeHtml(raw.slice(bracketEnd));
   // same hanging-indent trick as printHanging/printFramed: a title long enough to
   // wrap in the pane's own column picks its continuation up under its own first
   // letter, not back at the pane's left edge behind the [id].
   const style = `padding-left:${r.indent}ch;text-indent:-${r.indent}ch`;
-  return `<div class="line row${r.cls ? ' ' + r.cls : ''}" data-id="${id}" style="${style}">${idHtml}${restHtml}</div>`;
+  const cls = `line row${r.cls ? ' ' + r.cls : ''}`;
+  // a task's second row has no [id] bracket of its own to lift out — it's one run
+  // of fields. it still carries data-id, so clicking the metadata targets the same
+  // task as clicking its title.
+  if(r.meta) return `<div class="${cls}" data-id="${id}" style="${style}">${escapeHtml(r.text)}</div>`;
+  const bracketEnd = r.text.indexOf(']') + 1;
+  const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(r.text.slice(0, bracketEnd))}</span>`;
+  return `<div class="${cls}" data-id="${id}" style="${style}">${idHtml}${escapeHtml(r.text.slice(bracketEnd))}</div>`;
 }
 
 // the always-visible task list — the pane above the console in split view, and the
@@ -1481,7 +1517,7 @@ function renderListPane(){
 
   if(tasks.length === 0){
     pane.innerHTML = head('nothing yet') +
-      `<div class="line info">no tasks yet — add one:  add "organize your desk"</div>`;
+      `<div class="line info">nothing here yet — try:  add water the plants</div>`;
     return;
   }
   const shown = filterTasks(tasks, paneFilter);
@@ -1493,7 +1529,9 @@ function renderListPane(){
     return;
   }
   const sorted = sortForDisplay(shown);
-  const rows = buildTaskRows(sorted).map((r, i) => rowHtml(r, sorted[i].id)).join('');
+  // each row carries its own taskId now — a task can occupy two rows, so the old
+  // index-into-sorted pairing no longer lines up.
+  const rows = buildTaskRows(sorted).map(r => rowHtml(r, r.taskId)).join('');
   pane.innerHTML = head(taskSummaryLine(shown, tasks.length)) + rows;
 }
 
@@ -1529,7 +1567,8 @@ function cmd_archive(...tokens){
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const items = list.map(t => ({
     left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`,
-    fields: detailFields(t, t.completedAt ? [`[completed:${new Date(t.completedAt).toLocaleDateString()}]`] : [])
+    fields: detailFields(t, t.completedAt ? [`[${FIELD_LABELS.completed}:${new Date(t.completedAt).toLocaleDateString()}]`] : []),
+    id: t.id
   }));
   printFramed(buildAlignedRows(items), `  ${list.length} completed`, true);
 }

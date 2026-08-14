@@ -844,5 +844,7 @@ syncViewportHeight();
 
 // ---------- boot ----------
 cmdHistory = loadCmdHistory();                            // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
-printSegments([{ text: 'Welcome to Momentum. type "help" to see what you can do.', cls: 'command-weight' }]);
+// the greeting lives in loadState() rather than here: it says something different
+// to a first-time visitor than to someone on their two-hundredth session, and
+// which of those you are is only knowable once localStorage has been read.
 loadState();

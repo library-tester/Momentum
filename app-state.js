@@ -30,7 +30,7 @@ let galleryOpen = false;
 let galleryDetailIdx = null;
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
-let showAge = true;                                      // the "[3d ago]" detail field, computed from createdAt — see "set age"
+let showAge = false;                                     // the "[created:3d ago]" detail field, computed from createdAt — see "set age". off by default: it's the one field that shows up on every task whether or not you gave it anything, and it's the least load-bearing of them
 // ---------- feature flags ----------
 // the optional halves of the app, switchable from "set <feature> on|off". this
 // exists because the task fields kept being all-or-nothing: they were ripped out
@@ -290,7 +290,7 @@ function applyStateSnapshot(data){
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
-  showAge = data.showAge === undefined ? true : !!data.showAge;   // same reasoning as titleOn
+  showAge = data.showAge === undefined ? false : !!data.showAge;  // undefined: a save from before this setting existed. unlike titleOn above it defaults *off*, matching the declaration — see the note there
   // read key by key rather than trusted wholesale, so a save from before feature
   // flags existed (or one naming a feature this version has since dropped) still
   // lands on "everything on" — the state it was actually written in — instead of
@@ -366,6 +366,20 @@ async function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if(raw) applyStateSnapshot(JSON.parse(raw));
   }catch(e){ /* nothing stored yet, or storage unavailable */ }
+  // "has this person ever actually used the app", not "is the list empty right
+  // now" — someone who finished everything they had still knows how it works, and
+  // shouldn't be handed the tutorial again. checked here, before the greeting, and
+  // reused by the closing block at the bottom of this function.
+  const firstRun = tasks.length + archive.length === 0
+    && asciiTrack.collected.length + imageTrack.collected.length === 0;
+  // the one line that has to answer "what is this?" — the art panel is already on
+  // screen at this point, half of the app's surface, with nothing yet to say why
+  // it's there. naming the reward loop is what turns it from decoration into the
+  // point. a returning visitor has long since had that question answered, so they
+  // get a greeting instead of a pitch.
+  print(firstRun
+    ? 'Momentum — every task you finish uncovers part of a picture.'
+    : 'Momentum — welcome back.', 'command-weight');
   applyTheme();
   applyView();
   applyTitle();
@@ -395,12 +409,21 @@ async function loadState(){
     // listing here too would just be the same list twice on every single boot.
     // it only earns its keep when there's no pane to have shown it already.
     if(!listPaneVisible()) cmd_list([]);
+  } else if(!firstRun){
+    // an empty list you *earned* is a result, not a blank slate — so it reads as
+    // one, instead of dropping a returning user back into the first-run tutorial.
+    print('nothing on your list right now.');
+    printHanging('  add water the plants   to start the next one', 2, 'info');
   } else {
-    print('no tasks yet — a few commands to get going:');
+    // deliberately two commands, not three. the old version listed "help" as a
+    // third peer of equal weight, which is the one thing a newcomer shouldn't do
+    // first: it opens a menu onto ~70 commands. the whole job of this block is to
+    // get someone to their first completed task, because that's the moment the app
+    // explains itself — the picture visibly moves. everything else can wait for the
+    // pointer below.
     const starters = [
-      { cmd: 'add "organize your desk"', desc: 'create your first task' },
-      { cmd: 'done 1',                   desc: "mark it complete once it's done" },
-      { cmd: 'help',                     desc: 'see everything else this can do' },
+      { cmd: 'add water the plants', desc: 'add your first task (quotes optional)' },
+      { cmd: 'done 1',               desc: 'finish it — watch the art on the right' },
     ];
     // two columns only while the console is actually wide enough to hold them:
     // the padded command column plus a description is ~60 characters, and a phone's
@@ -418,6 +441,15 @@ async function loadState(){
       if(twoColumn){ printHanging(`  ${s.cmd.padEnd(w)}  ${s.desc}`, w + 4); }
       else { print(`  ${s.cmd}`); printHanging(`      ${s.desc}`, 6); }
     });
+    print('');
+    // what *completing* one earns — deliberately not a restatement of the greeting
+    // above, which already covers task-to-reveal. this is the half of the loop the
+    // first few completions don't show you: pieces are kept, and they keep coming.
+    printHanging('fill the piece in and it\'s yours — saved to your gallery, and a new one begins.', 0, 'info');
+    print('');
+    // the way onward, kept to one dim line and placed after the payoff so it can't
+    // compete with the two commands above for attention.
+    printHanging('type "help" whenever you want the rest — projects, due dates, tags, themes, and image mode.', 0, 'info');
   }
 }
 function saveState(){
