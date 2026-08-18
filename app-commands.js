@@ -2369,7 +2369,7 @@ function performArchiveRm(ids){
   if(changed){ saveState(); renderPanel(); }
 }
 
-function cmd_stats(){
+async function cmd_stats(){
   const total = tasks.length;
   const active = tasks.filter(t=>t.status==='active').length;
   const pending = tasks.filter(t=>t.status==='pending').length;
@@ -2386,6 +2386,11 @@ function cmd_stats(){
     ['ascii collected', asciiTrack.collected.length], ['image collected', imageTrack.collected.length],
   ];
   print(pairs.map(([label, n]) => `${label.replace(/ /g, ' ')}: ${n}`).join('  ·  '));
+  // where all of the above actually lives. the two storage protections this app has
+  // are both invisible by design — a granted persistence request shows nothing, and
+  // the export nudge only speaks up when it's already late — so this is the one
+  // place to look and see whether your data is as safe as you assumed.
+  print(await storageStatusLine(), 'info');
 }
 
 // ---------- streak + completion heatmap ----------
@@ -2677,6 +2682,18 @@ const SETTINGS = {
     get: () => statLineOn,
     apply: v => { statLineOn = v; applyStatLine(); },
     said: v => v ? 'stat line on.' : 'stat line off — a bit more room for the terminal.',
+  },
+  artline: {
+    // the reveal panel's caption, not the header's — "statline" above is the one
+    // under the MOMENTUM bar. off, the art starts at the top of its panel and how
+    // far along it is has to be asked for ("art" prints the same numbers on demand),
+    // which is the point: some people would rather not watch a percentage climb.
+    label: 'the "<piece> — 96/96 pieces · 100%" line above the art',
+    get: () => artLineOn,
+    apply: v => { artLineOn = v; applyArtLine(); },
+    said: v => v
+      ? 'art caption on.'
+      : 'art caption off — just the piece now. ("art" still reports where it is.)',
   },
   mirror: {
     // deliberately independent of "view": that decides *which* panel gets its own
@@ -3810,7 +3827,7 @@ function dispatch(cmd, rest){
     case 'copy': return cmd_copy(rest.join(' '));
     case 'display': cmd_display(); break;
     case 'fullscreen': cmd_fullscreen(rest[0]); break;
-    case 'stats': cmd_stats(); break;
+    case 'stats': return cmd_stats();
     case 'streak': cmd_streak(); break;
     case 'export': cmd_export(); break;
     case 'import': cmd_import(); break;

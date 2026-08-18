@@ -298,7 +298,7 @@ $ add draft the proposal
 added #13 "draft the proposal" [proj:work]
 ```
 
-**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
+**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
 **And so is the font.** Twelve monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
 
@@ -450,13 +450,19 @@ Because the app discovers whatever is in the folder, the most robust thing to pu
 
 Everything lives in your browser's `localStorage` — tied to the exact origin you loaded the page from. Nothing is sent anywhere. There is no account, no server, no telemetry.
 
-That also means it can vanish: a new browser profile, a cleared cache, private browsing, a different machine. So there are **three** layers of protection, in ascending order of durability:
+That also means it can vanish: a new browser profile, cleared site data, private browsing, a different machine. So there are **three** layers of protection, in ascending order of durability:
 
 1. **`undo`** — 20 levels deep, covers the mistake you just made. Session-only.
 2. **`recover`** — the last 10 full snapshots, kept automatically in a second storage key. Survives your task list being wiped; does *not* survive the browser's site data being cleared.
 3. **`export`** — a JSON file on your actual disk. **This is the only copy that leaves the browser**, and the only one that survives everything else.
 
-The app will gently remind you to `export` if it's been more than a week. It's worth listening to.
+Worth being precise about what each threat is, because they're usually lumped together:
+
+- **Clearing the *cache*** doesn't touch your tasks at all. That's the HTTP cache; `localStorage` is separate.
+- **The browser evicting storage on its own** — under disk pressure, or Safari's seven-day cap on script-writable storage for sites you haven't visited — is defended against: once you have a few tasks, the app quietly asks for [persistent storage](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API), which exempts it from automatic eviction. Chrome grants this silently; Firefox asks. `stats` reports which you got.
+- **Clearing site data deliberately** takes everything with it, and no web page can opt out of that — nor should one be able to. This is the gap `export` exists to fill, and the reason it's worth doing occasionally.
+
+The app reminds you to `export` if it's been more than a week — or sooner if you've built up a real list without ever having exported, since that's the state with the most to lose.
 
 ```bash
 export        # → momentum-backup-2026-08-05.json

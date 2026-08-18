@@ -219,6 +219,7 @@ let galleryDetailIdx = null;
 let expandedTaskIds = new Set();
 let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
+let artLineOn = true;                                    // the "<piece> — 96/96 pieces · 100% · image mode" line above the art in the reveal panel
 let showAge = false;                                     // the "[created:3d ago]" detail field, computed from createdAt — see "set age". off by default: it's the one field that shows up on every task whether or not you gave it anything, and it's the least load-bearing of them
 // ---------- feature flags ----------
 // the optional halves of the app, switchable from "set <feature> on|off". this
@@ -373,6 +374,16 @@ function applyStatLine(){
   document.body.classList.toggle('no-statline', !statLineOn);
 }
 
+// the reveal panel's own caption. a class on <body> rather than something
+// renderPanel checks, for the same reason the two above are: switching it is then a
+// style change, not a redraw — flipping it can't restart the tile fade transitions
+// or re-measure the image frame, and the panel doesn't have to be re-rendered to
+// notice. the gallery's headers use .artwork-title too but carry instructions
+// ("click one, or gallery show <n>"), so only the live one is scoped by .reveal-title.
+function applyArtLine(){
+  document.body.classList.toggle('no-artline', !artLineOn);
+}
+
 const STORAGE_KEY = 'momentum-tasks-v1';
 const LEGACY_STORAGE_KEY = 'garden-tasks-v1';  // fall back to pre-rename saves so existing task lists aren't lost
 // four small keys, separate from STORAGE_KEY on purpose: none of this is app data,
@@ -381,6 +392,7 @@ const AUTOBACKUP_KEY = 'momentum-autobackup-v1';    // rolling history — see p
 const LAST_EXPORT_KEY = 'momentum-last-export-v1';  // for the "you haven't exported in a while" nudge
 const FIRST_SEEN_KEY = 'momentum-first-seen-v1';    // that nudge's fallback baseline if you've never exported at all
 const HISTORY_KEY = 'momentum-history-v1';          // typed-command history — see cmdHistory below
+const PERSIST_ASKED_KEY = 'momentum-persist-asked-v1';  // whether storage persistence has ever been requested — see maybePersistStorage
 
 function isOverdue(t){
   if(!t.due || t.status === 'done') return false;
@@ -480,7 +492,7 @@ function materializeOrder(progress, total){
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
+    tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, artLineOn, showAge, features,
     blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter, activeProject,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -513,6 +525,7 @@ function applyStateSnapshot(data){
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
   statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
+  artLineOn = data.artLineOn === undefined ? true : !!data.artLineOn;      // same reasoning again — a save from before it could be switched off had it on
   showAge = data.showAge === undefined ? false : !!data.showAge;  // undefined: a save from before this setting existed. unlike titleOn above it defaults *off*, matching the declaration — see the note there
   // read key by key rather than trusted wholesale, so a save from before feature
   // flags existed (or one naming a feature this version has since dropped) still
@@ -575,6 +588,7 @@ async function cmd_undo(){
   applyView();
   applyTitle();
   applyStatLine();
+  applyArtLine();
   await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
   asciiTrack.pruneMissing(); imageTrack.pruneMissing();            // ditto for a since-deleted piece the rewind brought back
   saveState();
@@ -620,6 +634,7 @@ async function loadState(){
   applyView();
   applyTitle();
   applyStatLine();
+  applyArtLine();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
     // a piece collected in an earlier session can have been deleted from disk
@@ -687,6 +702,77 @@ function saveState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     pushAutoBackup(snapshot);
   }catch(e){ print('warning: could not save progress', 'err'); }
+  maybePersistStorage();
+}
+
+// ---------- keeping the browser from throwing it away ----------
+// localStorage is "best-effort" by default: the browser is free to evict it under
+// disk pressure, and Safari drops all script-writable storage for a site you
+// haven't visited in seven days. navigator.storage.persist() asks to be exempt from
+// that. it can't (and shouldn't) survive someone deliberately clearing their site
+// data — no web API can, which is what "export" is for — but it closes the gap
+// where the browser bins your tasks without anyone asking for it.
+//
+// deliberately NOT called at boot. Chrome decides silently from engagement
+// heuristics, but Firefox puts a permission prompt on screen, and a prompt that
+// greets a first-time visitor before they've typed anything gets a reflexive "no"
+// that then sticks. waiting for a third task means the question, where it's asked
+// at all, arrives once there's something worth keeping.
+const PERSIST_MIN_ITEMS = 3;
+let persistAsked = false;                                // in-session guard: a burst of saves mustn't queue several requests
+function maybePersistStorage(){
+  if(persistAsked) return;
+  if(tasks.length + archive.length < PERSIST_MIN_ITEMS) return;
+  persistAsked = true;
+  if(!navigator.storage || !navigator.storage.persist) return;   // older browsers, and file:// in some of them
+  try{
+    // asked in an earlier session: the answer, either way, is the user's and stands.
+    // re-asking every time this app loads would be nagging for a permission they've
+    // already considered.
+    if(localStorage.getItem(PERSIST_ASKED_KEY)) return;
+    localStorage.setItem(PERSIST_ASKED_KEY, String(Date.now()));
+  }catch(e){ /* storage unavailable — asking anyway is harmless, it just may repeat */ }
+  // nothing is printed either way: granted is invisible by nature, and denied is a
+  // legitimate answer rather than a failure. "stats" reports which one it ended up
+  // being, for anyone who wants to know.
+  navigator.storage.persist().catch(() => {});
+}
+
+// one line for "stats" about where this data actually lives. async because both
+// halves of the answer are promises; every part is feature-detected, so a browser
+// with no Storage API still gets the export half rather than an error.
+//
+// and every part is raced against a timeout, because "supported" and "answers" turn
+// out to be different questions: navigator.storage.estimate() returns a promise that
+// simply never settles in some browser builds (headless Chrome among them), which
+// would leave this line — and the command awaiting it — pending forever. same
+// defence, and the same reasoning, as imageDims()' timeout in app-art.js: a browser
+// API that might not answer gets a deadline, and the answer it didn't give is left
+// out rather than waited on.
+const STORAGE_QUERY_TIMEOUT = 1500;
+function withTimeout(promise, fallback){
+  return Promise.race([
+    Promise.resolve(promise).catch(() => fallback),
+    new Promise(resolve => setTimeout(() => resolve(fallback), STORAGE_QUERY_TIMEOUT)),
+  ]);
+}
+async function storageStatusLine(){
+  const parts = [];
+  try{
+    if(navigator.storage && navigator.storage.persisted){
+      const persisted = await withTimeout(navigator.storage.persisted(), null);
+      if(persisted !== null) parts.push(persisted ? 'persistent' : 'best-effort (the browser may evict it)');
+    }
+    if(navigator.storage && navigator.storage.estimate){
+      const est = await withTimeout(navigator.storage.estimate(), null);
+      const usage = est && est.usage;
+      if(Number.isFinite(usage)) parts.push(`${Math.max(1, Math.round(usage / 1024))} KB used`);
+    }
+  }catch(e){ /* the Storage API refusing to answer isn't worth a message of its own */ }
+  let lastExportAt = null;
+  try{ const raw = localStorage.getItem(LAST_EXPORT_KEY); if(raw) lastExportAt = parseInt(raw, 10); }catch(e){ /* treat as never exported */ }
+  parts.push(lastExportAt ? `last export ${new Date(lastExportAt).toLocaleDateString()}` : 'never exported');
+  return `storage: ${parts.join('  ·  ')}`;
 }
 
 // ---------- automatic rolling backup ----------
@@ -764,6 +850,13 @@ function markExported(){
 // not that the *current* state (which may have moved on since) is saved anywhere.
 // only an actual export resets the clock.
 const EXPORT_NUDGE_DAYS = 7;
+// the other way to earn the nudge. the day count alone assumed backups become urgent
+// with age, but they become urgent with *volume*: someone who adds thirty tasks in
+// their first afternoon has more to lose than someone who added two a fortnight ago,
+// and under the day rule alone they'd never be told "export" exists until a week
+// later — which, on a copy of this app someone is trying out in a browser they might
+// well clear tonight, is exactly the wrong week to wait.
+const EXPORT_NUDGE_TASKS = 25;
 function printExportNudge(){
   if(tasks.length + archive.length === 0) return;          // nothing worth nagging about backing up yet
   let lastExportAt = null;
@@ -779,8 +872,14 @@ function printExportNudge(){
     }catch(e){ firstSeenAt = Date.now(); }
   }
   const daysSince = (Date.now() - firstSeenAt) / (24 * 60 * 60 * 1000);
-  if(daysSince < EXPORT_NUDGE_DAYS) return;
-  const whenTxt = lastExportAt ? `your last export was ${new Date(lastExportAt).toLocaleDateString()}` : "you've never exported a backup";
+  // the volume rule only applies to someone who has never exported at all. once
+  // there's an export on record, age is the right measure again — a big list that
+  // was safely backed up yesterday isn't at risk, however big it is.
+  const enoughToLose = !lastExportAt && tasks.length + archive.length >= EXPORT_NUDGE_TASKS;
+  if(daysSince < EXPORT_NUDGE_DAYS && !enoughToLose) return;
+  const whenTxt = lastExportAt
+    ? `your last export was ${new Date(lastExportAt).toLocaleDateString()}`
+    : `you've never exported a backup${enoughToLose ? ` and there are ${tasks.length + archive.length} tasks here now` : ''}`;
   print(`note: ${whenTxt} — type "export" to save an offline copy of your tasks. (there's also an automatic in-browser backup — see "recover" — but that disappears along with everything else if this browser's site data ever gets cleared; export is the one copy that actually leaves the browser.)`, 'info');
 }
 
@@ -856,7 +955,7 @@ function cmd_recover(arg){
     `recover ${n}`,
     async () => {
       applyStateSnapshot(chosen.data);
-      applyTheme(); applyFont(); applyView(); applyTitle(); applyStatLine();
+      applyTheme(); applyFont(); applyView(); applyTitle(); applyStatLine(); applyArtLine();
       await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
       asciiTrack.pruneMissing(); imageTrack.pruneMissing();
       saveState(); renderPanel(); cmd_list([]);

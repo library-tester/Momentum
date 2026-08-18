@@ -236,6 +236,10 @@
     color:var(--text-dim);
     font-size:calc(12px * var(--font-scale));
   }
+  /* "set artline off": the live piece's caption goes, and the art moves up into the
+     space. only .reveal-title — the gallery's headers share .artwork-title but say
+     how to get around ("click one, or gallery show <n>"), which isn't decoration. */
+  body.no-artline .reveal-title{ display:none; }
   .reveal-scene{
     margin:0;
     font-family:inherit;

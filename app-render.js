@@ -513,7 +513,10 @@ function renderPanel(){
   const scene = displayMode === 'image' ? buildImageScene(art, progress) : buildArtworkScene(art, progress);
   const pendingTxt = track.pending ? ' · COMPLETE — type "close" or "download"' : '';
   g.innerHTML =
-    `<div class="artwork-title">${escapeHtml(art.name)} <span class="artwork-progress">${progress.revealedCount}/${total} pieces · ${pct}% · ${displayMode} mode${pendingTxt}</span></div>` +
+    // .reveal-title marks this as the *live* piece's caption, as opposed to the
+    // gallery's two headers, which share .artwork-title but carry instructions
+    // rather than status. "set artline off" hides only this one.
+    `<div class="artwork-title reveal-title">${escapeHtml(art.name)} <span class="artwork-progress">${progress.revealedCount}/${total} pieces · ${pct}% · ${displayMode} mode${pendingTxt}</span></div>` +
     scene;
   if(displayMode === 'image'){
     fitImageFrame(g, art);
