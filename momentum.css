@@ -426,10 +426,10 @@
      see that rule's comment for why it's 0.75 and not the 0.6 this started at. */
   #list-pane .info{ color:var(--text-dim); opacity:var(--info-opacity); }
   /* the list pane is the one surface in the app you look at without typing a
-     command first — clicking a row inserts its id into whatever you're typing,
-     and the [id] bracket pre-fills "done <id>" without running it. no hover
-     styling: the pointer cursor alone is the affordance, so the pane stays as
-     plain to look at as everywhere else in the app. */
+     command first — clicking a row opens that task's metadata line, and the [id]
+     bracket pre-fills "done <id>" without running it. no hover styling: the
+     pointer cursor alone is the affordance, so the pane stays as plain to look at
+     as everywhere else in the app. */
   #list-pane .line.row{ cursor:pointer; }
   /* the [+]/[–] that opens or closes one task's metadata line — dimmed like
      metadata itself (same 0.75 as "#list-pane .info" above; a barely-visible mark

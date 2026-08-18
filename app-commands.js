@@ -1415,9 +1415,14 @@ async function performDone(ids){
     tasks = tasks.filter(x => x.id !== t.id);
     archive.push(t);
     const track = activeTrack();
+    // read before the call: if the piece on screen was already complete, this
+    // completion discards it, and the name has to be captured while it's still
+    // `current` to say which piece just went.
+    const discarded = track.pending ? track.current : null;
     const outcome = await track.creditCompletion(art => printCompletionPrompt(art));
-    if(outcome === 'banked'){
-      print(`(${track.banked} completion${track.banked === 1 ? '' : 's'} banked for your next piece — type "close" or "download" to start it)`, 'info');
+    if(outcome === 'skipped'){
+      showLiveReveal();   // the piece you were looking at is gone — show what replaced it
+      print(`skipped "${discarded.name}" without collecting it — now revealing "${track.current.name}"`, 'info');
     }
   }
   if(changed){
@@ -2082,17 +2087,17 @@ function cmd_find(tokens){
 // wraps one buildTaskRows() row for the clickable list pane. the [id] bracket
 // becomes its own span — click it and the list-pane click handler below
 // pre-fills "done <id>" into the command line without running it, so clicking a
-// task never finishes it on its own; click anywhere else on the title and the id
-// gets appended into whatever's being typed instead. the row always starts with
+// task never finishes it on its own; click anywhere else on the row and that
+// task's metadata line opens instead. the row always starts with
 // "  [<id>] " (see buildTaskRows), so slicing off through the first "]" reliably
 // isolates the bracket without needing buildTaskRows to hand back id/title as
 // separate fields — rows printed to the terminal (list/find/archive) go through
 // buildTaskRows too, so that shape has to stay a single string for those callers.
 //
-// a title row that has metadata (r.toggle is set) also gets a [+]/[–] span of
-// its own — a third click target, distinct from both the [id] bracket and the
-// title text, so opening/closing the metadata line never collides with either of
-// those two existing behaviours.
+// a title row that has metadata (r.toggle is set) also gets a [+]/[–] span of its
+// own. it's a visible affordance rather than a separate behaviour now — it does
+// exactly what clicking the title does, and is there to say that there's
+// something to open at all.
 function rowHtml(r, id){
   // same hanging-indent trick as printHanging/printFramed: a title long enough to
   // wrap in the pane's own column picks its continuation up under its own first
@@ -3015,6 +3020,10 @@ function printCompletionPrompt(art){
   print('  download  (save the file to your computer)', 'info');
   if(displayMode === 'ascii') print('  copy      (copy the ascii text to your clipboard)', 'info');
   print('  display   (see it fullscreen — esc/click to exit)', 'info');
+  // said here rather than left to be discovered: the next task you finish discards
+  // this piece, and finding that out by losing one you meant to keep is a bad way
+  // to learn it.
+  print('  (finishing another task skips it — "close" first to keep it)', 'info');
 }
 
 function slugify(name){
@@ -3054,8 +3063,6 @@ async function cmd_next(){
   await track.startNew();
   showLiveReveal();   // you're skipping to a new piece — that's the thing to show
   print(`skipped "${was}" without collecting it — now revealing "${track.current.name}"`, 'info');
-  const spent = await track.applyBanked(art => printCompletionPrompt(art));
-  if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
   saveState(); renderPanel();
 }
 async function cmd_reveal(){
@@ -3242,8 +3249,6 @@ async function cmd_close(){
   const finished = await track.closePending();
   showLiveReveal();   // the new piece just started is the thing to look at now
   print(`closed "${finished.name}" — added to your collection. now revealing "${track.current.name}".`, 'ok');
-  const spent = await track.applyBanked(art => printCompletionPrompt(art));
-  if(spent) print(`...and spent ${spent} banked completion${spent === 1 ? '' : 's'} on it right away.`, 'ok');
   saveState(); renderPanel();
 }
 

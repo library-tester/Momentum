@@ -113,18 +113,21 @@ When a piece is fully revealed, it freezes and waits for you:
 
 ```
 Artwork completed! "Wildflower" is fully revealed.
-What do you want to do:  close  (save it, start a new one)   |   download  (save the file to your computer)
+What do you want to do?
+  close     (save it, start a new one — also: save)
+  skip      (discard it, no gallery credit, start a new one)
+  download  (save the file to your computer)
+  display   (see it fullscreen — esc/click to exit)
+  (finishing another task skips it — "close" first to keep it)
 ```
 
 `close` files it in your permanent `gallery` and starts a fresh hidden piece. `download` saves the real file to your machine first.
 
-### Nothing you earn is ever lost
+**It waits, but not forever.** A finished piece is a decision, and the next task you finish makes it for you: complete another task while one is sitting there and it's skipped exactly as if you'd typed `skip` — discarded, no gallery credit, a fresh piece starting from zero. So `close` it while it's in front of you.
 
-Two details that matter more than they sound:
+### Nothing repeats until everything has had a turn
 
-**Completions are banked, never dropped.** If you run `done 1,2,3` and task 1 finishes the piece, tasks 2 and 3 don't evaporate — their credit is *banked* and spent automatically on the next piece the moment you `close`. The whole premise of the app is that every completed task moves the reward forward, so that's treated as inviolable.
-
-**Nothing repeats until everything has had a turn.** Pieces are picked randomly, but from a pool that excludes what you've already seen this cycle. You won't get the same artwork twice in a row while others are waiting.
+Pieces are picked randomly, but from a pool that excludes what you've already seen this cycle. You won't get the same artwork twice in a row while others are waiting.
 
 ---
 

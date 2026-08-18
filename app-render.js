@@ -108,8 +108,6 @@ async function handleImageLoadError(art){
   }
   print('skipping to the next piece...', 'info');
   await imageTrack.startNew();
-  const spent = await imageTrack.applyBanked(a => printCompletionPrompt(a));
-  if(spent) print(`(spent ${spent} banked completion${spent === 1 ? '' : 's'} on it)`, 'info');
   saveState(); renderPanel();
 }
 
@@ -718,21 +716,16 @@ cmdInput.addEventListener('keydown', (e)=>{
 document.body.addEventListener('click', ()=> { if(window.getSelection().isCollapsed) cmdInput.focus(); });
 
 // ---------- clicking a row in the list pane ----------
-// inserts at the caret rather than always appending to the end, so clicking a row
-// while you're editing mid-command lands the id where you're actually typing.
-// continues an id list rather than starting a new argument whenever the caret
-// sits right after a digit — that's what turns "done " + click + click into
-// "done 3,7" instead of "done 3 7" (which splitIds doesn't accept) or "done 37".
-function insertIdAtCaret(id){
-  const val = cmdInput.value;
-  const pos = cmdInput.selectionStart != null ? cmdInput.selectionStart : val.length;
-  const before = val.slice(0, pos), after = val.slice(pos);
-  let insert = String(id);
-  if(/\d$/.test(before)) insert = ',' + insert;
-  else if(before && !/\s$/.test(before)) insert = ' ' + insert;
-  cmdInput.value = before + insert + after;
-  cmdInput.focus();
-  cmdInput.setSelectionRange(pos + insert.length, pos + insert.length);
+// two click targets, and neither of them types an id at you: clicking anywhere on
+// a task opens its metadata line, and clicking its [id] bracket pre-fills "done
+// <id>". an earlier version inserted the bare id at the caret on a plain row click,
+// which meant the pane could only be read with the mouse by first deciding you were
+// building a command — the metadata, the thing you actually wanted to see, was
+// behind a separate [+] mark you had to aim at.
+function toggleTaskMeta(id){
+  const numId = Number(id);
+  if(expandedTaskIds.has(numId)) expandedTaskIds.delete(numId); else expandedTaskIds.add(numId);
+  renderListPane();
 }
 document.getElementById('list-pane').addEventListener('click', (e) => {
   // a drag-select ending on a row is copying a title, not clicking it — same
@@ -741,27 +734,19 @@ document.getElementById('list-pane').addEventListener('click', (e) => {
   const row = e.target.closest('.line[data-id]');
   if(!row) return;
   const id = row.getAttribute('data-id');
-  // a third click target, checked before the other two: the [+]/[–] mark that
-  // opens or closes one task's metadata line. its own thing entirely — not "done
-  // <id>", not an id inserted into the command line — so it returns immediately
-  // rather than falling into either of those.
-  if(e.target.closest('.row-toggle')){
-    const numId = Number(id);
-    if(expandedTaskIds.has(numId)) expandedTaskIds.delete(numId); else expandedTaskIds.add(numId);
-    renderListPane();
-    return;
-  }
   if(e.target.closest('.row-id')){
     // pre-fills the command, doesn't run it — clicking a task is not the same
     // as deciding it's done. replaces the input outright rather than inserting,
-    // since "done <id>" is a complete, ready-to-edit command on its own, not
-    // something to build up the way plain row clicks accumulate ids.
+    // since "done <id>" is a complete, ready-to-edit command on its own.
     cmdInput.value = `done ${id}`;
     cmdInput.focus();
     cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
-  } else {
-    insertIdAtCaret(id);
+    return;
   }
+  // everything else on the row — the title, the [+]/[–] mark, the metadata line
+  // itself — opens or closes that task's metadata. clicking the open metadata row
+  // closes it again, so the same click that revealed it puts it back.
+  toggleTaskMeta(id);
 });
 
 // ---------- clicking a tile in the gallery contact sheet ----------

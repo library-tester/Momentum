@@ -145,8 +145,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
     progress: { itemId:null, seed:0, revealedCount:0 },
     collected: [],                                         // permanent gallery history [{id,name,collectedAt}] — never auto-cleared
     cycleSeen: [],                                         // ids picked in the current pass, so nothing repeats until everyone's had a turn
-    pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen
-    banked: 0,                                             // completions earned while pending, waiting to be spent on the next piece
+    pending: false,                                        // true once fully revealed but not yet closed/downloaded — freezes it on screen, and the next completed task discards it (see creditCompletion)
     staleSnapshot: null,                                   // set when live discovery found files art-data.js doesn't know about — see loadManifest
 
     async loadManifest(){
@@ -252,28 +251,17 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
         if(onComplete) onComplete(this.current);
       }
     },
-    // one finished task = one completion's worth of reveal. if the current piece is
-    // already fully revealed and just waiting to be closed, the credit is *banked*
-    // rather than dropped on the floor: the whole promise of the app is that every
-    // completed task moves the reward forward, so "done 1,2,3" that finishes the
-    // piece on task 1 must still pay out for tasks 2 and 3 (see applyBanked).
+    // one finished task = one completion's worth of reveal — unless the piece on
+    // screen is already fully revealed and waiting on close/download, in which case
+    // finishing another task is what moves past it: the piece is discarded, exactly
+    // as "skip" would, and a fresh one starts at zero. nothing is carried over, so
+    // "close"/"download" is a decision with a deadline — the next task you finish
+    // is what makes it for you.
     async creditCompletion(onComplete){
       if(!this.current) return 'none';
-      if(this.pending){ this.banked++; return 'banked'; }
+      if(this.pending){ await this.startNew(); return 'skipped'; }
       await this.reveal(this.cellsPerCompletion(), onComplete);
       return 'revealed';
-    },
-    // spends the banked completions on the freshly started piece. one at a time, so
-    // if the bank is deep enough to finish this piece too it stops there and the rest
-    // stays banked for the one after — nothing is ever lost, just deferred.
-    async applyBanked(onComplete){
-      let spent = 0;
-      while(this.banked > 0 && !this.pending && this.current){
-        this.banked--;
-        spent++;
-        await this.reveal(this.cellsPerCompletion(), onComplete);
-      }
-      return spent;
     },
     // re-points `current` at whatever progress.itemId says, for when state is replaced
     // wholesale underneath us — undo can rewind past a "close" that switched pieces,
@@ -314,7 +302,7 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       this.collected = this.collected.filter(c => known.has(c.id));
       return this.collected.length !== before;
     },
-    serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending, banked: this.banked }; },
+    serialize(){ return { progress: this.progress, collected: this.collected, cycleSeen: this.cycleSeen, pending: this.pending }; },
     restore(data){
       if(!data) return;
       this.progress = data.progress || { itemId:null, seed:0, revealedCount:0 };
@@ -329,7 +317,6 @@ function createRevealTrack({ baseDir, extensions, manifestUrl, itemsField, dataK
       this.collected = data.collected || [];
       this.cycleSeen = data.cycleSeen || [];
       this.pending = !!data.pending;
-      this.banked = data.banked || 0;
     },
   };
 }
@@ -486,9 +473,10 @@ async function resolveGrid(entry){
 // *fraction* is preserved and rounded to the nearest whole block of the new grid.
 // two guards on that rounding:
 //   - progress that rounds down to zero is kept at one block. this app's one
-//     inviolable rule is that earned reveal never silently vanishes (see the banked-
-//     completions logic above), and "you regridded and your 2% disappeared" is that
-//     same leak wearing a different hat.
+//     inviolable rule is that earned reveal never silently vanishes to a *display*
+//     setting, and "you regridded and your 2% disappeared" is exactly that kind of
+//     leak. (a finished piece being skipped by the next completed task is a
+//     different thing: that's a choice you made by finishing the task.)
 //   - a piece that wasn't finished can't come out finished. completing a piece is
 //     something tasks do; a display setting rounding up to 100% would hand out a
 //     gallery entry nobody earned. it stops one block short instead.

@@ -300,17 +300,18 @@ const GRID_MAX_SIDE = 100;
 const BLOCK_COUNT_MAX = 20;
 let blockCountOverride = 10;                             // default: 10 blocks per completed task
 
-// the ascii equivalent, set by "character count <n>". a much bigger span than
-// block count's 1-20: ascii pieces are cells-per-non-space-character rather than
-// a coarse grid, so the biggest pieces run into the thousands and a block-sized
-// cap would leave them needing hundreds of tasks to fully reveal. 'all' is its
-// own special value rather than just "set the number as high as totalCells" —
+// the ascii equivalent, set by "character count <n>". a wider span than block
+// count's 1-20, since ascii pieces are counted in non-space characters rather than
+// in coarse blocks — but deliberately not wider than a number anyone would sit and
+// type: past a hundred characters a task the difference stops being a pace you can
+// feel, and 'all' covers the "just show me the whole thing" end. 'all' is its own
+// special value rather than just "set the number as high as totalCells" —
 // a fixed number would only fully-reveal-in-one-task the pieces at or below it,
 // while 'all' keeps that true piece to piece regardless of size (see asciiTrack's
 // perTaskOverride, which turns it into Infinity so cellsPerCompletion's own
 // Math.min against totalCells does the clamping). null = leave each piece on its
 // own manifest pace.
-const CHAR_COUNT_MAX = 1000;
+const CHAR_COUNT_MAX = 100;
 let charCountOverride = null;                            // default: each piece's own pace
 
 function applyTheme(){
