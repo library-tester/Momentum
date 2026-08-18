@@ -3,28 +3,8 @@
 // fonts/, so the "font" command sees them (and so the app still works
 // offline, opened directly as a file:// with no server running).
 window.FONT_DATA = {
-  "generatedAt": "2026-08-18T09:41:40.139691+00:00",
+  "generatedAt": "2026-08-18T13:17:29.529556+00:00",
   "families": [
-    {
-      "id": "anonymous-pro",
-      "family": "Anonymous Pro",
-      "name": "Anonymous Pro",
-      "category": "modern",
-      "files": [
-        {
-          "file": "fonts/modern/anonymous-pro-400.woff2",
-          "format": "woff2",
-          "weight": 400,
-          "style": "normal"
-        },
-        {
-          "file": "fonts/modern/anonymous-pro-700.woff2",
-          "format": "woff2",
-          "weight": 700,
-          "style": "normal"
-        }
-      ]
-    },
     {
       "id": "azeret-mono",
       "family": "Azeret Mono",
@@ -81,20 +61,6 @@ window.FONT_DATA = {
           "file": "fonts/retro/courier-prime-700.woff2",
           "format": "woff2",
           "weight": 700,
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "id": "cutive-mono",
-      "family": "Cutive Mono",
-      "name": "Cutive Mono",
-      "category": "retro",
-      "files": [
-        {
-          "file": "fonts/retro/cutive-mono-400.woff2",
-          "format": "woff2",
-          "weight": 400,
           "style": "normal"
         }
       ]
@@ -194,26 +160,6 @@ window.FONT_DATA = {
       ]
     },
     {
-      "id": "kode-mono",
-      "family": "Kode Mono",
-      "name": "Kode Mono",
-      "category": "futuristic",
-      "files": [
-        {
-          "file": "fonts/futuristic/kode-mono-400.woff2",
-          "format": "woff2",
-          "weight": 400,
-          "style": "normal"
-        },
-        {
-          "file": "fonts/futuristic/kode-mono-700.woff2",
-          "format": "woff2",
-          "weight": 700,
-          "style": "normal"
-        }
-      ]
-    },
-    {
       "id": "martian-mono",
       "family": "Martian Mono",
       "name": "Martian Mono",
@@ -254,20 +200,6 @@ window.FONT_DATA = {
       ]
     },
     {
-      "id": "share-tech-mono",
-      "family": "Share Tech Mono",
-      "name": "Share Tech Mono",
-      "category": "retro",
-      "files": [
-        {
-          "file": "fonts/retro/share-tech-mono-400.woff2",
-          "format": "woff2",
-          "weight": 400,
-          "style": "normal"
-        }
-      ]
-    },
-    {
       "id": "source-code-pro",
       "family": "Source Code Pro",
       "name": "Source Code Pro",
@@ -303,34 +235,6 @@ window.FONT_DATA = {
           "file": "fonts/retro/space-mono-700.woff2",
           "format": "woff2",
           "weight": 700,
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "id": "syne-mono",
-      "family": "Syne Mono",
-      "name": "Syne Mono",
-      "category": "character",
-      "files": [
-        {
-          "file": "fonts/character/syne-mono-400.woff2",
-          "format": "woff2",
-          "weight": 400,
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "id": "vt323",
-      "family": "VT323",
-      "name": "VT323",
-      "category": "retro",
-      "files": [
-        {
-          "file": "fonts/retro/vt323-400.woff2",
-          "format": "woff2",
-          "weight": 400,
           "style": "normal"
         }
       ]

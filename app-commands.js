@@ -2559,7 +2559,6 @@ const SETTINGS = {
     // trade places across it.
     apply: v => {
       mirrored = v;
-      const ratio = viewMode === 'tasks' ? taskPaneRatio : artPaneRatio;
       // the divider itself has width (see #col-divider's flex-basis in
       // momentum.css), which the plain 100-minus-ratio complement doesn't
       // account for — left uncorrected, the divider still drifts by that
@@ -2569,8 +2568,7 @@ const SETTINGS = {
       const divider = document.getElementById('col-divider');
       const totalW = main ? main.getBoundingClientRect().width : 0;
       const dividerPct = totalW && divider ? (divider.getBoundingClientRect().width / totalW) * 100 : 0;
-      const flipped = Math.min(SIDE_MAX, Math.max(SIDE_MIN, 100 - ratio - dividerPct));
-      if(viewMode === 'tasks') taskPaneRatio = flipped; else artPaneRatio = flipped;
+      sidePaneRatio = Math.min(SIDE_MAX, Math.max(SIDE_MIN, 100 - sidePaneRatio - dividerPct));
       applyView();
     },
     // there are no left and right columns to trade while the layout is stacked,

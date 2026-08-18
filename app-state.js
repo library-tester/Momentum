@@ -40,7 +40,6 @@ const SYSTEM_FONTS = [
   { id:'consolas',      name:'Consolas',         family:'Consolas' },
   { id:'dejavu-mono',   name:'DejaVu Sans Mono', family:'DejaVu Sans Mono' },
   { id:'liberation',    name:'Liberation Mono',  family:'Liberation Mono' },
-  { id:'courier',       name:'Courier New',      family:'Courier New' },
   { id:'ubuntu-mono',   name:'Ubuntu Mono',      family:'Ubuntu Mono' },
   { id:'jetbrains',     name:'JetBrains Mono',   family:'JetBrains Mono' },
   { id:'fira-mono',     name:'Fira Mono',        family:'Fira Mono' },
@@ -258,11 +257,13 @@ const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane fr
 //           "display" still report and show it on demand even when it's not on screen.
 let viewMode = 'art';
 const VIEW_MODES = ['art', 'tasks'];
-// the side column's width is draggable in both views, via the same #col-divider —
-// but each view keeps its own ratio, so switching views and back doesn't disturb
-// whatever width you'd set for the other one.
-let taskPaneRatio = 40;                                  // % of the window the task list takes in "view tasks"
-let artPaneRatio = 55;                                   // % of the window the reveal panel takes in "view art" — the old fixed split, now just the default
+// the side column's width is draggable in both views, via the same #col-divider,
+// and it's one width for both: "view" only decides *which* panel occupies that
+// column, so giving each view its own remembered ratio meant the divider jumped to
+// a different place every time you switched. one ratio keeps the boundary exactly
+// where you left it and lets the panels trade across it — the same thing "mirror"
+// goes out of its way to preserve when it flips the columns end for end.
+let sidePaneRatio = 55;                                  // % of the window the side column takes, in either view — the old fixed art split, now just the default
 const SIDE_MIN = 15, SIDE_MAX = 70;
 let mirrored = false;                                    // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them
 
@@ -351,7 +352,7 @@ function applyView(){
   side.classList.add('slot-side'); side.classList.remove('slot-stacked');
 
   stacked.style.flex = `0 0 ${splitRatio}%`;
-  side.style.flex = `0 0 ${tasksView ? taskPaneRatio : artPaneRatio}%`;
+  side.style.flex = `0 0 ${sidePaneRatio}%`;
 
   if(listPaneVisible()) renderListPane();
 }
@@ -472,7 +473,7 @@ function materializeOrder(progress, total){
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
-    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
+    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -518,8 +519,14 @@ function applyStateSnapshot(data){
     ? { status: data.paneFilter.status, proj: data.paneFilter.proj || null, tag: data.paneFilter.tag || null }
     : { ...NO_FILTER };
   viewMode = VIEW_MODES.includes(data.viewMode) ? data.viewMode : 'art';   // undefined: a save from before the tasks view existed
-  taskPaneRatio = Number.isFinite(data.taskPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.taskPaneRatio)) : 40;
-  artPaneRatio = Number.isFinite(data.artPaneRatio) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, data.artPaneRatio)) : 55;   // undefined: a save from before the art column was draggable
+  // a save from when the two views had a width each carries both numbers: the one
+  // that belongs to the view being restored is the width that was actually on
+  // screen last, so that's the one to keep — the other view's is discarded rather
+  // than averaged into something you never set. undefined all round is a save from
+  // before the column was draggable at all.
+  const savedSide = Number.isFinite(data.sidePaneRatio) ? data.sidePaneRatio
+    : viewMode === 'tasks' ? data.taskPaneRatio : data.artPaneRatio;
+  sidePaneRatio = Number.isFinite(savedSide) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, savedSide)) : 55;
   mirrored = !!data.mirrored;                                              // undefined: a save from before mirroring existed — unmirrored, as it looked then
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0

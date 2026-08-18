@@ -17,24 +17,19 @@ listed first by the `font` command.
 | font | designer(s) | licence | |
 | --- | --- | --- | --- |
 | **Courier Prime** | Alan Dague-Greene | SIL OFL 1.1 | Courier redrawn properly, for screenplays |
-| **Cutive Mono** | Vernon Adams | SIL OFL 1.1 | typewriter, light and airy |
-| **Share Tech Mono** | Carrois Apostrophe | SIL OFL 1.1 | techy, narrow, high-contrast |
 | **Space Mono** | Colophon Foundry | SIL OFL 1.1 | retro-futurist with real quirks |
-| **VT323** | Peter Hull | SIL OFL 1.1 | a CRT terminal, glyph for glyph |
 
 ### Futuristic & geometric
 
 | font | designer(s) | licence | |
 | --- | --- | --- | --- |
 | **B612 Mono** | Nicolas Chauveau, Thomas Paillot, Jonathan Favre-Lamarine, Jean-Luc Vinot | SIL OFL 1.1 | designed for aircraft cockpit displays |
-| **Kode Mono** | Isa Ozler | SIL OFL 1.1 | sharp, technical, modern-futurist |
 | **Martian Mono** | Roman Shamin, Evil Martians | SIL OFL 1.1 | wide and heavy, engineered |
 
 ### Modern coding faces
 
 | font | designer(s) | licence | |
 | --- | --- | --- | --- |
-| **Anonymous Pro** | Mark Simonson | SIL OFL 1.1 | a terminal font with warmth |
 | **Fira Code** | The Mozilla Foundation, Telefonica S.A., Nikita Prokopov | SIL OFL 1.1 | Mozilla’s workhorse |
 | **Inconsolata** | Raph Levien | SIL OFL 1.1 | a classic; humanist and compact |
 | **JetBrains Mono** | JetBrains, Philipp Nurullin, Konstantin Bulenkov | SIL OFL 1.1 | tall x-height, built for long reading |
@@ -47,7 +42,6 @@ listed first by the `font` command.
 | --- | --- | --- | --- |
 | **Azeret Mono** | Displaay, Martin Vácha | SIL OFL 1.1 | contemporary, slightly severe |
 | **DM Mono** | Colophon Foundry | SIL OFL 1.1 | low-contrast and calm |
-| **Syne Mono** | Bonjour Monde, Lucas Descroix | SIL OFL 1.1 | artful and odd, in a good way |
 | **Xanh Mono** | Yellow Type, Lâm Bảo, Duy Dao | SIL OFL 1.1 | a serif monospace — unusual and elegant |
 
 ## Removing one

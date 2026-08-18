@@ -815,16 +815,16 @@ wireDivider(document.getElementById('split-divider'), 'row', (ev) => {
 
 // the vertical one: trades width between the console column and the side panel, in
 // either view — it's the side panel's width being set, so the measurement runs
-// inward from whichever edge that panel is against, which mirroring flips. writes
-// to whichever ratio belongs to the current view, so dragging one view's divider
-// never disturbs the other's.
+// inward from whichever edge that panel is against, which mirroring flips. one
+// width serves both views (see sidePaneRatio), so a drag here is where the divider
+// stays when you switch views.
 wireDivider(document.getElementById('col-divider'), 'col', (ev) => {
   const rect = document.getElementById('main').getBoundingClientRect();
   const pane = document.querySelector('.slot-side');
   if(!rect.width || !pane) return;
   const span = mirrored ? ev.clientX - rect.left : rect.right - ev.clientX;
   const pct = Math.min(SIDE_MAX, Math.max(SIDE_MIN, (span / rect.width) * 100));
-  if(viewMode === 'tasks') taskPaneRatio = pct; else artPaneRatio = pct;
+  sidePaneRatio = pct;
   pane.style.flex = `0 0 ${pct}%`;
 });
 
