@@ -13,8 +13,14 @@ let projects = [];
 let cmdHistory = [];                                      // typed commands — not "history", which would shadow window.history
 let historyWalk = null;                                    // in-progress Up/Down prefix search — see historyUp/historyDown
 let displayMode = 'ascii';                                // 'ascii' | 'image' — which reveal track is shown on the right
-const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
+const THEMES = ['amber', 'night', 'day', 'solar', 'nord', 'dos', 'grayman', 'phosphor', 'paper', 'noir'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
+// which of them are dark ink on a light ground. only used to group the list "theme"
+// prints — ten names in one run is a wall, and light-or-dark is the first thing
+// anyone is actually choosing between. the ".ascii-fullscreen" rule in momentum.css
+// keys off the same distinction and has to be kept in step with this by hand: a
+// light theme missing from it paints its art invisibly on the black overlay.
+const LIGHT_THEMES = ['day', 'paper'];
 let theme = 'day';
 
 // ---------- fonts ----------

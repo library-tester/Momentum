@@ -243,8 +243,8 @@ const COMMANDS = [
   { usage: 'set [<key>] [on|off|toggle]', desc: 'every on/off switch, display and feature alike',
     extra: ['bare "set" (or "help set") lists them all with their current state',
             '(title/statline/mirror still work as their own commands)'] },
-  { usage: 'theme [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
-    extra: ['(also: switch, and the classic nightmode/daymode)'] },
+  { usage: 'theme [<name>]', desc: 'show or switch the color theme — bare "theme" lists them',
+    extra: () => [...themeListLines(), '(also: switch, and the classic nightmode/daymode)'] },
   { usage: 'font [<number>|<name>]', desc: 'show the available fonts, or switch to one',
     extra: ['bare "font" lists them numbered — "font 3" picks the third',
             '(also: "switch font". add your own by dropping a .woff2 in fonts/',
@@ -2949,10 +2949,27 @@ function cmd_set(key, value){
 // renamed from "switch": every other setting command in the app is named after
 // the thing it changes, and "switch" was named after the act of changing. the old
 // word still works (see SPELLINGS), as do the classic nightmode/daymode.
+// ten names in one run is a wall to read, and light-or-dark is the first thing
+// anyone picking one is actually deciding — so the list is grouped by that, with the
+// current theme marked the same way the font list marks its own.
+function themeListLines(){
+  const mark = t => t === theme ? `${t} ←` : t;
+  const dark = THEMES.filter(t => !LIGHT_THEMES.includes(t)).map(mark).join('  ');
+  const light = LIGHT_THEMES.filter(t => THEMES.includes(t)).map(mark).join('  ');
+  return [`dark    ${dark}`, `light   ${light}`];
+}
 function cmd_theme(arg){
-  if(!arg){ print(`current theme: ${theme}  (change with: theme <${THEMES.join('|')}>, or the classic theme nightmode|daymode)`, 'info'); return; }
+  if(!arg){
+    print(`current theme: ${theme}   (change with: theme <name>, or the classic theme nightmode|daymode)`, 'info');
+    themeListLines().forEach(line => print(`  ${line}`, 'info'));
+    return;
+  }
   const target = THEME_ALIASES[arg.toLowerCase()] || arg.toLowerCase();
-  if(!THEMES.includes(target)){ print(`usage: theme <${THEMES.join('|')}>`, 'err'); return; }
+  if(!THEMES.includes(target)){
+    print(`no theme called "${arg}"`, 'err');
+    themeListLines().forEach(line => print(`  ${line}`, 'info'));
+    return;
+  }
   if(target === theme){ print(`already in ${target} mode`, 'info'); return; }
   theme = target;
   applyTheme();

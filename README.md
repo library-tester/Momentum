@@ -40,7 +40,7 @@ $ done 1
   <tr>
     <td width="50%">
       <img src="Screenshots/momentum-ascii-nord.jpeg" alt="The same layout on the nord theme, showing an ascii drawing of a space shuttle on its gantry" width="100%">
-      <br><em><b>The nord theme.</b> Five themes ship — <code>theme amber</code>, <code>night</code>, <code>day</code>, <code>solar</code>, <code>nord</code> — and every one is a whole-app palette, art included.</em>
+      <br><em><b>The nord theme.</b> Ten themes ship — from <code>dos</code> (white on IBM blue) to <code>paper</code> and <code>noir</code> — and every one is a whole-app palette, art included.</em>
     </td>
     <td width="50%">
       <img src="Screenshots/momentum-ascii-light.jpeg" alt="A light theme, showing a completed ascii artwork and the terminal's close/skip/download/copy options" width="100%">
@@ -283,7 +283,20 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
 
 ## Making it yours
 
-**Five themes**, each a complete palette: `amber` (the warm default), `night` (pure red on black), `day` (light), `solar` (solarized-inspired), `nord` (arctic blue-grey).
+**Ten themes**, each a complete palette — one text colour and its backgrounds, nothing else. Contrast is measured rather than eyeballed: every one of them is documented in `momentum.css` with its actual ratio against both backgrounds.
+
+| dark | | light | |
+|---|---|---|---|
+| `amber` | warm gold on near-black — the default | `day` | pure black on white, 21:1 |
+| `night` | one red on pure black | `paper` | ink on warm off-white, for when `day` glares |
+| `solar` | solarized-inspired, grey on deep teal | | |
+| `nord` | arctic blue-grey | | |
+| `dos` | white on IBM blue — the EDIT.COM screen | | |
+| `grayman` | neutral grey, tuned for comfort over an evening | | |
+| `phosphor` | green CRT, at the saturation those tubes really had | | |
+| `noir` | white on black, the highest contrast two colours can have | | |
+
+Bare `theme` lists them grouped like this and marks the one you're in.
 
 <!-- SUGGESTED: five small screenshots in a row here, one per theme, same task list and
      same half-revealed artwork in each so only the palette changes. Themes are pure

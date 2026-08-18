@@ -150,6 +150,97 @@
        that value, lower than night's own starting point. worth the same fix if
        nord turns out to have the same problem in practice. */
   }
+  /* "dos" — white on IBM blue, the EDIT.COM/Norton Commander screen. #0000aa is
+     the actual CGA/EGA blue (colour 1) rather than a modern blue that resembles it,
+     and the line colour is CGA bright blue (colour 9), which is what those box
+     borders were drawn in. white on that blue is a genuinely excellent pairing —
+     13.3:1 against bg-dark and 12.2:1 against bg-panel, the second-highest in the
+     app after "noir" — which is presumably why a generation of tools shipped it. */
+  :root[data-theme="dos"]{
+    --bg-dark:     #0000aa;
+    --bg-panel:    #0a0ab4;
+    --line:        #5555ff;
+    --text-dim:    #ffffff;
+    --text-main:   #ffffff;
+    --amber:       #ffffff;
+    --accent:      #ffffff;
+    --accent-dim:  #2b2bc0;
+    --error:       #ffffff;
+    /* left at 0.75: dimmed text still measures 7.5:1, so there's nothing to buy by
+       raising it — the same position "day" is in. */
+  }
+  /* "grayman" — neutral grey, and the one theme here tuned for *comfort* rather
+     than for maximum separation. the text is deliberately not white and the
+     background deliberately not black: 9.1:1 against bg-dark and 8.1:1 against
+     bg-panel clears the 7:1 bar with room over, while keeping the glare of a
+     white-on-black terminal off a screen you're looking at all evening. no hue at
+     all, in either direction — the only theme with none. */
+  :root[data-theme="grayman"]{
+    --bg-dark:     #2b2b2b;
+    --bg-panel:    #333333;
+    --line:        #4a4a4a;
+    --text-dim:    #cfcfcf;
+    --text-main:   #cfcfcf;
+    --amber:       #cfcfcf;
+    --accent:      #cfcfcf;
+    --accent-dim:  #565656;
+    --error:       #cfcfcf;
+    /* 0.75 measures 5.8:1 here — past the floor, and dimming is doing real work in
+       a theme this evenly lit, so it keeps the default rather than being raised. */
+  }
+  /* "phosphor" — the green CRT, at the saturation those tubes actually had rather
+     than the #33ff33 the memory of them insists on. that green is unreadable at
+     length; this one measures 10.1:1 against bg-dark and 9.4:1 against bg-panel.
+     the background carries a trace of the same green rather than being neutral
+     black, which is what makes it read as a lit tube instead of as green text. */
+  :root[data-theme="phosphor"]{
+    --bg-dark:     #08120c;
+    --bg-panel:    #0e1c13;
+    --line:        #1e3a28;
+    --text-dim:    #6fd18c;
+    --text-main:   #6fd18c;
+    --amber:       #6fd18c;
+    --accent:      #6fd18c;
+    --accent-dim:  #2c5c3e;
+    --error:       #6fd18c;
+    /* 6.1:1 at the default — kept. */
+  }
+  /* "paper" — the light theme for people who find "day" too bright. same idea,
+     warmer and quieter: an off-white the colour of paper instead of #ffffff, and a
+     brown-black ink instead of pure #000. 12.2:1 and 11.1:1 — lower than day's
+     21:1 by design, since that number is precisely what makes day glare. */
+  :root[data-theme="paper"]{
+    --bg-dark:     #f3ede1;
+    --bg-panel:    #eae2d2;
+    --line:        #c9bfa8;
+    --text-dim:    #2e2a24;
+    --text-main:   #2e2a24;
+    --amber:       #2e2a24;
+    --accent:      #2e2a24;
+    --accent-dim:  #a89e88;
+    --error:       #2e2a24;
+    /* 5.8:1 dimmed — day has far more headroom here (10.4:1) because it starts
+       from pure black; this is the cost of the softer ink, and it's still clear. */
+  }
+  /* "noir" — the maximum: #ffffff on #000000 is 21:1, the highest contrast two
+     colours can have. it exists for bright rooms and for anyone who wants the type
+     as legible as a screen can make it, which is the one thing no other theme here
+     is trying to do — "grayman" is its deliberate opposite.
+     the chrome is the exception: --line stays a mid grey rather than matching the
+     text, because a border doesn't have to be read, and pure white rules across
+     every divider would fight the type they're separating. */
+  :root[data-theme="noir"]{
+    --bg-dark:     #000000;
+    --bg-panel:    #0a0a0a;
+    --line:        #4a4a4a;
+    --text-dim:    #ffffff;
+    --text-main:   #ffffff;
+    --amber:       #ffffff;
+    --accent:      #ffffff;
+    --accent-dim:  #666666;
+    --error:       #ffffff;
+    /* 11.4:1 even dimmed. nothing to tune. */
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
@@ -416,14 +507,17 @@
     font-family:var(--font-mono);
   }
   .ascii-fullscreen .reveal-scene{ margin:0; text-align:left; }
-  /* day is the one theme that paints its art pure black — which is invisible against
+  /* the two light themes paint their art in near-black — which is invisible against
      the fullscreen overlay's black backdrop. inside the overlay only, the ascii goes
      white instead. this redefines the *custom property* rather than `color`, because
      buildArtworkScene writes an inline style="color:var(--amber)" on every character:
      an inline style beats any `color` rule, but the var() it contains still resolves
      against whatever --amber it inherits from here. the in-panel view is untouched —
-     it sits on the theme's own white background, where black is correct. */
-  :root[data-theme="day"] .ascii-fullscreen{
+     it sits on the theme's own light background, where dark ink is correct.
+     any future light theme has to be listed here too; the test for "does it belong"
+     is simply whether its --amber would disappear on black. */
+  :root[data-theme="day"] .ascii-fullscreen,
+  :root[data-theme="paper"] .ascii-fullscreen{
     --amber:#ffffff;
     color:#ffffff;
   }
