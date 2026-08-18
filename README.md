@@ -256,6 +256,45 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
 
 **The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
+**And so is the font.** Nineteen monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 17` picks one.
+
+```
+$ font
+fonts  —  pick one with:  font <number>
+
+  1.  IBM Plex Mono   ← current
+
+  character
+  2.  Azeret Mono          … DM Mono, Syne Mono, Xanh Mono
+  futuristic
+  6.  B612 Mono            … Kode Mono, Martian Mono
+  modern
+  9.  Anonymous Pro        … Fira Code, Inconsolata, JetBrains Mono, Roboto Mono, Source Code Pro
+  retro
+  15. Courier Prime        … Cutive Mono, Share Tech Mono, Space Mono, VT323
+
+  on this computer
+  20. System monospace     … plus whatever else is installed
+```
+
+Worth trying first: **VT323** is a CRT terminal glyph for glyph, **Space Mono** is retro-futurist with real quirks, **Martian Mono** is wide and engineered, and **B612 Mono** was drawn for aircraft cockpit displays. Every one is SIL Open Font Licensed — see [FONT_CREDITS.md](FONT_CREDITS.md) for designers and licences.
+
+**`font next`** steps to the next one and wraps at the end, which is the fastest way to actually try them on — `next font` and `font prev` do what they look like. **`font info`** says what you're currently in:
+
+```
+$ font info
+  name          B612 Mono
+  style         futuristic
+  source        bundled with the app (fonts/)
+  size          16px
+  weights       400, 700
+  in the list   6 of 25   ("font 6" comes back here)
+```
+
+The list only ever offers fonts that are genuinely installed and genuinely fixed-width, so nothing in it can silently do nothing or quietly wreck the ascii art. (You can still name any font you like directly — `font Iosevka` — and if it isn't monospace the app says so and lets you have it anyway.) `switch font` works too, for the muscle memory.
+
+**`font size 16`** makes everything bigger — title, tasks, metadata and ascii art scale together, keeping the design's proportions rather than flattening them. It takes `9` to `28`, relative steps (`font size +2`), and `font size reset`.
+
 ---
 
 ## Adding your own art
@@ -280,6 +319,27 @@ python3 build_art_data.py
 Browsers flatly refuse to let a `file://` page read a directory listing or fetch local files, so there's no way for the app to discover new art on its own in that mode. This script bakes a snapshot of both folders into `art-data.js`, which the page *is* allowed to load. It's the one genuinely unavoidable build step in the project.
 
 > **You won't silently forget.** If you're running a server and the app notices files that your last `build_art_data.py` snapshot doesn't know about, it prints a gentle note telling you to re-run it — so the offline copy doesn't quietly keep showing an old set.
+
+### Adding your own fonts
+
+Same shape, same reason. Drop a webfont into `fonts/` and re-run its build script:
+
+```bash
+cp ~/Downloads/jetbrains-mono-400.woff2 fonts/
+python3 build_font_data.py
+```
+
+It shows up in `font` on the next reload, no stylesheet edit required. `.woff2`, `.woff`, `.ttf` and `.otf` all work. Subfolders become the headings the `font` list groups by, exactly as they become categories in the art folders — `fonts/retro/vt323-400.woff2` files VT323 under "retro", and anything loose at the top level lists first.
+
+The filename is the whole convention — `<family>-<weight>[-italic]` — so files sharing a family become one entry with its weights attached rather than several:
+
+```
+jetbrains-mono-400.woff2        ─┐
+jetbrains-mono-700.woff2        ─┴─ one choice, "JetBrains Mono"
+jetbrains-mono-400-italic.woff2 ─┘
+```
+
+`ibm-plex-mono.woff2` (no weight) is fine too — it's taken as the regular weight. Unlike the art folders there's no live-discovery path for fonts: `font-data.js` is how the app knows what's there, whether you're on a server or on `file://`.
 
 ### Fine-tuning a piece (optional)
 
@@ -367,9 +427,14 @@ import        # ← pick that file back up on any machine
 momentum.html          the entire application — markup, styles, logic, one file
 art-data.js            generated snapshot of both art folders (for file:// use)
 build_art_data.py      regenerates the above
+font-data.js           generated snapshot of fonts/ (same reason as art-data.js)
+build_font_data.py     regenerates the above
 IMAGE_CREDITS.md       source + licence for every shipped image (generated)
 build_credits.py       regenerates the above from image_art/manifest.json
-fonts/                 self-hosted IBM Plex Mono (woff2, the two weights actually used)
+FONT_CREDITS.md        designer + licence for every bundled font (hand-maintained)
+fonts/                 self-hosted webfonts, subfolders = categories
+  retro/ futuristic/   19 monospace families, all SIL OFL
+  modern/ character/
 ascii_art/             .txt artworks, subfolders = categories
   manifest.json        optional per-file overrides
 image_art/             image artworks, subfolders = categories

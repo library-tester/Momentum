@@ -11,22 +11,30 @@
      version did — including falling back to system monospace for the few glyphs
      (→) that were never in the latin subset to begin with, same as before.
      regenerating: fetch https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700
-     with a browser user-agent, take the "latin" block's two woff2 urls. */
-  @font-face{
-    font-family:'IBM Plex Mono';
-    font-style:normal;
-    font-weight:400;
-    font-display:swap;
-    src:url('fonts/ibm-plex-mono-400.woff2') format('woff2');
-    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-  }
-  @font-face{
-    font-family:'IBM Plex Mono';
-    font-style:normal;
-    font-weight:700;
-    font-display:swap;
-    src:url('fonts/ibm-plex-mono-700.woff2') format('woff2');
-    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+     with a browser user-agent, take the "latin" block's two woff2 urls.
+
+     the @font-face rules themselves are no longer written out here — they're
+     generated from whatever is actually in fonts/ (build_font_data.py ->
+     font-data.js) and injected at load, so the "font" command can offer every
+     bundled family without this file having to be edited alongside the folder.
+     the unicode-range the hand-written rules used to carry is gone with them: it
+     was a download optimisation copied from the CDN's latin subset, and it can't
+     be right for an arbitrary font someone drops in. dropping it changes nothing
+     you can see — a browser falls back per-glyph for characters a font lacks
+     (→ included) whether or not the range is declared. */
+
+  /* every rule that sets a font reads this one variable, which applyFont() rewrites
+     when you switch. declared here as the default so the app still renders in the
+     intended face if font-data.js is missing or empty — and lands on plain
+     monospace, never a proportional font, since the ascii art and the aligned [id]
+     columns are only correct in a fixed-width face. */
+  :root{
+    --font-mono:'IBM Plex Mono', monospace;
+    /* every font-size in this file is written as calc(<design px> * this), so one
+       number resizes the whole app and the design's own hierarchy — 17px title over
+       13px body over 11px metadata — survives the change instead of flattening. set
+       by applyFontScale(); 1 is the size everything below was actually drawn at. */
+    --font-scale:1;
   }
   /* Each theme below is built on one accent hue plus a red, and nothing else.
      --amber is the signature (prompt, headings, and the ascii art itself) and
@@ -147,7 +155,7 @@
   body{
     background:var(--bg-dark);
     color:var(--text-main);
-    font-family:'IBM Plex Mono', monospace;
+    font-family:var(--font-mono);
     display:flex;
     flex-direction:column;
     height:100vh;
@@ -176,7 +184,7 @@
     flex-shrink:0;
   }
   header .title{
-    font-size:17px;
+    font-size:calc(17px * var(--font-scale));
     font-weight:700;
     letter-spacing:2px;
     color:var(--amber);
@@ -187,7 +195,7 @@
   body.no-title header{ padding-top:8px; }
   header .stats{
     margin-top:4px;
-    font-size:12px;
+    font-size:calc(12px * var(--font-scale));
     color:var(--text-dim);
     letter-spacing:0.5px;
   }
@@ -213,12 +221,12 @@
     overflow:auto;
     padding:18px 20px;
     min-width:0;
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     line-height:1.15;
     flex-direction:column;
   }
   .artwork-title{
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     color:var(--text-main);
     margin-bottom:10px;
     letter-spacing:0.5px;
@@ -226,12 +234,12 @@
   }
   .artwork-progress{
     color:var(--text-dim);
-    font-size:12px;
+    font-size:calc(12px * var(--font-scale));
   }
   .reveal-scene{
     margin:0;
     font-family:inherit;
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     line-height:1.15;
     white-space:pre;
     flex-shrink:0;
@@ -246,7 +254,7 @@
   }
   .empty-panel{
     color:var(--text-dim);
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     padding:10px 0 0;
     line-height:1.5;
   }
@@ -297,9 +305,9 @@
     position:absolute;
     top:0; left:0;
   }
-  .gallery-missing{ color:var(--text-dim); font-size:22px; }
+  .gallery-missing{ color:var(--text-dim); font-size:calc(22px * var(--font-scale)); }
   .gallery-cap{
-    font-size:11px;
+    font-size:calc(11px * var(--font-scale));
     color:var(--text-dim);
     line-height:1.3;
     overflow:hidden;
@@ -363,7 +371,7 @@
   .ascii-fullscreen{
     transform-origin:center center;
     color:var(--text-main);
-    font-family:'IBM Plex Mono', monospace;
+    font-family:var(--font-mono);
   }
   .ascii-fullscreen .reveal-scene{ margin:0; text-align:left; }
   /* day is the one theme that paints its art pure black — which is invisible against
@@ -405,7 +413,7 @@
   #list-pane{
     overflow-y:auto;
     padding:12px 20px;
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     line-height:1.5;
   }
   #list-pane .line{ white-space:pre-wrap; }
@@ -430,6 +438,29 @@
      the same reason the comment above gives for the row as a whole: the cursor
      alone is the affordance here already. */
   .row-toggle{ opacity:var(--info-opacity); }
+  /* the special-tag mark left of each [id]. this box is what frees the marks from
+     the bundled font: symbols it doesn't carry (▶ ➜ ● and anything else you pick)
+     get borrowed from whatever font the machine has, at whatever width that font
+     chooses, and in plain text flow that width difference dragged every [id] after
+     it off the column. a fixed ch width absorbs it instead — the box is the same
+     two cells whatever sits inside it, so the column after it never moves.
+     right-aligned, so a one-character mark still finishes hard against the bracket.
+
+     two things here are load-bearing, both learned by breaking them:
+
+     - NO `overflow`. per CSS, an inline-block's baseline is the baseline of its last
+       line box *unless* overflow computes to something other than visible, in which
+       case it becomes the bottom margin edge. setting overflow:hidden here to clip
+       wide glyphs did exactly that: every mark jumped off its own row and the rows
+       came out unequal heights (19.5px vs 25px, measured). an over-wide glyph is
+       left to spill rather than clipped — the same rule has no good workaround.
+     - the span is NEVER empty (a space stands in when a task has no mark), because
+       "no in-flow line boxes" triggers that identical bottom-edge baseline rule. */
+  .row-mark{
+    display:inline-block;
+    width:2ch;
+    text-align:right;
+  }
   .pane-head{
     display:flex;
     justify-content:space-between;
@@ -437,7 +468,7 @@
     gap:12px;
     margin-bottom:6px;
     color:var(--amber);
-    font-size:12px;
+    font-size:calc(12px * var(--font-scale));
     letter-spacing:1px;
   }
   .pane-head span{ color:var(--text-dim); letter-spacing:0.5px; }
@@ -532,7 +563,7 @@
     min-height:0;
     overflow-y:auto;
     padding:12px 20px 12px calc(20px + var(--gutter));
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     line-height:1.5;
   }
   /* every line hangs. a response too long for the column continues indented, rather
@@ -603,7 +634,7 @@
   }
   /* 1ch (not 8px) so the caret starts exactly one gutter in — the live prompt then
      sits in the same two columns as every echoed "$ " scrolled above it. */
-  #prompt{ color:var(--amber); margin-right:1ch; font-size:13px; font-weight:700; }
+  #prompt{ color:var(--amber); margin-right:1ch; font-size:calc(13px * var(--font-scale)); font-weight:700; }
   #cmd{
     flex:1;
     background:transparent;
@@ -611,7 +642,7 @@
     outline:none;
     color:var(--text-main);
     font-family:inherit;
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
   }
   /* Tab used to cycle candidates one at a time with nothing on screen to say how
      many there were or which one you were looking at — you learned the list by
@@ -654,7 +685,7 @@
        list pane and reveal panel already draw against the terminal. */
     background:var(--bg-panel);
     border-top:1px solid var(--line);
-    font-size:13px;
+    font-size:calc(13px * var(--font-scale));
     line-height:1.5;
     color:var(--text-dim);
   }
@@ -758,7 +789,7 @@
        gone before any text. tightened, not removed: the hanging "$" gutter still
        needs somewhere to sit. */
     header{ padding:10px 14px 8px; }
-    header .title{ font-size:15px; letter-spacing:1.5px; }
+    header .title{ font-size:calc(15px * var(--font-scale)); letter-spacing:1.5px; }
     #output{ padding:10px 14px 10px calc(14px + var(--gutter)); }
     #input-row{ padding:8px 14px 10px; }
     /* same 14px gutter the input row drops to, so the candidates stay aligned with
@@ -773,7 +804,7 @@
        command would leave the app a little further blown up and needing a pinch to
        recover. only the focusable element needs this; the console's own type stays
        at its normal size. */
-    #cmd, #prompt{ font-size:16px; }
+    #cmd, #prompt{ font-size:calc(16px * var(--font-scale)); }
     /* a tap on a row shouldn't leave a grey flash box behind — the pointer/cursor
        affordance already says these are clickable. */
     #list-pane .line.row{ -webkit-tap-highlight-color:transparent; }

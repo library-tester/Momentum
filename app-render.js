@@ -853,7 +853,10 @@ else if(smallScreenQuery.addListener) smallScreenQuery.addListener(syncViewportH
 syncViewportHeight();
 
 // ---------- boot ----------
-cmdHistory = loadCmdHistory();                            // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
+// before loadState, so the @font-face rules exist by the time applyFont() picks a
+// family out of them — otherwise the saved font renders as fallback for a frame.
+installBundledFonts();
+cmdHistory = loadCmdHistory();                          // outside STORAGE_KEY (see HISTORY_KEY) — restored ahead of loadState()'s own load, not part of it
 // the greeting lives in loadState() rather than here: it says something different
 // to a first-time visitor than to someone on their two-hundredth session, and
 // which of those you are is only knowable once localStorage has been read.

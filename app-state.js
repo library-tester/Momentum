@@ -16,7 +16,191 @@ let displayMode = 'ascii';                                // 'ascii' | 'image' �
 const THEMES = ['amber', 'night', 'day', 'solar', 'nord'];
 const THEME_ALIASES = { nightmode: 'night', daymode: 'day' };   // the original two-word switch commands still work
 let theme = 'day';
-let collectionLoadError = null;                          // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
+
+// ---------- fonts ----------
+// two sources, one list. bundled families come from font-data.js, which
+// build_font_data.py writes by scanning fonts/ — the same generated-manifest trick
+// art-data.js uses, and for the same reason: a browser can't list a directory, and
+// under file:// it can't fetch one either, so "whatever is in that folder" has to
+// be written down somewhere a plain <script src> can reach.
+//
+// system stacks are the other half, and they're what makes the command useful on a
+// fresh checkout: they need no files at all, so the list isn't one entry long until
+// you go and find webfonts. each is offered only if the machine actually has it
+// (see fontAvailable) rather than listed and silently falling back to something
+// else, which would make picking one feel broken.
+//
+// every candidate is monospace on purpose. this is an app whose ascii art and
+// whose aligned [id] columns are only correct in a fixed-width face, so a
+// proportional font isn't a style choice here, it's a broken layout — see
+// isMonospace, which verifies rather than trusting the list.
+const SYSTEM_FONTS = [
+  { id:'system',        name:'System monospace', family:'monospace' },
+  { id:'menlo',         name:'Menlo',            family:'Menlo' },
+  { id:'consolas',      name:'Consolas',         family:'Consolas' },
+  { id:'dejavu-mono',   name:'DejaVu Sans Mono', family:'DejaVu Sans Mono' },
+  { id:'liberation',    name:'Liberation Mono',  family:'Liberation Mono' },
+  { id:'courier',       name:'Courier New',      family:'Courier New' },
+  { id:'ubuntu-mono',   name:'Ubuntu Mono',      family:'Ubuntu Mono' },
+  { id:'jetbrains',     name:'JetBrains Mono',   family:'JetBrains Mono' },
+  { id:'fira-mono',     name:'Fira Mono',        family:'Fira Mono' },
+  { id:'source-mono',   name:'Source Code Pro',  family:'Source Code Pro' },
+  { id:'sf-mono',       name:'SF Mono',          family:'SF Mono' },
+  { id:'cascadia',      name:'Cascadia Mono',    family:'Cascadia Mono' },
+];
+// the app's own face, and the fallback every other choice ends with — a bundled
+// font that failed to load lands on the system's monospace rather than on the
+// browser's proportional default.
+const DEFAULT_FONT = 'ibm-plex-mono';
+let fontId = DEFAULT_FONT;
+
+// text size, expressed as the app's *body* size in px — the 13px the console, task
+// list and reveal panel are all set in. that's the number worth naming because it's
+// the one you actually read; --font-scale (see momentum.css) is derived from it, and
+// carries the title and metadata sizes along in proportion.
+//
+// the bounds are where it stops being usable rather than where it stops being
+// possible: under 9 the metadata row is smaller than most browsers will render
+// legibly, and over 28 a task title stops fitting the pane on a laptop.
+const FONT_SIZE_DEFAULT = 13, FONT_SIZE_MIN = 9, FONT_SIZE_MAX = 28;
+let fontSize = FONT_SIZE_DEFAULT;
+
+// the bundled half of the list, as font-data.js describes it. read through a
+// function rather than captured at load so a missing or malformed font-data.js is
+// simply an empty list — the app still runs, it just has nothing bundled to offer.
+function bundledFonts(){
+  const fams = (window.FONT_DATA && window.FONT_DATA.families) || [];
+  return fams.filter(f => f && f.id && f.family).map(f => ({
+    id: f.id,
+    name: f.name || f.family,
+    family: f.family,
+    category: f.category || null,      // the fonts/ subfolder it came from — the font list's headings
+    bundled: true,
+  }));
+}
+// bundled first: they ship with the app, they're the look it was designed in, and
+// they're the only entries guaranteed to render the same on every machine.
+//
+// deduped on the family *name* rather than the id, because the two halves of the
+// list name the same font differently — SYSTEM_FONTS calls JetBrains Mono
+// "jetbrains" while the bundled copy is "jetbrains-mono" after its filename — and
+// matching on id let the same face appear twice, once from each source. the name is
+// the thing that actually decides what you'd see on screen, so it's the honest key.
+function allFonts(){
+  const bundled = bundledFonts();
+  const taken = new Set(bundled.map(f => f.family.toLowerCase()));
+  // grouped by category so the printed list can put a heading over each run rather
+  // than repeating one every few rows. uncategorised first — that's the app's own
+  // default face, sitting loose at the top of fonts/ — then categories in
+  // alphabetical order, which is arbitrary but stable, and stable is what matters:
+  // these are numbers people pick off a list, so the order can't shift under them.
+  // no hardcoded category order, because the categories are just whatever folders
+  // are in fonts/ and this file shouldn't have to be edited to add one.
+  const sorted = [...bundled].sort((a, b) =>
+    (a.category === null) - (b.category === null) === 0
+      ? String(a.category).localeCompare(String(b.category)) || a.name.localeCompare(b.name)
+      : (a.category === null ? -1 : 1));
+  return [...sorted, ...SYSTEM_FONTS.filter(f => !taken.has(f.family.toLowerCase()))];
+}
+// a font named directly ("font Iosevka") that neither the manifest nor SYSTEM_FONTS
+// knows about. it has to be held somewhere, because everything downstream resolves
+// the font through fontEntry() — without this, a name the list didn't recognise
+// resolved to null, and fontStack(null) quietly handed back the default, so the
+// escape hatch reported success and then rendered the font you were trying to leave.
+// one slot rather than a collection: it's whatever you last typed in, and the moment
+// you pick something from the list it stops being the answer.
+let customFont = null;                                    // { id, name, family } | null
+function fontEntry(id){
+  return allFonts().find(f => f.id === id)
+      || (customFont && customFont.id === id ? customFont : null);
+}
+
+// ---------- measuring a font ----------
+// both checks below work the same way: render a probe string on a canvas and look
+// at how wide it comes out. it's the only way to ask the questions that matter here
+// — "is this font actually on this machine" and "is it fixed-width" — since the
+// browser exposes neither directly and answers a request for a missing family by
+// quietly substituting another one.
+let fontProbeCtx = null;
+function measureText(text, family, size){
+  if(!fontProbeCtx) fontProbeCtx = document.createElement('canvas').getContext('2d');
+  fontProbeCtx.font = `${size || 72}px ${family}`;
+  return fontProbeCtx.measureText(text).width;
+}
+// a family is "available" if asking for it changes the result versus not asking.
+// measured against two different generic fallbacks, because a font that happens to
+// metric-match one of them would otherwise read as missing — it has to tie with
+// both to be a substitution rather than a coincidence.
+const FONT_PROBE = 'mmmwwwiiil0O1';
+function fontAvailable(family){
+  if(family === 'monospace') return true;         // the generic is always there by definition
+  const mono = measureText(FONT_PROBE, 'monospace');
+  const serif = measureText(FONT_PROBE, 'serif');
+  const asMono = measureText(FONT_PROBE, `"${family}", monospace`);
+  const asSerif = measureText(FONT_PROBE, `"${family}", serif`);
+  return !(asMono === mono && asSerif === serif);
+}
+// fixed-width means every glyph is the same width, so the narrowest character and
+// the widest have to measure the same. 'i' against 'W' is the sharpest pair for
+// that, and 'l' against 'M' is a second opinion in case a font special-cases one.
+function isMonospace(family){
+  const stack = `"${family}", monospace`;
+  return measureText('i', stack) === measureText('W', stack)
+      && measureText('l', stack) === measureText('M', stack);
+}
+
+// the css value that goes into --font-mono. every stack ends in the generic
+// monospace: whatever happens — a bundled file that 404s, a system font uninstalled
+// since you picked it — the app lands on a fixed-width face rather than on the
+// browser's proportional default, which is the one outcome that would visibly break
+// the art and the columns.
+function fontStack(entry){
+  if(!entry) return `'IBM Plex Mono', monospace`;
+  return entry.family === 'monospace' ? 'monospace' : `"${entry.family}", monospace`;
+}
+function applyFont(){
+  document.documentElement.style.setProperty('--font-mono', fontStack(fontEntry(fontId)));
+  applyFontScale();
+}
+function applyFontScale(){
+  document.documentElement.style.setProperty('--font-scale', String(fontSize / FONT_SIZE_DEFAULT));
+}
+// @font-face for every bundled family, built from the manifest rather than written
+// into momentum.css, so dropping a file into fonts/ and re-running the build script
+// is the whole of adding a font — no stylesheet edit, no second place to forget.
+// injected once at load; switching fonts afterwards only rewrites the variable.
+function installBundledFonts(){
+  const rules = bundledFonts().flatMap(fam => {
+    const src = (window.FONT_DATA.families.find(f => f.id === fam.id) || {}).files || [];
+    return src.map(f => [
+      '@font-face{',
+      `font-family:"${fam.family}";`,
+      `font-style:${f.style || 'normal'};`,
+      `font-weight:${f.weight || 400};`,
+      'font-display:swap;',
+      `src:url("${f.file}") format("${f.format || 'woff2'}");`,
+      '}',
+    ].join(''));
+  });
+  if(!rules.length) return;
+  const el = document.createElement('style');
+  el.id = 'bundled-fonts';
+  el.textContent = rules.join('\n');
+  document.head.appendChild(el);
+  // and then actually fetch them, rather than waiting for something to be rendered
+  // in one. a browser treats @font-face as a declaration, not a download — the file
+  // is only requested when a glyph needs it — which would leave every bundled font
+  // you haven't selected unmeasurable (isMonospace would be reading the fallback's
+  // metrics) and make switching to one flash the fallback first. there are only a
+  // handful of small local files here, so pulling them up front costs nothing worth
+  // counting. failures are ignored on purpose: a missing file is already handled by
+  // every stack ending in the generic monospace.
+  if(document.fonts && document.fonts.load){
+    bundledFonts().forEach(f => { try{ document.fonts.load(`16px "${f.family}"`); }catch(e){} });
+  }
+}
+
+let collectionLoadError = null;                        // set if ascii/image tracks failed to load — shown in the reveal panel, not just buried in the terminal log
 let brokenImageStreak = 0;                                // consecutive images that failed to load, auto-skipping — see handleImageLoadError
 // the reveal panel shows either the live in-progress piece or the collected
 // gallery — never both, same panel either way. galleryOpen picks which;
@@ -56,7 +240,7 @@ let showAge = false;                                     // the "[created:3d ago
 //      "cleaner list" the removal was originally reaching for.
 // all default on: an existing save (or a first run) behaves exactly as before,
 // and you only ever see a difference by asking for one.
-const FEATURE_KEYS = ['priority', 'due', 'tags', 'projects', 'streak'];
+const FEATURE_KEYS = ['priority', 'due', 'est', 'tags', 'projects', 'streak'];
 let features = Object.fromEntries(FEATURE_KEYS.map(k => [k, true]));
 function featureOn(key){ return features[key] !== false; }
 let excludedImageFolders = [];                           // top-level image_art/ subfolders left out of the random pool — see "exclude"/"include"
@@ -287,7 +471,7 @@ function materializeOrder(progress, total){
 // so "back up your tasks" is always exactly what "restore your tasks" expects.
 function buildStateSnapshot(){
   return {
-    tasks, archive, projects, displayMode, theme, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
+    tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
     blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, taskPaneRatio, artPaneRatio, mirrored, paneFilter,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -300,6 +484,22 @@ function applyStateSnapshot(data){
   projects = data.projects || [];
   displayMode = data.displayMode === 'image' ? 'image' : 'ascii';
   theme = THEMES.includes(data.theme) ? data.theme : (data.nightMode ? 'night' : 'day');   // data.nightMode: pre-multi-theme saves
+  // checked against the list that exists *now*, not the one that was saved: a font
+  // whose file has since been removed from fonts/ (or a system font gone with an OS
+  // reinstall) falls back to the bundled default rather than leaving the app set to
+  // something that can't render. undefined is a save from before fonts were switchable.
+  // restored *before* fontId is validated below, since it's one of the things that
+  // can make a saved fontId valid — otherwise a directly-named font would fail its
+  // own check on every reload and fall back to the default.
+  customFont = data.customFont && data.customFont.id && data.customFont.family
+    ? { id: String(data.customFont.id), name: String(data.customFont.name || data.customFont.family), family: String(data.customFont.family) }
+    : null;
+  fontId = fontEntry(data.fontId) ? data.fontId : DEFAULT_FONT;
+  // clamped rather than trusted: this one is a raw number in a file anyone can hand-
+  // edit or import, and a 500 here would render the app as three enormous words.
+  fontSize = Number.isFinite(data.fontSize)
+    ? Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(data.fontSize)))
+    : FONT_SIZE_DEFAULT;
   splitOn = data.splitOn === undefined ? true : !!data.splitOn;   // undefined: a save from before split defaulted on
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
@@ -351,6 +551,7 @@ async function cmd_undo(){
   const entry = undoStack.pop();
   applyStateSnapshot(JSON.parse(entry.before));
   applyTheme();
+  applyFont();
   applyView();
   applyTitle();
   applyStatLine();
@@ -395,6 +596,7 @@ async function loadState(){
     ? 'Momentum — every task you finish uncovers part of a picture.'
     : 'Momentum — welcome back.', 'command-weight');
   applyTheme();
+  applyFont();
   applyView();
   applyTitle();
   applyStatLine();
@@ -436,8 +638,8 @@ async function loadState(){
     // explains itself — the picture visibly moves. everything else can wait for the
     // pointer below.
     const starters = [
-      { cmd: 'add water the plants', desc: 'add your first task (quotes optional)' },
-      { cmd: 'done 1',               desc: 'finish it — watch the art on the right' },
+      { cmd: 'add "water the plants"', desc: 'add your first task' },
+      { cmd: 'done 1',               desc: 'finish it — watch the art panel' },
     ];
     // two columns only while the console is actually wide enough to hold them:
     // the padded command column plus a description is ~60 characters, and a phone's
@@ -456,14 +658,7 @@ async function loadState(){
       else { print(`  ${s.cmd}`); printHanging(`      ${s.desc}`, 6); }
     });
     print('');
-    // what *completing* one earns — deliberately not a restatement of the greeting
-    // above, which already covers task-to-reveal. this is the half of the loop the
-    // first few completions don't show you: pieces are kept, and they keep coming.
-    printHanging('fill the piece in and it\'s yours — saved to your gallery, and a new one begins.', 0, 'info');
-    print('');
-    // the way onward, kept to one dim line and placed after the payoff so it can't
-    // compete with the two commands above for attention.
-    printHanging('type "help" whenever you want the rest — projects, due dates, tags, themes, and image mode.', 0, 'info');
+    printHanging('type help for more', 0, 'info');
   }
 }
 function saveState(){
@@ -641,7 +836,7 @@ function cmd_recover(arg){
     `recover ${n}`,
     async () => {
       applyStateSnapshot(chosen.data);
-      applyTheme(); applyView(); applyTitle(); applyStatLine();
+      applyTheme(); applyFont(); applyView(); applyTitle(); applyStatLine();
       await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
       asciiTrack.pruneMissing(); imageTrack.pruneMissing();
       saveState(); renderPanel(); cmd_list([]);

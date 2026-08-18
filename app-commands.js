@@ -29,7 +29,13 @@ function isNearOutputBottom(){
 function print(text, cls){
   const div = document.createElement('div');
   div.className = 'line' + (cls ? ' '+cls : '');
-  div.textContent = text;
+  // a div holding the empty string gets no line box at all, so it renders at zero
+  // height — which meant every print('') written as a blank separator (the help
+  // screens are full of them) quietly produced nothing, and the sections they were
+  // meant to space apart ran together. one space is preserved by the pre-wrap these
+  // lines already use and comes out exactly one line tall, which is what was asked
+  // for at each of those call sites.
+  div.textContent = text === '' ? ' ' : text;
   const stick = isNearOutputBottom();
   outputEl.appendChild(div);
   if(stick) outputEl.scrollTop = outputEl.scrollHeight;
@@ -37,9 +43,9 @@ function print(text, cls){
 }
 // like print(), but for a single line built from differently-styled runs (e.g.
 // a bright title followed by dim [tag] fields) — each segment keeps its own class.
-function printSegments(segments, indentCh){
+function printSegments(segments, indentCh, cls){
   const div = document.createElement('div');
-  div.className = 'line';
+  div.className = 'line' + (cls ? ' ' + cls : '');
   if(indentCh){ div.style.paddingLeft = indentCh + 'ch'; div.style.textIndent = '-' + indentCh + 'ch'; }
   segments.forEach(seg => {
     const span = document.createElement('span');
@@ -193,10 +199,15 @@ const COMMANDS = [
   // error. the same function form the flag hints above already use.
   { usage: 'due <id[,id...]|all> <date|none>', desc: 'set or clear a due date', feat: 'due',
     extra: () => ['takes today, tomorrow, friday, +3d, eom, none …  ("help dates" for the full list)'] },
+  { usage: 'est <id[,id...]|all> <time|none>', desc: 'set or clear how long you think it\'ll take', feat: 'est',
+    extra: () => ['takes 45m, 2h, 1h30, 1.5h, 90 (bare = minutes), 2d (a day is 8h), none',
+                  '("-dur", "-duration" and "-time" work as flag spellings too)']},
   { usage: 'tag <id[,id...]|all> add <tag>', desc: 'add a tag to task(s)', feat: 'tags' },
   { usage: 'tag <id[,id...]|all> rm <tag>', desc: 'remove a tag from task(s)', feat: 'tags' },
   { usage: 'tag <id[,id...]|all> set <tag1,tag2,...>', desc: "replace all of task(s)' tags", feat: 'tags' },
   { usage: 'tags', desc: 'list every tag in use', feat: 'tags' },
+  { usage: 'mark <id[,id...]|all> [off]', desc: 'put the • mark in the margin  (bare form marks, "off" clears)', feat: 'tags',
+    extra: ['a shorthand for the tag it writes, so "list +mark" still finds them  ("help marks" for the whole column)'] },
   { usage: 'project add <name>', desc: 'create a project', feat: 'projects' },
   { usage: 'project rm <name>', desc: 'delete a project', feat: 'projects' },
   { usage: 'project set <id[,id...]|all> <name|none>', desc: 'assign task(s) to a project', feat: 'projects' },
@@ -229,6 +240,15 @@ const COMMANDS = [
             '(title/statline/mirror still work as their own commands)'] },
   { usage: 'theme [amber|night|day|solar|nord]', desc: 'show or switch the color theme',
     extra: ['(also: switch, and the classic nightmode/daymode)'] },
+  { usage: 'font [<number>|<name>]', desc: 'show the available fonts, or switch to one',
+    extra: ['bare "font" lists them numbered — "font 3" picks the third',
+            '(also: "switch font". add your own by dropping a .woff2 in fonts/',
+            'and running "python3 build_font_data.py")'] },
+  { usage: 'font next | font prev', desc: 'step to the next/previous font, wrapping at the ends',
+    extra: ['for trying them on without looking the numbers up  (also: "next font")'] },
+  { usage: 'font info', desc: 'what the current font is — name, style, size, where it came from' },
+  { usage: () => `font size [<${FONT_SIZE_MIN}-${FONT_SIZE_MAX}>|+2|-2|reset]`, desc: 'how big the text is — everything scales together',
+    extra: ['bare form says what it\'s set to now'] },
   { usage: 'art', desc: "info on the current piece (whichever mode you're in)",
     extra: ['(also: image — same command either way)'] },
   { usage: 'next', desc: 'skip to a new piece (no credit for it)  (also: skip)',
@@ -274,7 +294,11 @@ const SHORTCUTS = { a:'add', d:'done', l:'list', s:'split', g:'gallery', u:'undo
 // longer spellings of the same commands, kept working out of habit/compatibility.
 // they're not advertised as shortcuts; the command they resolve to says "also: ..."
 // in its own help line.
-const SPELLINGS = { remove:'rm', delete:'rm', image:'art', switch:'theme', save:'close', skip:'next' };
+// the estimate spellings are here for the same reason EST_FLAGS exists on the flag
+// side: "duration" and "time" are what people reach for first, and the command
+// should answer to them rather than send you to did-you-mean.
+const SPELLINGS = { remove:'rm', delete:'rm', image:'art', switch:'theme', save:'close', skip:'next',
+                    estimate:'est', duration:'est', dur:'est', time:'est' };
 const ALIASES = { ...SHORTCUTS, ...SPELLINGS };
 function resolveAlias(cmd){ return ALIASES[cmd] || cmd; }
 
@@ -302,6 +326,7 @@ function addFlagsHint(){
     featureOn('tags')     ? ' [+tag ...]'        : '',
     featureOn('priority') ? ' [-p high|med|low]' : '',
     featureOn('due')      ? ' [-d <date>]'       : '',
+    featureOn('est')      ? ' [-est <time>]'     : '',
   ].join('');
 }
 function filterFlagsHint(){
@@ -330,8 +355,8 @@ function commandNames(){ return [...new Set(activeCommands().map(c => commandNam
 // and the one thing that has to list the alias spellings too, since "projects"
 // and "tags" reach the same features by a different word than their help row.
 const FEATURE_OF_COMMAND = {
-  priority: 'priority', due: 'due',
-  tag: 'tags', tags: 'tags',
+  priority: 'priority', due: 'due', est: 'est',
+  tag: 'tags', tags: 'tags', mark: 'tags',   // mark writes a tag, so it lives or dies with them
   project: 'projects', projects: 'projects',
   streak: 'streak',
 };
@@ -358,34 +383,68 @@ const HELP_TOPICS = {
       // the alt column collapses to nothing when no group uses it, rather than
       // leaving a fixed gap of blank space between form and note.
       const altGap = altW ? altW + 2 : 0;
-      const indent = 4 + formW + 2 + altGap;
+      const indent = 2 + formW + 2 + altGap;
       // the same accommodation buildHelpRows makes for the command table: keep the
       // note beside its form only while the console is actually wide enough to give
       // it a readable column, and stack it underneath when it isn't — otherwise a
       // narrow console frays every note into a one-word-per-line ribbon.
       const sideBySide = outputColumns() - indent >= HELP_MIN_DESC;
       DATE_FORMS.forEach(([heading, rows]) => {
-        // a space, not '' — an empty line box has no height, so print('') renders
-        // nothing at all and the groups run together with no gap between them.
-        print(' ');
-        print(`  ${heading}`);
+        print('');
+        printSectionRule(heading);
         rows.forEach(([form, alt, note]) => {
-          const left = `    ${form.padEnd(formW)}  ${altGap ? alt.padEnd(altW) + '  ' : ''}`;
+          const left = `  ${form.padEnd(formW)}  ${altGap ? alt.padEnd(altW) + '  ' : ''}`;
           if(!note){ print(left.trimEnd()); return; }
           if(sideBySide) printSegments([{ text: left }, { text: note, cls: 'info' }], indent);
-          else { print(left.trimEnd()); printHanging(`      ${note}`, 6, 'info'); }
+          else { print(left.trimEnd()); printHanging(`    ${note}`, 4, 'info'); }
         });
       });
-      print(' ');
+      print('');
       // separated by blank lines rather than stacked: three consecutive wrapped
       // paragraphs read as one block of prose, which is the thing this page was
       // rewritten to stop doing.
       printHanging('  whichever you type, it lands on one calendar day — and that day is echoed back, so "due 3 friday" answers with the date itself.', 2, 'info');
-      print(' ');
+      print('');
       printHanging('  two-word forms need quotes behind -d, which can\'t tell where the date ends and the title picks up again:  -d "2 days"', 2, 'info');
       printHanging('  after "due" they\'re fine as they are:  due 3 in 2 weeks', 2, 'info');
-      print(' ');
+      print('');
       printHanging('  the list reads them back the same way — "tomorrow", "in 3 days" — until they\'re over a week out, where it shows the date instead.', 2, 'info');
+    },
+  },
+  // deliberately its own page rather than a note under "tag": these tag names do
+  // something the others don't, and a special meaning nobody can discover is the
+  // same as no meaning at all.
+  marks: {
+    desc: 'the symbols in the margin, and what earns one',
+    print(){
+      // marks read out of SPECIAL_TAGS rather than typed again here, so the page
+      // can't end up advertising a symbol the list doesn't actually draw.
+      const symbolOf = name => (SPECIAL_TAGS.find(e => e[0] === name) || [])[1];
+      const rows = [
+        [symbolOf('very urgent'), 'very urgent',            'tag 3 add "very urgent"'],
+        [symbolOf('urgent'),      'urgent',                 '+urgent'],
+        [ACTIVE_MARK,             "started — you're on it", 'start 3'],
+        [symbolOf('next'),        'next up',                '+next'],
+        [symbolOf('important'),   'important / focus',      '+important'],
+        [symbolOf(MARK_TAG),      'marked — a plain flag',  'mark 3      ("mark 3 off" clears)'],
+      ];
+      print('marks — the column just left of each [id]:');
+      print('');
+      printSectionRule('what puts one there');
+      const markW = Math.max(...rows.map(([m]) => m.length));
+      const whatW = Math.max(...rows.map(([, w]) => w.length));
+      rows.forEach(([mark, what, how]) => {
+        printSegments([
+          { text: `  ${mark.padStart(markW)}   ${what.padEnd(whatW)}   ` },
+          { text: how, cls: 'info' },
+        ], markW + whatW + 8);
+      });
+      print('');
+      printHanging('  all but the started one are ordinary tags underneath — "mark 3" just writes the "marked" one for you — so they filter and clear like any other tag ("list +marked", "tag 3 rm urgent").', 2, 'info');
+      print('');
+      printHanging('  a task shows one mark, never two: the order above is the order they win in, so something both urgent and marked reads as urgent.', 2, 'info');
+      print('');
+      printHanging('  spelling is forgiving — "very urgent", "very-urgent" and "Very_Urgent" all count. only the spaced form needs the "tag" command, since "+very urgent" would split into two tags.', 2, 'info');
     },
   },
 };
@@ -398,18 +457,41 @@ function activeTopics(){
 // end-to-end to find one thing. grouping lets bare "help" be a five-line menu
 // and pushes the detail behind "help <group>". membership is keyed by command
 // *name*, so every row of a multi-row command travels together automatically.
+// the two big groups are split again into labelled sections, for the same reason
+// the groups exist at all: "help tasks" was nineteen commands in one undivided
+// column, mixing making a task, finishing one, tagging one and finding one — four
+// different jobs you'd never be doing at the same moment. the small groups keep a
+// single unlabelled section ('') because three or five rows have nothing to
+// navigate; a heading over them would be scaffolding around nothing.
+//
+// sections are also where membership is now *declared* — `members` is derived from
+// them below, so a command can't be listed in a group and missing from its
+// sections (which would silently drop it off the page it belongs to).
 const HELP_GROUPS = [
-  { name:'tasks',  desc:'add, edit, finish and find tasks',
-    members:['add','rename','edit','start','stop','done','rm','undo','priority','due','tag','tags','project','list','filter','archive','restore','find'] },
-  { name:'art',    desc:'the reward art — modes, reveal pace, gallery',
-    members:['gallery','mode','folders','art','next','reveal','hide','block','character','close','download','copy','display'] },
-  { name:'layout', desc:'panels, themes, and what shows on screen',
-    members:['view','split','set','theme','fullscreen'] },
-  { name:'data',   desc:'backups, and restoring from them',
-    members:['export','import','recover'] },
-  { name:'other',  desc:'stats, streak, and the rest',
-    members:['stats','streak','clear','help'] },
+  { name:'tasks',  desc:'add, edit, finish and find tasks', sections:[
+    ['making and changing them', ['add','rename','edit']],
+    ['getting them done',        ['start','stop','done','rm','undo']],
+    ['details you can put on them', ['priority','due','est','tag','tags','mark','project']],
+    ['finding and reviewing',    ['list','filter','archive','restore','find']],
+  ]},
+  { name:'art',    desc:'the reward art — modes, reveal pace, gallery', sections:[
+    ['the piece in progress', ['art','next','reveal','hide']],
+    ['how fast it uncovers',  ['block','character']],
+    ['once it\'s finished',   ['close','download','copy','display']],
+    ['your collection',       ['gallery']],
+    ['which pieces come up',  ['mode','folders']],
+  ]},
+  { name:'layout', desc:'panels, themes, and what shows on screen', sections:[
+    ['', ['view','split','set','theme','font','fullscreen']],
+  ]},
+  { name:'data',   desc:'backups, and restoring from them', sections:[
+    ['', ['export','import','recover']],
+  ]},
+  { name:'other',  desc:'stats, streak, and the rest', sections:[
+    ['', ['stats','streak','clear','help']],
+  ]},
 ];
+HELP_GROUPS.forEach(g => { g.members = g.sections.flatMap(([, names]) => names); });
 // anything not explicitly placed lands in "other" rather than vanishing from
 // help entirely — a new command with no group is still findable.
 function commandsInGroup(groupName){
@@ -439,43 +521,76 @@ const HELP_MIN_DESC = 26;
 // hang (plain prose or a blank line). the usage column is measured from the
 // subset being printed, so a single group's block is as tight as it can be
 // rather than padded out to the widest usage in the whole app.
-function buildHelpRows(list){
+// where the description column starts for a given set of rows. split out so a
+// group page can measure once across all of its sections and hand the same number
+// to each — measured per section instead, every section would find its own widest
+// usage and the descriptions would step in and out down the page.
+function helpUsageColumn(list){
+  const fitting = list.map(c => usageOf(c).length).filter(n => n <= HELP_MAX_USAGE);
+  // capped to what this console can actually show. the description column is only
+  // worth having if real width is left over for the description; when it isn't, col
+  // shrinks, and more rows fall through the "usage too long" branch in
+  // buildHelpRows and stack instead — the layout that does fit. both branches
+  // indent by col, so this one cap fixes the stacked rows as well. at a comfortable
+  // width nothing changes.
+  const room = Math.max(0, outputColumns() - HELP_MIN_DESC);
+  return Math.min((fitting.length ? Math.max(...fitting) : 0) + 2, room);
+}
+// skipExtra drops each command's follow-up detail lines, keeping one row per
+// command. that's what a group page wants: an index you can take in at a glance,
+// where the extras roughly doubled its length ("help tasks" ran ~50 lines for 19
+// commands) and turned a menu into a manual. nothing is lost — "help <command>"
+// prints the same row *with* its extras, and "help all" keeps them throughout.
+function buildHelpRows(list, colOverride, skipExtra){
   // resolve the dynamic rows once, before anything measures them: usage and desc
   // may both be functions of the current feature flags (see the COMMANDS comment).
+  const col = colOverride != null ? colOverride : helpUsageColumn(list);
   list = list.map(c => ({
     ...c,
     usage: usageOf(c),
     desc: typeof c.desc === 'function' ? c.desc() : c.desc,
     extra: typeof c.extra === 'function' ? c.extra() : c.extra,
   }));
-  const fitting = list.map(c => c.usage.length).filter(n => n <= HELP_MAX_USAGE);
-  // capped to what this console can actually show. the description column is only
-  // worth having if real width is left over for the description; when it isn't, col
-  // shrinks, and more rows fall through the "usage too long" branch below and stack
-  // instead — the layout that does fit. note both branches indent by col, so this
-  // one cap fixes the stacked rows as well. at a comfortable width nothing changes.
-  const room = Math.max(0, outputColumns() - HELP_MIN_DESC);
-  const col = Math.min((fitting.length ? Math.max(...fitting) : 0) + 2, room);
-  const indent = col + 2;   // "  " + the usage column — where desc/extra text actually starts
+  const lead = '  ';
+  const indent = col + 2;   // the margin + the usage column — where desc/extra text actually starts
   const rows = [];
   list.forEach(c => {
     if(c.usage.length > col - 2){
-      rows.push({ text: '  ' + c.usage, indent: 0 });
-      rows.push({ text: '  ' + ' '.repeat(col) + c.desc, indent });
+      rows.push({ text: lead + c.usage, indent: 0 });
+      rows.push({ text: lead + ' '.repeat(col) + c.desc, indent });
     } else {
-      rows.push({ text: '  ' + c.usage.padEnd(col) + c.desc, indent });
+      rows.push({ text: lead + c.usage.padEnd(col) + c.desc, indent });
     }
-    (c.extra || []).forEach(e => rows.push({ text: '  ' + ' '.repeat(col) + e, indent }));
+    if(!skipExtra) (c.extra || []).forEach(e => rows.push({ text: lead + ' '.repeat(col) + e, indent }));
   });
   return rows;
 }
 function printHelpRows(rows){
   rows.forEach(r => r.indent ? printHanging(r.text, r.indent) : print(r.text));
 }
+// a section divider: the label at full strength, then a dashed rule running out to
+// the right margin behind it, dim. the "- " vocabulary is the one printFramed
+// already draws task lists with, so a help page reads as the same app rather than
+// as a document that wandered in — and putting the label *on* the rule costs no
+// extra line, where a rule above or below the heading would have cost one per
+// section (eight of them on "help tasks" alone, which is the opposite of calmer).
+//
+// the 'rule' class clips instead of wrapping, the same guard printFramed's rules
+// use: outputColumns() is measured, not guessed, but a rule that overshoots by one
+// character and folds onto a second line stops reading as a border and starts
+// reading as content.
+function printSectionRule(label){
+  const tail = Math.max(0, outputColumns() - label.length - 3);
+  const dashes = '- '.repeat(Math.ceil(tail / 2)).slice(0, tail).trimEnd();
+  printSegments([{ text: label + '  ' }, { text: dashes, cls: 'info' }], 0, 'rule');
+}
 // printed from the same map dispatch uses, so the advertised shortcuts are
 // exactly the ones that work.
-function printShortcutsRow(){
-  printHanging('  shortcuts:  ' + Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   '), 2);
+function printShortcutsRow(labelled){
+  const pairs = Object.entries(SHORTCUTS).map(([k,v]) => `${k} = ${v}`).join('   ');
+  // labelled where it stands on its own (help all), bare where a section rule
+  // directly above it already carries the word.
+  printHanging(labelled ? `  shortcuts:  ${pairs}` : `  ${pairs}`, 2);
 }
 
 function cmd_help(arg){
@@ -485,6 +600,7 @@ function cmd_help(arg){
   if(!raw){
     print('momentum — commands are grouped; open one with "help <group>".');
     print('');
+    printSectionRule('the groups');
     HELP_GROUPS.forEach(g => {
       // topics are reference material, not a command group — "other" is the
       // catch-all group and reads as the natural end of the specific-groups list,
@@ -495,21 +611,35 @@ function cmd_help(arg){
     });
     printHanging('  help all     every command at once, the long way', 14);
     print('');
+    printSectionRule('typing them');
     print('  "help <command>" explains just that one, e.g. help done', 'info');
     print('  Tab completes command names and their options; press it again to cycle,', 'info');
     print('  or use the arrow keys to move through the choices it lists.', 'info');
     print('');
-    printShortcutsRow();
+    printSectionRule('one-letter shortcuts');
+    printShortcutsRow(false);
     return;
   }
 
   if(raw === 'all'){
     print('commands:');
     printHanging('  (most commands below accept multiple ids: done 3,5,6  |  ranges: rm 1-4  |  or: rm all)', 2);
+    // the exhaustive view keeps every extra line — that's what "the long way" means
+    // on the menu — but it's still walked group by group under the same rules the
+    // group pages use, so scrolling it lands somewhere recognisable instead of in
+    // the middle of one undivided seventy-line column.
+    const active = activeCommands();
+    const col = helpUsageColumn(active);
+    HELP_GROUPS.forEach(g => {
+      const items = commandsInGroup(g.name);
+      if(!items.length) return;
+      print('');
+      printSectionRule(g.name);
+      printHelpRows(buildHelpRows(items, col));
+    });
     print('');
-    printHelpRows(buildHelpRows(activeCommands()));
-    print('');
-    printShortcutsRow();
+    printSectionRule('one-letter shortcuts');
+    printShortcutsRow(false);
     return;
   }
 
@@ -518,8 +648,37 @@ function cmd_help(arg){
   if(HELP_GROUPS.some(g => g.name === raw)){
     const group = HELP_GROUPS.find(g => g.name === raw);
     print(`${raw} — ${group.desc}:`);
+    const all = commandsInGroup(raw);
+    // one measurement for the whole page, handed to every section, so the
+    // descriptions hold a single straight column instead of stepping in and out
+    // as each section's widest usage changes.
+    const col = helpUsageColumn(all);
+    const nameOf = c => commandNameOf(usageOf(c));
+    group.sections.forEach(([label, names]) => {
+      const items = all.filter(c => names.includes(nameOf(c)));
+      // a section can empty out entirely when its feature is switched off (all of
+      // "details you can put on them" disappears with priority/due/tags/projects
+      // off) — printing its heading over nothing would be worse than dropping it.
+      if(!items.length) return;
+      print('');
+      // the divider sits at column 0 and the rows at 2 — the man-page arrangement.
+      // indenting the rows under the heading instead would read the same, but it
+      // costs two columns off a console that's already only half the window wide,
+      // and those two were enough to push several usages over the width where
+      // their description stops fitting beside them.
+      if(label) printSectionRule(label);
+      printHelpRows(buildHelpRows(items, col, true));
+    });
+    // "other" collects commands no group claimed, which by definition no section
+    // lists either — they'd vanish off their own page without this.
+    const claimed = new Set(group.members);
+    const rest = all.filter(c => !claimed.has(nameOf(c)));
+    if(rest.length){
+      print('');
+      printHelpRows(buildHelpRows(rest, col, true));
+    }
     print('');
-    printHelpRows(buildHelpRows(commandsInGroup(raw)));
+    printHanging(`  "help <command>" spells any one of these out in full — try "help ${nameOf(all[0])}".`, 2, 'info');
     return;
   }
 
@@ -603,8 +762,16 @@ const LEGACY_COMMAND_NAMES = [...new Set([...Object.keys(SPELLINGS), ...Object.k
 const ON_OFF = () => ['on', 'off'];
 const ARG_COMPLETIONS = {
   theme:      () => THEMES,
+  // names rather than numbers: a number is only meaningful next to the printed
+  // list, and Tab is what you reach for when you haven't printed it.
+  font:       (pos, args) => pos === 0
+    ? ['next', 'prev', 'info', 'size', ...selectableFonts().map(f => f.name)]
+    : (String(args[0] || '').toLowerCase() === 'size' ? ['reset', '+2', '-2'] : []),
   set:        pos => pos === 0 ? [...Object.keys(SETTINGS), ...Object.keys(FEATURES)] : SETTING_VALUES,
   mode:       () => ['ascii', 'image'],
+  // pos 0 is the id, which completion has nothing useful to say about; the value
+  // slot after it gets the same ladder the "-est" flag offers.
+  est:        pos => pos === 0 ? [] : EST_VALUE_WORDS,
   view:       () => VIEW_MODES,
   split:      ON_OFF,
   fullscreen: ON_OFF,
@@ -625,6 +792,7 @@ const ARG_COMPLETIONS = {
   project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
   recover:    pos => pos === 0 ? ['list'] : [],
   tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
+  mark:       pos => pos === 0 ? ['all'] : ['off'],
   block:      (pos, prior) => pos === 0 ? ['size', 'count']
                 : prior[0] === 'size'  ? BLOCK_SIZE_NAMES
                 : prior[0] === 'count' ? ['auto']
@@ -647,6 +815,12 @@ const FLAG_COMPLETIONS = {
   '-p':    () => ['high', 'med', 'low'],
   '-t':    () => allTagsInUse(),
   '-proj': () => projects,
+  // a fixed ladder rather than estimates already in use: unlike tags and projects,
+  // what you typed before isn't a candidate set worth completing against — these
+  // are just the round numbers, offered so the accepted spellings are visible.
+  // lazy like the rest, which is also what lets it reach a const declared further
+  // down beside the parser that defines the vocabulary.
+  '-est':  () => EST_VALUE_WORDS,
 };
 // every tag currently on a task — the useful candidate set for "+<Tab>" and "-t",
 // since a tag you've never used isn't something completion can know about.
@@ -874,19 +1048,125 @@ const DATE_FORMS = [
   ]],
 ];
 
+// ---------- estimated time ----------
+// how long you think a task will take, which is a different question from when it's
+// due and answered separately: "due friday" and "about two hours" constrain a day's
+// plan in different directions, and a list that knows both can total the second
+// against the first.
+//
+// deliberately an *estimate*, not a duration: nothing in the app ever times a task,
+// so a field called "duration" would promise a measurement it never takes. "-dur",
+// "-duration" and "-time" all still parse (see EST_FLAGS) — they're the words that
+// come to hand first — but "-est" is the one the help advertises, because it's the
+// one that's honest about what the number is.
+//
+// stored as whole minutes, on purpose: one integer with no unit attached is the
+// only shape that sums cleanly for the list total, sorts without a comparator, and
+// can't drift into "is this 2 hours or 2 days?" the way a stored string could.
+const MINUTES_PER_HOUR = 60;
+// a "day" of estimated work is a working day, not 24 hours — nobody estimating a
+// task means "two calendar days of wall clock" by "2d". spelled out here rather
+// than left implicit because it's the one unit with a convention behind it, and
+// every echo resolves it to hours (see cmd_est) so the stored number is never a
+// guess about which reading was meant.
+const MINUTES_PER_WORKDAY = 8 * MINUTES_PER_HOUR;
+// a week of estimates is bounded by the same reasoning the ids are: an estimate
+// this large has stopped being an estimate and is almost always a typo — "2h" typed
+// as "2000h" — and storing it would poison every total the list prints from then on.
+const EST_MAX = 5 * MINUTES_PER_WORKDAY * 4;   // ~4 working weeks
+
+// "-est 90m" / "est 3 1h30" / "est 3 none" — one parser, shared by add and est, the
+// same way parseDue is shared by add and due, so the two entry points can't end up
+// accepting different vocabularies. returns exactly one of { minutes }, { clear }
+// or { error }.
+function parseEstimate(raw){
+  const s = (raw || '').trim().toLowerCase();
+  if(!s) return { error: 'no time given' };
+  if(s === 'none' || s === 'clear' || s === '0') return { clear: true };
+
+  // the compound form first — "1h30" / "2h15m" / "1h 30m". checked before the plain
+  // single-unit forms below because "1h30" would otherwise match the hours pattern
+  // on its "1h" and quietly discard the 30, which is the one failure mode here that
+  // loses information instead of reporting it.
+  const compound = s.match(/^(\d+)\s*h(?:ours?|rs?)?\s*(\d+)\s*(?:m(?:in(?:ute)?s?)?)?$/);
+  if(compound){
+    const mins = Number(compound[2]);
+    if(mins >= MINUTES_PER_HOUR) return { error: `"${raw}" has ${mins} minutes in it — past 59, write it as hours (${Math.floor(mins / MINUTES_PER_HOUR) + Number(compound[1])}h${mins % MINUTES_PER_HOUR || ''})` };
+    return capEstimate(Number(compound[1]) * MINUTES_PER_HOUR + mins, raw);
+  }
+
+  // one number and one unit. fractions are allowed on hours and days ("1.5h",
+  // "0.5d") since that's how people say a half of either; minutes are whole by
+  // definition, and a fractional one rounds rather than erroring — "20.5m" is
+  // someone being precise about something that doesn't need it, not a mistake.
+  const single = s.match(/^(\d+(?:\.\d+)?)\s*(d(?:ays?)?|h(?:ours?|rs?)?|m(?:in(?:ute)?s?)?)?$/);
+  if(single){
+    const n = Number(single[1]);
+    // a bare number is minutes: it's a terminal, "est 3 90" is a natural thing to
+    // type, and minutes is the only reading under which the unit-less form and the
+    // stored value are the same number.
+    const unit = (single[2] || 'm')[0];
+    const mins = unit === 'd' ? n * MINUTES_PER_WORKDAY
+               : unit === 'h' ? n * MINUTES_PER_HOUR
+               : n;
+    if(mins <= 0) return { error: `an estimate has to be more than zero — "none" is how you clear one` };
+    return capEstimate(Math.round(mins), raw);
+  }
+
+  return { error: `"${raw}" isn't a length of time i understand` };
+}
+function capEstimate(minutes, raw){
+  if(minutes > EST_MAX) return { error: `"${raw}" is longer than ${estText(EST_MAX)} — that's past the point where an estimate means anything, so it's more likely a typo` };
+  return { minutes };
+}
+
+// minutes back into something you'd say out loud, for the "[est:...]" field — the
+// reverse of parseEstimate, the way dueText is the reverse of parseDue.
+//
+// hours are the ceiling even for a multi-day estimate: "16h" and "2d" are the same
+// stored number, but only one of them is unambiguous on sight, and the display is
+// exactly where that ambiguity would cost something. "2d" stays typeable; it just
+// isn't what gets read back.
+function estText(minutes){
+  const n = Number(minutes);
+  if(!Number.isFinite(n) || n <= 0) return '';
+  const h = Math.floor(n / MINUTES_PER_HOUR), m = n % MINUTES_PER_HOUR;
+  if(!h) return `${m}m`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+// the accepted spellings, written out for humans — the same job DATE_HELP does for
+// dates, kept next to the parser for the same reason.
+const EST_HELP = 'try: 45m · 2h · 1h30 · 1.5h · 90 (bare numbers are minutes) · 2d (a day is 8h)';
+// what Tab offers after "-est" and after "est <id>" — see FLAG_COMPLETIONS/
+// ARG_COMPLETIONS, both of which reach this lazily.
+const EST_VALUE_WORDS = ['15m', '30m', '45m', '1h', '1h30', '2h', '4h', '1d', 'none'];
+
 // one worked example per flag, so the "you left this dangling" message below can
 // show the shape that was missing instead of just naming the flag. shared by both
 // argument parsers (add's flags, and list/filter/archive's) so the two can't drift
 // into describing the same flag differently.
-const FLAG_EXAMPLES = { '-p': '-p high', '-d': '-d friday', '-t': '-t urgent,home', '-proj': '-proj work' };
+const FLAG_EXAMPLES = { '-p': '-p high', '-d': '-d friday', '-t': '-t urgent,home', '-proj': '-proj work', '-est': '-est 90m' };
 function missingFlagError(flag){
   return { text: `${flag} needs a value after it — e.g. ${FLAG_EXAMPLES[flag]}`, cls: 'err' };
 }
 
+// the four spellings of the estimate flag. "-est" is the canonical one and the only
+// one help mentions; the rest are the words that come to hand first when you're
+// reaching for this field, kept working for the same reason SPELLINGS exists rather
+// than made to fail at someone who typed the obvious thing. they normalise to "-est"
+// on the way in (see parseFlags), so nothing downstream has to know there are four.
+const EST_FLAGS = ['-est', '-estimate', '-dur', '-duration', '-time'];
+
 // which feature each flag belongs to, so a flag whose feature is off is reported
 // rather than quietly swallowed into a task nobody can see the value of. the two
 // inline marks below are listed under their bare punctuation.
-const FLAG_FEATURE = { '-p':'priority', '-d':'due', '-t':'tags', '-proj':'projects', '#':'projects', '+':'tags' };
+const FLAG_FEATURE = { '-p':'priority', '-d':'due', '-t':'tags', '-proj':'projects', '#':'projects', '+':'tags', '-est':'est' };
+// the alternate estimate spellings get the same feature gate and the same Tab
+// completions as the canonical one. parseFlags normalises them away before either
+// table is consulted for *parsing*, but completion looks up the raw token you just
+// typed — so without this, "-dur <Tab>" would offer nothing and read as unsupported.
+EST_FLAGS.forEach(f => { FLAG_FEATURE[f] = 'est'; FLAG_COMPLETIONS[f] = () => EST_VALUE_WORDS; FLAG_EXAMPLES[f] = `${f} 90m`; });
 
 // ---------- the inline #project / +tag marks ----------
 // "add buy milk #home +errand" instead of "add buy milk -proj home -t errand".
@@ -908,9 +1188,12 @@ const INLINE_TAG = /^\+([A-Za-z][\w-]*(?:,[A-Za-z][\w-]*)*)$/;
 
 function parseFlags(tokens){
   const args = { _: [], tagList: [] };
-  const flagKeys = { '-p':'p', '-d':'d', '-t':'t', '-proj':'proj' };
+  const flagKeys = { '-p':'p', '-d':'d', '-t':'t', '-proj':'proj', '-est':'est' };
   for(let i=0;i<tokens.length;i++){
-    const tk = tokens[i];
+    // the estimate flag's alternate spellings collapse to the canonical one here,
+    // before anything else looks at the token — so every check below (feature gate,
+    // dangling value, key lookup) sees one flag rather than five.
+    const tk = EST_FLAGS.includes(tokens[i].toLowerCase()) ? '-est' : tokens[i];
     const proj = tk.match(INLINE_PROJECT), tag = tk.match(INLINE_TAG);
     if(proj || tag){
       const mark = proj ? '#' : '+';
@@ -963,7 +1246,12 @@ function cmd_add(args){
     print(`  turn it back on with:  set ${feat} on   (or drop it and add the task without)`, 'info');
     return;
   }
-  let priority = null, due = null, tags = [], project = null;
+  let priority = null, due = null, tags = [], project = null, est = null;
+  if(args.est){
+    const parsed = parseEstimate(args.est);
+    if(parsed.error){ print(parsed.error, 'err'); print(`  ${EST_HELP}`, 'info'); return; }
+    est = parsed.clear ? null : parsed.minutes;
+  }
   if(args.p){
     const p = args.p.toLowerCase();
     if(!['high','med','low'].includes(p)){ print('priority must be high, med, or low', 'err'); return; }
@@ -985,7 +1273,7 @@ function cmd_add(args){
       print(`note: created new project "${project}"`, 'info');
     }
   }
-  const t = { id: nextFreeId(), title, status:'pending', priority, due, tags, project, createdAt: Date.now() };
+  const t = { id: nextFreeId(), title, status:'pending', priority, due, est, tags, project, createdAt: Date.now() };
   tasks.push(t);
   // echoed back in the same marks the list uses, from the same function — this line
   // is where you first meet the notation, so it teaching a different one ("[high]
@@ -1210,6 +1498,36 @@ function cmd_due(idsStr, dateStr){
   if(changed){ saveState(); renderPanel(); }
 }
 
+// the same shape as cmd_due one function up, for the same reason: setting a field
+// on a range of ids is one motion, and the two fields you'd most often set that way
+// should behave identically while doing it.
+function cmd_est(idsStr, timeStr){
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('est needs a task id, e.g. est 3 90m or est 3,5,6 1h30', 'err'); return; }
+  const parsed = parseEstimate(timeStr);
+  if(parsed.error){ print(parsed.error, 'err'); print(`  ${EST_HELP} · none`, 'info'); return; }
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    if(parsed.clear){ t.est = null; print(`#${t.id} estimate cleared`, 'ok'); }
+    // echoed in the canonical spelling rather than what was typed — "est 3 2d" is
+    // only useful if it tells you the 16h it actually stored, which is the number
+    // every total downstream will be adding up. the same reasoning as cmd_due
+    // echoing the resolved date instead of the "friday" you asked for; the typed
+    // form trails in brackets when it differs, so the two are introduced as one
+    // length of time rather than left looking like a silent substitution.
+    else {
+      t.est = parsed.minutes;
+      const canonical = estText(parsed.minutes);
+      const typed = String(timeStr).trim().toLowerCase();
+      print(`#${t.id} estimate ${canonical}${canonical === typed ? '' : ` (${typed})`}`, 'ok');
+    }
+    changed = true;
+  });
+  if(changed){ saveState(); renderPanel(); }
+}
+
 function cmd_tag(idsStr, action, value){
   action = (action || '').toLowerCase();
   if(!['add','rm','set'].includes(action)){ print('usage: tag <id> add|rm|set <tag(s)>', 'err'); return; }
@@ -1236,6 +1554,39 @@ function cmd_tag(idsStr, action, value){
       t.tags = value.split(',').map(s=>s.trim()).filter(Boolean);
     }
     print(`#${t.id} tags: ${t.tags.join(', ') || '(none)'}`, 'ok');
+    changed = true;
+  });
+  if(changed){ saveState(); renderPanel(); }
+}
+
+// "mark 3" / "mark 3,5 off" — the dot in the margin, as a command rather than a tag
+// you have to spell. it writes an ordinary tag underneath (MARK_TAG) rather than a
+// field of its own, so a marked task is still filterable ("list +mark"), still
+// listed by "tags", and still undoable, with nothing new to store or migrate.
+function cmd_mark(idsStr, arg){
+  if(!featureOn('tags')){
+    print('mark writes a tag, and tags are switched off — nothing was marked.', 'err');
+    print('  turn them back on with:  set tags on', 'info');
+    return;
+  }
+  const ids = splitIds(idsStr);
+  if(ids.length === 0){ print('mark needs a task id, e.g. mark 3  ("mark 3 off" clears it)', 'err'); return; }
+  const off = /^(off|no|none|rm|remove|clear)$/i.test((arg || '').trim());
+  let changed = false;
+  ids.forEach(idStr => {
+    const t = findTask(idStr);
+    if(!t){ print(`no task #${idStr}`, 'err'); return; }
+    if(!t.tags) t.tags = [];
+    // clearing strips every spelling that counts as marked, not just the canonical
+    // one — otherwise a task tagged with the older "important" would keep its dot
+    // after being told to drop it.
+    if(off){
+      t.tags = t.tags.filter(x => !isMarkTag(x));
+      print(`#${t.id} unmarked`, 'ok');
+    } else {
+      if(!t.tags.some(isMarkTag)) t.tags.push(MARK_TAG);
+      print(`#${t.id} marked ${SPECIAL_TAGS.find(e => e[0] === MARK_TAG)[1]}`, 'ok');
+    }
     changed = true;
   });
   if(changed){ saveState(); renderPanel(); }
@@ -1389,7 +1740,7 @@ function printFramed(rows, summary, closingRule){
   // hanging-indented: a title long enough to wrap picks its continuation up under
   // its own first letter, not back at column 0 behind the [id] — same technique
   // printHanging already uses for help text, applied here via each row's .indent.
-  rows.forEach(r => r.segments ? printSegments(r.segments, r.indent) : printHanging(r.text, r.indent, r.cls));
+  rows.forEach(r => r.segments ? printSegments(r.segments, r.indent, r.cls) : printHanging(r.text, r.indent, r.cls));
   if(closingRule) print(rule, 'info rule');
   if(summary) print(summary, 'info');
 }
@@ -1409,6 +1760,7 @@ const FIELD_LABELS = {
   project:   'proj',
   tag:       'tag',
   due:       'due',
+  est:       'est',
   age:       'created',
   completed: 'completed',
 };
@@ -1428,13 +1780,79 @@ function detailFields(t, extra){
   // creates are one thing; the display shouldn't imply otherwise.
   if(t.tags && featureOn('tags')) t.tags.forEach(tag => field(FIELD_LABELS.tag, tag));
   if(t.due && featureOn('due')) field(FIELD_LABELS.due, dueText(t.due));
+  // after due rather than before it: they answer "when" and "how long", and the
+  // deadline is the one you scan for first.
+  if(t.est && featureOn('est')) field(FIELD_LABELS.est, estText(t.est));
   if(showAge && t.createdAt) field(FIELD_LABELS.age, taskAgeText(t.createdAt));
   (extra || []).forEach(f => fields.push(f));
   return fields;
 }
 
-// every row this feeds (task list, archive) starts life as "  [<id>] <title>…" —
-// the hanging-indent column a wrapped title's continuation should land on, one
+// ---------- gutter marks ----------
+// a handful of tag names mean something to the app rather than only to you, and
+// earn a mark in the margin left of the [id]. the point is a column you can run
+// your eye down without reading any of the titles — which is also why there's
+// exactly one mark per task rather than a row of them: a margin with three symbols
+// in it is a second thing to decode, not a signal.
+//
+// tag names are matched loosely (see markOfTask): "very urgent", "very-urgent" and
+// "Very_Urgent" are the same tag as far as this is concerned, because the inline
+// "+tag" grammar can't carry a space and "tag 1 add "very urgent"" can.
+//
+// marks are free to be any symbol at all, in or out of the bundled font — see the
+// .row-mark span in buildAlignedRows for how that's made safe. the short version:
+// the row is *measured* as if every mark were MARK_WIDTH plain cells, and *drawn*
+// with the mark inside a box CSS pins to exactly that width, so a glyph the font
+// has to borrow from elsewhere can't drag the [id] column off line.
+// [tag name, symbol, older spellings that still count]. "important" and "marked"
+// are separate tags with deliberately similar dots: the big one says this matters,
+// the small one is a plain flag you put on something to find it again.
+//
+// the tag reads "marked" while the command is "mark" — the command is an
+// instruction ("mark 3") and the tag is the state it leaves behind ("[tag:marked]"),
+// which is how they'd be said out loud. "mark" is kept as an accepted spelling so
+// anything tagged before the rename keeps its dot and can still be cleared.
+const SPECIAL_TAGS = [
+  ['very urgent', '!!'],
+  ['urgent',      '!' ],
+  ['next',        '>' ],
+  ['important',   '●' ],
+  ['marked',      '•', ['mark']],
+];
+const ACTIVE_MARK = '>>';   // a status rather than a tag; "start" already sets it
+// the tag the "mark" command writes. named rather than inlined because the command,
+// the matcher and the help page all have to agree on it.
+const MARK_TAG = 'marked';
+// the widest mark decides the column, so every [id] lands in the same place
+// whether its task carries a mark or not.
+const MARK_WIDTH = Math.max(...SPECIAL_TAGS.map(([, m]) => m.length), ACTIVE_MARK.length);
+function normalizeTagName(s){ return String(s).toLowerCase().replace(/[-_\s]+/g, ' ').trim(); }
+// every spelling of a special tag: its name plus any older ones it absorbed.
+function specialTagNames(entry){ return [entry[0], ...(entry[2] || [])]; }
+// does this tag, however it was spelled, mean "marked"? the mark tag and its older
+// spellings only — "important" is its own tag with its own symbol, not a synonym.
+function isMarkTag(tag){
+  const entry = SPECIAL_TAGS.find(e => e[0] === MARK_TAG);
+  return !!entry && specialTagNames(entry).includes(normalizeTagName(tag));
+}
+// first match wins, in the order written above: loudest first, so a task that's
+// both urgent and merely marked reads as urgent. "active" sits between the two
+// exclamation marks and the quieter tag marks — it outranks a plan or a flag
+// because it's already underway, but not an actual emergency.
+function markOfTask(t, archived){
+  const tags = new Set((t.tags || []).map(normalizeTagName));
+  const marked = name => featureOn('tags') && tags.has(name);
+  if(marked('very urgent')) return '!!';
+  if(marked('urgent')) return '!';
+  // archived tasks keep their tag marks but never the active one — finishing a
+  // task doesn't clear its status field, and a "started" mark on something already
+  // done would be claiming it's in progress.
+  if(!archived && t.status === 'active') return ACTIVE_MARK;
+  for(const entry of SPECIAL_TAGS) if(specialTagNames(entry).some(marked)) return entry[1];
+  return '';
+}
+// every row this feeds (task list, archive) starts life as "<mark>[<id>] <title>…"
+// — the hanging-indent column a wrapped title's continuation should land on, one
 // past the closing bracket's own space, so it picks up under the title's first
 // letter instead of sliding back under the id.
 function bracketIndent(text){
@@ -1453,8 +1871,22 @@ function bracketIndent(text){
 // same height the accidental wrap was already costing and spends it on a straight
 // title column instead.
 //
-// items: [{ left, fields, cls, id }] — cls, if set, colors both of a task's rows
-// (e.g. overdue), so the pair still reads as one task.
+// items: [{ mark, body, fields, cls, id }] — cls, if set, colors both of a task's
+// rows (e.g. overdue), so the pair still reads as one task.
+//
+// mark and body stay apart rather than pre-joined, so the mark can be *measured* as
+// MARK_WIDTH plain cells while being *drawn* inside a .row-mark box CSS pins to
+// exactly that width. that's what lets a mark be any symbol at all: glyphs the
+// bundled font lacks get borrowed from whatever font the machine has, at whatever
+// width that font feels like, and the box absorbs the difference instead of the
+// [id] column doing it.
+//
+// two details that box depends on, both learned the hard way (see .row-mark in
+// momentum.css): it must never be empty — an inline-block with no line box takes
+// its baseline from its bottom edge, which drops it off the row — hence the
+// non-breaking space when there's no mark. and it must not set `overflow`, for
+// exactly the same reason, which is why an over-wide glyph is left to spill rather
+// than being clipped.
 //
 // isExpanded(id) decides whether a task's own metadata line actually prints —
 // defaulting to "always" keeps every existing caller (list/find/archive, all
@@ -1465,14 +1897,20 @@ function bracketIndent(text){
 // until you actually ask to see more of one.
 function buildAlignedRows(items, isExpanded){
   isExpanded = isExpanded || (() => true);
-  return items.flatMap(({ left, fields, cls, id }) => {
-    const indent = bracketIndent(left);
+  return items.flatMap(({ mark, body, fields, cls, id }) => {
+    mark = mark || '';
+    // everything that counts columns downstream — the frame width, the hanging
+    // indent, the metadata line's leading spaces — reads this, so they all agree on
+    // where the row starts whatever the mark draws as.
+    const text = mark.padStart(MARK_WIDTH) + body;
+    const indent = bracketIndent(text);
     const hasFields = fields.length > 0;
     const expanded = hasFields && isExpanded(id);
     // the toggle mark itself only exists when there's something behind it to
     // toggle — a bare task (nothing in `fields`) gets no [+] at all, not a dead
     // one that opens onto nothing.
-    const rows = [{ text: left, cls, indent, taskId: id, meta: false, toggle: hasFields ? { expanded } : null }];
+    const rows = [{ text, mark, body, cls, indent, taskId: id, meta: false, toggle: hasFields ? { expanded } : null,
+      segments: [{ text: mark || ' ', cls: 'row-mark' }, { text: body }] }];
     // dimmed as a whole line rather than as a trailing segment of a mixed one:
     // there's no bright title sharing the row for it to need contrasting against.
     if(expanded){
@@ -1500,7 +1938,7 @@ function buildTaskRows(list, archivedIds, isExpanded){
     if(archived) extra.push('[archived]');
     const fields = detailFields(t, extra);
     if(!archived && t.status === 'active') fields.unshift('[active]');   // the one thing the old [~] mark said that the id doesn't
-    return { left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined, id: t.id };
+    return { mark: markOfTask(t, archived), body: `[${String(t.id).padStart(idWidth)}] ${t.title}`, fields, cls: overdue ? 'err' : undefined, id: t.id };
   });
   return buildAlignedRows(items, isExpanded);
 }
@@ -1541,6 +1979,22 @@ function taskSummaryLine(list, total){
   const parts = [hiding ? `${list.length} of ${total} shown` : `${list.length} task${list.length === 1 ? '' : 's'}`];
   if(activeCount) parts.push(`${activeCount} active`);
   if(overdueCount) parts.push(`${overdueCount} overdue`);
+  // the one thing per-task estimates can say that the tasks can't say individually:
+  // what the whole list adds up to. it's the reason the field is minutes rather than
+  // a string, and the reason it's worth filling in — an estimate you can only read
+  // back one task at a time is just a note.
+  //
+  // says "of N" whenever some of the shown tasks have no estimate, because a total
+  // over a partly-estimated list is otherwise quietly wrong in the reassuring
+  // direction: it looks like the cost of everything when it's the cost of some of it.
+  if(featureOn('est')){
+    const estimated = list.filter(t => t.est);
+    if(estimated.length){
+      const sum = estimated.reduce((n, t) => n + t.est, 0);
+      const partial = estimated.length !== list.length ? ` (of ${estimated.length})` : '';
+      parts.push(`${estText(sum)} estimated${partial}`);
+    }
+  }
   return parts.join(' · ');
 }
 
@@ -1650,12 +2104,15 @@ function rowHtml(r, id){
   // of fields. it still carries data-id, so clicking the metadata targets the same
   // task as clicking its title.
   if(r.meta) return `<div class="${cls}" data-id="${id}" style="${style}">${escapeHtml(r.text)}</div>`;
-  const bracketEnd = r.text.indexOf(']') + 1;
-  const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(r.text.slice(0, bracketEnd))}</span>`;
+  // the mark gets its own fixed-width box so whatever font ends up drawing it can't
+  // shift the [id] beside it. never empty — see .row-mark for why a space matters.
+  const markHtml = `<span class="row-mark">${escapeHtml(r.mark || ' ')}</span>`;
+  const bracketEnd = r.body.indexOf(']') + 1;
+  const idHtml = `<span class="row-id" data-id="${id}">${escapeHtml(r.body.slice(0, bracketEnd))}</span>`;
   const toggleHtml = r.toggle
     ? ` <span class="row-toggle" data-id="${id}">${r.toggle.expanded ? '[-]' : '[+]'}</span>`
     : '';
-  return `<div class="${cls}" data-id="${id}" style="${style}">${idHtml}${escapeHtml(r.text.slice(bracketEnd))}${toggleHtml}</div>`;
+  return `<div class="${cls}" data-id="${id}" style="${style}">${markHtml}${idHtml}${escapeHtml(r.body.slice(bracketEnd))}${toggleHtml}</div>`;
 }
 
 // the always-visible task list — the pane above the console in split view, and the
@@ -1672,7 +2129,7 @@ function renderListPane(){
 
   if(tasks.length === 0){
     pane.innerHTML = head('nothing yet') +
-      `<div class="line info">nothing here yet — try:  add water the plants</div>`;
+      `<div class="line info">nothing here yet</div>`;
     return;
   }
   const shown = filterTasks(tasks, paneFilter);
@@ -1723,7 +2180,10 @@ function cmd_archive(...tokens){
 
   const idWidth = Math.max(...list.map(t => String(t.id).length));
   const items = list.map(t => ({
-    left: `  [${String(t.id).padStart(idWidth)}] ${t.title}`,
+    // archived: true, so a task that was active when it was completed doesn't keep
+    // claiming to be in progress here.
+    mark: markOfTask(t, true),
+    body: `[${String(t.id).padStart(idWidth)}] ${t.title}`,
     fields: detailFields(t, t.completedAt ? [`[${FIELD_LABELS.completed}:${new Date(t.completedAt).toLocaleDateString()}]`] : []),
     id: t.id
   }));
@@ -2091,7 +2551,28 @@ const SETTINGS = {
     // compose instead of multiplying into four named layouts.
     label: 'flip the two columns left-for-right',
     get: () => mirrored,
-    apply: v => { mirrored = v; applyView(); },
+    // the side column keeps the same numeric width whichever edge it's against,
+    // so flipping edges alone swings the divider from X% to (100-X)% of the
+    // window — a jump. swapping in the complement here means the column that
+    // lands on the new edge fills exactly the space the *other* column used to
+    // fill there, so the divider itself never moves; only the two panels' contents
+    // trade places across it.
+    apply: v => {
+      mirrored = v;
+      const ratio = viewMode === 'tasks' ? taskPaneRatio : artPaneRatio;
+      // the divider itself has width (see #col-divider's flex-basis in
+      // momentum.css), which the plain 100-minus-ratio complement doesn't
+      // account for — left uncorrected, the divider still drifts by that
+      // width on every flip. measuring it here keeps the correction exact
+      // instead of baking in a guessed constant.
+      const main = document.getElementById('main');
+      const divider = document.getElementById('col-divider');
+      const totalW = main ? main.getBoundingClientRect().width : 0;
+      const dividerPct = totalW && divider ? (divider.getBoundingClientRect().width / totalW) * 100 : 0;
+      const flipped = Math.min(SIDE_MAX, Math.max(SIDE_MIN, 100 - ratio - dividerPct));
+      if(viewMode === 'tasks') taskPaneRatio = flipped; else artPaneRatio = flipped;
+      applyView();
+    },
     // there are no left and right columns to trade while the layout is stacked,
     // so the flag is recorded for a wider screen and says so instead of claiming
     // a move you can't see happen.
@@ -2136,6 +2617,14 @@ const FEATURES = {
     said: v => v
       ? 'due dates on — every date that was set is still set.'
       : 'due dates off — no more [due:…], no [OVERDUE], and overdue tasks stop sorting to the top. the dates themselves are kept.',
+  },
+  est: {
+    label: 'estimates — the est command, -est flag, [est] field and the list total',
+    get: () => featureOn('est'),
+    apply: v => { features.est = v; renderPanel(); },
+    said: v => v
+      ? 'estimates on — every estimate that was set is still set.'
+      : 'estimates off — no more [est:…] and no total on the list. the estimates themselves are kept.',
   },
   tags: {
     label: 'tags — the tag/tags commands, -t flag and filter, and the [tag] fields',
@@ -2249,6 +2738,269 @@ function cmd_theme(arg){
   theme = target;
   applyTheme();
   print(`switched to ${theme} mode.`, 'ok');
+  saveState();
+}
+
+// ---------- font ----------
+// "font" alone prints a numbered menu and "font 3" picks from it, rather than
+// "font <name>" only: the names are the one thing you can't be expected to know
+// (which of these does this machine even have?), so the command has to answer that
+// before it can ask you to choose. the number is a handle onto the list you're
+// looking at, exactly like "gallery show 3" is.
+//
+// the list is filtered to fonts that are actually present and actually fixed-width
+// — see fontAvailable/isMonospace. offering one that isn't installed would mean
+// picking it silently changed nothing, and offering a proportional one would mean
+// picking it broke the ascii art; neither is a choice worth putting in front of
+// someone. a name typed directly still works for anything the browser can resolve,
+// which is the escape hatch for a font this list didn't think to include.
+//
+// bundled families skip the availability probe, and have to: a browser only
+// downloads a webfont once something on the page is actually rendered in it, so
+// measuring one you haven't selected yet returns the *fallback's* metrics and reads
+// as "not installed" — which would have hidden every bundled font except the one
+// already in use, i.e. exactly the ones you'd want to switch to. the manifest is
+// the authority for those anyway: they ship in the folder, so they exist.
+// isMonospace still applies to them, and is truthful because installBundledFonts
+// pre-loads the faces at boot.
+function selectableFonts(){
+  return allFonts().filter(f => (f.bundled || fontAvailable(f.family)) && isMonospace(f.family));
+}
+
+function cmd_font(arg){
+  const list = selectableFonts();
+
+  // "font size ..." is a subcommand rather than its own top-level word, for the
+  // reason "block size"/"block count" already are: face and size are the two halves
+  // of one question ("what does the text look like"), and splitting them across two
+  // commands means finding out about one of them tells you nothing about the other.
+  const words = String(arg || '').trim().split(/\s+/);
+  const sub = (words[0] || '').toLowerCase();
+  if(sub === 'size') return cmd_fontSize(words.slice(1).join(' '));
+  if(sub === 'info') return cmd_fontInfo();
+  // stepping, both directions. cycling forward is the whole point — trying fonts on
+  // is a browsing motion, not a lookup one, and "font next" a dozen times is how you
+  // find the one you like — but overshooting by one is then the obvious next
+  // frustration, so back is here too rather than making you go round again.
+  if(['next','n','forward','+'].includes(sub)) return stepFont(1);
+  if(['prev','previous','p','back','-'].includes(sub)) return stepFont(-1);
+
+  if(!arg){
+    print('fonts  —  pick one with:  font <number>');
+    // headings from the fonts/ subfolders, plus one for whatever the machine
+    // brought. two dozen names in a single column is a wall you read all of to
+    // find any of it — the same reason "help" is grouped rather than flat — and
+    // these categories are the axis you'd actually choose along ("something
+    // retro") rather than an alphabet you'd have to already know your way around.
+    const w = String(list.length).length;
+    let heading = null;
+    list.forEach((f, i) => {
+      const group = f.bundled ? (f.category || 'bundled') : 'on this computer';
+      if(group !== heading){
+        heading = group;
+        print('');
+        print(`  ${group}`, 'info');
+      }
+      const here = f.id === fontId;
+      printSegments([
+        { text: `  ${String(i + 1).padStart(w)}.  `, cls: here ? undefined : 'info' },
+        { text: f.name, cls: here ? 'ok' : undefined },
+        { text: here ? '   ← current' : '', cls: 'info' },
+      ], w + 6);
+    });
+    print('');
+    printHanging('the grouped ones ship with the app and look the same everywhere; the last group is whatever this computer already has.', 0, 'info');
+    // the folder is the point of the feature, so the list says how to grow it
+    // rather than leaving that in the README only.
+    printHanging('to add your own: drop a .woff2 into fonts/, run "python3 build_font_data.py", reload.', 0, 'info');
+    printHanging('text too big or small? "font size 16".', 0, 'info');
+    return;
+  }
+
+  const raw = String(arg).trim();
+  // a number is an index into what was just printed; anything else is a name.
+  const n = /^\d+$/.test(raw) ? Number(raw) : null;
+  if(n !== null){
+    if(n < 1 || n > list.length){
+      print(`there's no font ${n} — the list runs 1 to ${list.length}. "font" prints it.`, 'err');
+      return;
+    }
+    return setFont(list[n - 1]);
+  }
+
+  const key = raw.toLowerCase();
+  const found = allFonts().find(f => f.id === key || f.name.toLowerCase() === key);
+  if(found){
+    if(!fontAvailable(found.family)){
+      print(`"${found.name}" isn't installed on this computer, so picking it would change nothing.`, 'err');
+      print('  "font" lists the ones that are.', 'info');
+      return;
+    }
+    return setFont(found);
+  }
+
+  // not in the list, but the browser may still know it — a font this app has never
+  // heard of is a perfectly good answer to "what do you want to read in", so it's
+  // tried rather than refused. the two checks it has to clear are the same two the
+  // list is filtered on, just reported instead of silently applied.
+  if(!fontAvailable(raw)){
+    // the same did-you-mean bar suggestCommand and cmd_set use, over the font
+    // names instead of the command names.
+    let guess = null, best = Infinity;
+    list.forEach(f => { const d = editDistance(key, f.name.toLowerCase()); if(d < best){ best = d; guess = f.name; } });
+    if(best > (key.length <= 4 ? 1 : 2)) guess = null;
+    print(`no font "${raw}" here${guess ? ` — did you mean "${guess}"?` : ' — and this computer doesn\'t have one by that name either.'}`, 'err');
+    if(!guess) print('  "font" lists what\'s available.', 'info');
+    return;
+  }
+  // recorded as *the* custom font before setFont runs, since that's what makes
+  // fontEntry able to resolve it a moment later — and what makes it survive a
+  // reload. the name keeps the capitalisation you typed; only the id is lowered,
+  // so picking the same font twice is recognised however you spell it.
+  customFont = { id: key, name: raw, family: raw };
+  setFont(customFont, !isMonospace(raw));
+}
+
+// "font size" — the number is the app's body text size in px, which is the one you
+// actually read; everything else on screen is drawn in proportion to it and moves
+// with it (see --font-scale). relative steps are here too because "a bit bigger" is
+// the actual thought most of the time, and making you first find out what the
+// current number is just to add two to it is a step for nothing.
+function cmd_fontSize(arg){
+  const raw = String(arg || '').trim().toLowerCase();
+
+  if(!raw){
+    print(`font size: ${fontSize}px${fontSize === FONT_SIZE_DEFAULT ? ' (the default)' : ''}`, 'info');
+    printHanging(`  set it with:  font size <${FONT_SIZE_MIN}-${FONT_SIZE_MAX}>  ·  font size +2  ·  font size -2  ·  font size reset`, 2, 'info');
+    return;
+  }
+
+  if(['reset','default','auto'].includes(raw)) return setFontSize(FONT_SIZE_DEFAULT, 'reset');
+
+  // "+2" / "-2" step from where you are; a bare number is the size itself. the sign
+  // is what tells them apart, so "+13" and "13" mean genuinely different things —
+  // which is why the relative form requires the + rather than accepting it either way.
+  const rel = raw.match(/^([+-])\s*(\d+)$/);
+  if(rel){
+    const delta = Number(rel[2]) * (rel[1] === '-' ? -1 : 1);
+    const target = fontSize + delta;
+    // clamping silently would make a repeated "font size +2" look like it stopped
+    // working for no reason, so hitting the end of the range says so.
+    if(target < FONT_SIZE_MIN || target > FONT_SIZE_MAX){
+      const edge = target < FONT_SIZE_MIN ? FONT_SIZE_MIN : FONT_SIZE_MAX;
+      if(fontSize === edge){ print(`already at ${edge}px, which is as ${target < FONT_SIZE_MIN ? 'small' : 'large'} as it goes.`, 'info'); return; }
+      return setFontSize(edge);
+    }
+    return setFontSize(target);
+  }
+
+  const n = raw.match(/^(\d+)(?:px)?$/);
+  if(!n){
+    print(`"${arg}" isn't a font size — give a number, e.g. font size 16 (or +2 / -2 / reset)`, 'err');
+    return;
+  }
+  const size = Number(n[1]);
+  if(size < FONT_SIZE_MIN || size > FONT_SIZE_MAX){
+    print(`font size runs ${FONT_SIZE_MIN} to ${FONT_SIZE_MAX} — ${size} is outside it.`, 'err');
+    print(`  below ${FONT_SIZE_MIN} the details line stops being legible; above ${FONT_SIZE_MAX} task titles stop fitting the pane.`, 'info');
+    return;
+  }
+  setFontSize(size);
+}
+
+function setFontSize(size, how){
+  if(size === fontSize){
+    print(how === 'reset' ? `already at the default ${size}px.` : `already at ${size}px.`, 'info');
+    return;
+  }
+  fontSize = size;
+  applyFontScale();
+  print(`font size: ${size}px${how === 'reset' ? ' (the default)' : ''}`, 'ok');
+  // the reveal grid is measured in character cells, so a size change moves every
+  // one of them — the panel has to be rebuilt at the new metrics rather than left
+  // showing a grid computed for the old size.
+  renderPanel();
+  saveState();
+}
+
+// the one place the font actually changes, so every route in (number, name, or a
+// family only the browser knows about) leaves the same state behind and says the
+// same thing.
+// one step through the list "font" prints, wrapping at both ends. wrapping rather
+// than stopping because there's no meaningful "last" font — the order is alphabetical
+// within folders, so an end of the list isn't a destination, it's just where the
+// alphabet ran out, and stopping dead there would read as broken.
+//
+// the number is echoed along with the name so a browse leaves you knowing where you
+// landed: after eight "font next" presses, "12/25" is what lets you type "font 12"
+// tomorrow instead of pressing it eight more times.
+function stepFont(dir){
+  const list = selectableFonts();
+  if(list.length < 2){ print('there\'s only one font available, so there\'s nothing to step to.', 'info'); return; }
+  // a font set by name that isn't in the list has no position to step from, so a
+  // step lands at the start rather than nowhere.
+  const at = list.findIndex(f => f.id === fontId);
+  const next = at === -1 ? 0 : (at + dir + list.length) % list.length;
+  const entry = list[next];
+  fontId = entry.id;
+  applyFont();
+  printSegments([
+    { text: `font: ${entry.name}` },
+    { text: `   ${next + 1}/${list.length}${entry.category ? ` · ${entry.category}` : ''}`, cls: 'info' },
+  ]);
+  renderPanel();
+  saveState();
+}
+
+// "font info" — what you're looking at right now, in one block. the category is
+// here because it's the half of a font's identity the name doesn't carry: "Nova
+// Mono" tells you nothing about it being the futuristic one, and that's exactly
+// the thing you'd want to know when deciding whether to keep browsing.
+function cmd_fontInfo(){
+  const list = selectableFonts();
+  const entry = fontEntry(fontId) || { id: fontId, name: fontId, family: fontId };
+  const at = list.findIndex(f => f.id === fontId);
+  // "is it in the list" has to be asked of allFonts directly rather than through
+  // fontEntry, which also resolves the typed-in custom font — the whole point of
+  // this row is telling those two apart.
+  const listed = allFonts().some(f => f.id === fontId);
+  const rows = [
+    ['name', entry.name],
+    ['style', entry.category || (entry.bundled ? 'uncategorised' : 'no category — a plain system face')],
+    ['source', entry.bundled ? 'bundled with the app (fonts/)'
+             : listed        ? 'installed on this computer'
+             :                 'installed on this computer, typed in by name (not in the list)'],
+    ['size', `${fontSize}px${fontSize === FONT_SIZE_DEFAULT ? '  (the default)' : ''}`],
+  ];
+  // weights only when there's more than one, since "weights: 400" is a fact about
+  // every font that has ever existed and tells you nothing.
+  const files = ((window.FONT_DATA && window.FONT_DATA.families) || []).find(f => f.id === entry.id);
+  if(files && files.files && files.files.length > 1){
+    rows.push(['weights', [...new Set(files.files.map(f => f.weight))].sort((a,b)=>a-b).join(', ')]);
+  }
+  if(at !== -1) rows.push(['in the list', `${at + 1} of ${list.length}   ("font ${at + 1}" comes back here)`]);
+  if(!isMonospace(entry.family)) rows.push(['note', 'not fixed-width — the ascii art and [id] columns will look ragged']);
+
+  const w = Math.max(...rows.map(r => r[0].length));
+  rows.forEach(([k, v]) => printSegments([
+    { text: `  ${k.padEnd(w)}   `, cls: 'info' },
+    { text: v, cls: k === 'note' ? 'err' : undefined },
+  ], w + 5));
+}
+
+function setFont(entry, proportional){
+  if(entry.id === fontId){ print(`already using ${entry.name}.`, 'info'); return; }
+  fontId = entry.id;
+  applyFont();
+  print(`font: ${entry.name}.`, 'ok');
+  // a warning rather than a refusal — it's your app to make ugly if you want. but
+  // it has to be said out loud, because the damage shows up in the reveal panel
+  // rather than in the text you were looking at when you typed this, and "my ascii
+  // art went crooked" is a hard thing to connect back to a font you set earlier.
+  if(proportional){
+    printHanging(`heads up: ${entry.name} isn't fixed-width, so the ascii art and the aligned [id] columns will look ragged. "font 1" puts it back.`, 0, 'err');
+  }
+  renderPanel();
   saveState();
 }
 
@@ -2778,7 +3530,7 @@ function cmd_gallery(sub, ...rest){
 // file picker and returns), so a snapshot taken around the command would always be
 // of an unchanged state. it records its own undo entry from inside the FileReader
 // callback that does the actual replacing — see cmd_import.
-const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','project','recover','close','next','reveal','hide','block','character','archive','restore','gallery']);
+const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','mark','project','recover','close','next','reveal','hide','block','character','archive','restore','gallery']);
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -2846,8 +3598,13 @@ function dispatch(cmd, rest){
     // flag can't do that — it has no way to know where the date ends and the title
     // resumes — so there it's "-d "2 weeks"", which tokenize() already handles.
     case 'due': cmd_due(rest[0], rest.slice(1).join(' ')); break;
+    // joined for the same reason "due" joins: "est 3 1h 30m" and "est 3 90 minutes"
+    // are spellings the parser accepts, and only the command form has an unambiguous
+    // end-of-value to let them through unquoted.
+    case 'est': cmd_est(rest[0], rest.slice(1).join(' ')); break;
     case 'tag': cmd_tag(rest[0], rest[1], rest[2]); break;
     case 'tags': cmd_tags(); break;
+    case 'mark': cmd_mark(rest[0], rest[1]); break;
     case 'project': cmd_project(rest[0], ...rest.slice(1)); break;
     case 'projects': cmd_project('list'); break;
     case 'list': cmd_list(rest); break;
@@ -2863,7 +3620,18 @@ function dispatch(cmd, rest){
     case 'view': cmd_view(rest[0]); break;
     case 'split': cmd_split(rest[0]); break;
     case 'set': cmd_set(rest[0], rest[1]); break;
-    case 'theme': cmd_theme(rest[0]); break;
+    // "switch font" is the phrasing that comes to mind first, and "switch" is
+    // already an old spelling of "theme" — so it lands here rather than on the font
+    // command, and would otherwise answer "usage: theme <amber|night|...>" to a
+    // request that has nothing to do with themes. handed straight over instead.
+    // "theme font" gets the same treatment for the same one line.
+    case 'theme':
+      if((rest[0] || '').toLowerCase() === 'font'){ cmd_font(rest.slice(1).join(' ')); break; }
+      cmd_theme(rest[0]); break;
+    // joined, not rest[0]: font names are mostly two and three words ("DejaVu Sans
+    // Mono", "Courier New"), and requiring quotes around the thing the list just
+    // printed at you would be its own small insult. same reasoning as "due".
+    case 'font': cmd_font(rest.join(' ')); break;
     // the display toggles "set" absorbed. they rewrite into it rather than having
     // their own implementations, so there's one code path per setting — the same
     // rule the SHORTCUTS map follows. bare "mirror" keeps toggling, which is what
@@ -2875,7 +3643,13 @@ function dispatch(cmd, rest){
     case 'statline': cmd_set('statline', rest[0]); break;
     case 'mirror': cmd_set('mirror', rest[0] || 'toggle'); break;
     case 'art': cmd_art(); break;
-    case 'next': return cmd_next();
+    // "next font" reads as one phrase and lands here, because "next" is already the
+    // skip-this-artwork command (and 'n'). handed over rather than skipping a piece
+    // at someone who was asking about typefaces — the same one-line interception
+    // "switch font" needs just above, for the same reason.
+    case 'next':
+      if((rest[0] || '').toLowerCase() === 'font'){ cmd_font('next'); break; }
+      return cmd_next();
     case 'reveal': return cmd_reveal();
     case 'hide': cmd_hide(); break;
     case 'block': return cmd_block(rest[0], rest.slice(1));
