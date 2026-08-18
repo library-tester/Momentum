@@ -224,7 +224,7 @@ let expandedTaskIds = new Set();
 // deliberately quiet — the two lines switched off here are the ones that report
 // numbers at you continuously, and a first screen with fewer of those reads as an app
 // rather than as a dashboard. every one of them is a "set" away, and "set" lists them.
-const DISPLAY_DEFAULTS = { title:true, statline:false, helpline:true, artline:false, mirror:true, age:false };
+const DISPLAY_DEFAULTS = { title:true, statline:false, helpline:true, artline:false, mirror:true, flip:false, age:false };
 let titleOn = DISPLAY_DEFAULTS.title;                    // the "MOMENTUM" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = DISPLAY_DEFAULTS.statline;              // the "N total · N completed · ..." summary line under the title
 let artLineOn = DISPLAY_DEFAULTS.artline;                // the "<piece> — 96/96 pieces · 100% · image mode" line above the art in the reveal panel
@@ -275,12 +275,19 @@ let activeProject = null;
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
-// 'art'   — the original layout: console left, reveal panel right (split adds the list pane above the console)
-// 'tasks' — console left, task list right instead. the reward system keeps running
-//           underneath either way (completions still credit reveal progress) — "art"/
-//           "display" still report and show it on demand even when it's not on screen.
+// which of the three panes gets a full-height column to itself; the other two share
+// the rest, split into two rows. see VIEW_SLOTS for the whole table.
+// 'art'   — the original layout: the picture in its own column, task list pinned above the console
+// 'tasks' — the task list takes that column instead, and the picture is what's pinned
+// 'cmd'   — the console takes it, and the two panels share the other column
+// the reward system keeps running whichever is chosen (completions still credit reveal
+// progress) — "art"/"display" report and show it on demand even when it's off screen.
 let viewMode = 'art';
-const VIEW_MODES = ['art', 'tasks'];
+const VIEW_MODES = ['art', 'tasks', 'cmd'];
+// "view commandline" is what most people reach for first and "view console"/"view
+// terminal" are what the rest reach for; they all mean the one view, which is spelled
+// "cmd" in the help row because that's the word worth having to type.
+const VIEW_ALIASES = { commandline: 'cmd', 'command-line': 'cmd', console: 'cmd', terminal: 'cmd', command: 'cmd' };
 // the side column's width is draggable in both views, via the same #col-divider,
 // and it's one width for both: "view" only decides *which* panel occupies that
 // column, so giving each view its own remembered ratio meant the divider jumped to
@@ -290,6 +297,11 @@ const VIEW_MODES = ['art', 'tasks'];
 let sidePaneRatio = 55;                                  // % of the window the side column takes, in either view — the old fixed art split, now just the default
 const SIDE_MIN = 15, SIDE_MAX = 70;
 let mirrored = DISPLAY_DEFAULTS.mirror;                  // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them. on by default, which with the "art" view puts the picture on the left and the task list + console on the right
+// the other axis: reverses the shared column, so the pane that fills it sits above the
+// fixed-height one instead of below. in the art view that's the console above the task
+// list — "set flip on". independent of "mirror" on purpose, the same way "view" and
+// "mirror" are: one decides which end, the other which edge.
+let flipped = DISPLAY_DEFAULTS.flip;
 
 // how big the image reveal blocks are, set by "block size <tier>". tiers are a
 // target *block count*, not a target pixel size — an earlier version measured
@@ -347,37 +359,78 @@ function applyTheme(){
 // everything that needs to know "is this thing actually visible right now" asks
 // here rather than testing splitOn, which is only ever half the answer.
 function listPaneVisible(){ return viewMode === 'tasks' || splitOn; }
-function revealPaneVisible(){ return viewMode === 'art' || splitOn; }
+// the art is on screen in three of the six (view x split) combinations now: as the
+// side panel in the art view, as the stacked one whenever split pins it, and — in the
+// cmd view — as the pane that fills the shared column, which "split" has no say over.
+function revealPaneVisible(){ return viewMode === 'art' || viewMode === 'cmd' || splitOn; }
 
-// puts the two panels in their slots for the current view and sizes them. the art
-// view keeps the reward art at the side and stacks the task list above the console;
-// the tasks view swaps the pair, so whichever panel isn't the headline is the one
-// "split" pins above the prompt. one panel is never in both places at once —
-// they're single elements that get moved, not duplicated.
+// there are three panes — the reward art, the task list, the console — and two places
+// to put them: a full-height column of its own, and a column split into two rows.
+// "view" picks which pane gets the column to itself; the other two share the rest.
+//
+//   view        own column     shared: fixed %     shared: fills the rest
+//   art         reveal panel   task list           console
+//   tasks       task list      reveal panel        console
+//   cmd         console        task list           reveal panel
+//
+// so the three slots below are roles, not identities, and every pane can play more
+// than one of them — which is what keeps "mirror" (which edge), "flip" (which end) and
+// "split" (whether the second row exists) composing with the view instead of
+// multiplying into a dozen named layouts.
+//
+// one invariant the rest of the app leans on: the console is only ever `side` or
+// `filler`, never `stacked` — so "split off", which hides the stacked slot, can never
+// hide the thing you type into.
+const VIEW_SLOTS = {
+  art:   { side: 'reveal-panel', stacked: 'list-pane',    filler: 'console' },
+  tasks: { side: 'list-pane',    stacked: 'reveal-panel', filler: 'console' },
+  cmd:   { side: 'console',      stacked: 'list-pane',    filler: 'reveal-panel' },
+};
 function applyView(){
-  const tasksView = viewMode === 'tasks';
-  const listPane = document.getElementById('list-pane');
-  const revealPane = document.getElementById('reveal-panel');
-  const stacked = tasksView ? revealPane : listPane;
-  const side    = tasksView ? listPane   : revealPane;
+  const slots = VIEW_SLOTS[viewMode] || VIEW_SLOTS.art;
+  const side = document.getElementById(slots.side);
+  const stacked = document.getElementById(slots.stacked);
+  const filler = document.getElementById(slots.filler);
 
-  document.body.classList.toggle('view-tasks', tasksView);
+  VIEW_MODES.forEach(m => document.body.classList.toggle(`view-${m}`, viewMode === m));
   document.body.classList.toggle('split', splitOn);
   document.body.classList.toggle('mirrored', mirrored);
+  document.body.classList.toggle('flipped', flipped);
 
-  // only move a panel when it's actually in the wrong place: re-parenting tears
-  // down and rebuilds an element's rendering, which would restart the tile fade
-  // transitions on every unrelated render.
+  // only move a pane when it's actually in the wrong place: re-parenting tears down
+  // and rebuilds an element's rendering, which would restart the tile fade
+  // transitions on every unrelated render — and, now that the console moves too,
+  // would scroll the terminal log back to the top and drop focus out of the input
+  // mid-command. those two are repaired below rather than avoided, since a genuine
+  // "view cmd" does have to move it.
   const wrap = document.getElementById('term-wrap');
   const main = document.getElementById('main');
+  const consoleEl = document.getElementById('console');
+  const output = document.getElementById('output');
+  const consoleMoving = (viewMode === 'cmd') !== (consoleEl.parentElement === main);
+  const scrollWas = output ? output.scrollTop : 0;
+  const hadFocus = document.activeElement === document.getElementById('cmd');
+
+  // order matters: the filler has to land after the divider, the stacked pane before
+  // it, and the side pane at the end of #main — assigning them in that order means
+  // each insert is a no-op when the pane is already where it belongs.
   if(wrap.firstElementChild !== stacked) wrap.insertBefore(stacked, wrap.firstElementChild);
+  if(wrap.lastElementChild !== filler) wrap.appendChild(filler);
   if(main.lastElementChild !== side) main.appendChild(side);
 
-  stacked.classList.add('slot-stacked'); stacked.classList.remove('slot-side');
-  side.classList.add('slot-side'); side.classList.remove('slot-stacked');
+  [[side, 'slot-side'], [stacked, 'slot-stacked'], [filler, 'slot-filler']].forEach(([el, role]) => {
+    el.classList.remove('slot-side', 'slot-stacked', 'slot-filler');
+    el.classList.add(role);
+  });
 
   stacked.style.flex = `0 0 ${splitRatio}%`;
   side.style.flex = `0 0 ${sidePaneRatio}%`;
+  filler.style.flex = '';                                  // the slot's own rule sizes it; an inline basis left over from a previous role would win over it
+
+  if(consoleMoving){
+    if(output) output.scrollTop = scrollWas;
+    if(hadFocus) document.getElementById('cmd').focus();
+  }
 
   if(listPaneVisible()) renderListPane();
 }
@@ -517,7 +570,7 @@ function materializeOrder(progress, total){
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, artLineOn, showAge, features,
-    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter, activeProject,
+    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, flipped, paneFilter, activeProject,
     helpLineOn,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
@@ -590,6 +643,7 @@ function applyStateSnapshot(data){
     : viewMode === 'tasks' ? data.taskPaneRatio : data.artPaneRatio;
   sidePaneRatio = Number.isFinite(savedSide) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, savedSide)) : 55;
   mirrored = data.mirrored === undefined ? false : !!data.mirrored;        // undefined: a save from before mirroring existed — unmirrored, as it looked then, whatever a fresh install now starts as
+  flipped = data.flipped === undefined ? false : !!data.flipped;           // same: before "flip" existed the console was always the lower of the two rows
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;

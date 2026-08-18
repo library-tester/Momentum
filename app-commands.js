@@ -234,11 +234,12 @@ const COMMANDS = [
   { usage: 'mode [ascii|image]', desc: 'show or switch the reveal mode' },
   { usage: 'folders [<number>]', desc: 'list the image_art folders, or flip one in/out of the random pool',
     extra: ['(exclude <number> / include <number> force a direction instead)'] },
-  { usage: 'view [art|tasks]', desc: 'which panel gets the right-hand column: the reward art, or your task list',
-    extra: ['(the tasks view\'s column boundary is draggable too)'] },
-  { usage: 'split [on|off]', desc: 'pin the *other* panel above the console — the task list in the art',
-    extra: ['view, the reward art in the tasks view',
-            '(drag the divider between them to resize)'] },
+  { usage: 'view [art|tasks|cmd]', desc: 'which pane gets a column to itself — the art, your task list,',
+    extra: ['or the console ("view commandline" works too). the other two share the',
+            'rest of the screen; drag either boundary to resize.'] },
+  { usage: 'split [on|off]', desc: 'pin the second pane in the shared column — the task list in the',
+    extra: ['art and cmd views, the reward art in the tasks view',
+            '("set flip on" puts it under the other one instead of over it)'] },
   { usage: 'set [<key>] [on|off|toggle]', desc: 'every on/off switch, display and feature alike',
     extra: ['bare "set" (or "help set") lists them all with their current state',
             '(title/statline/mirror still work as their own commands)'] },
@@ -2605,14 +2606,21 @@ function cmd_exclude(tokens){
   if(args) applyFolderChange(args.folders, args.chosen, 'exclude');
 }
 
-// which panel gets the full-height column of its own. the other one is what
-// "split" pins above the console, so the two commands together cover all four
-// arrangements without either of them growing a third setting. which *edge* that
-// column is against is mirror's business, hence sideEdge/consoleEdge.
-function sideName(){ return viewMode === 'tasks' ? 'your task list' : 'the reward art'; }
-function stackedName(){ return viewMode === 'tasks' ? 'the reward art' : 'your task list'; }
+// the three panes by the role the current view gives them (see VIEW_SLOTS), in the
+// words the messages below use. "split" pins the stacked one; "mirror" decides which
+// edge the side column is against; "flip" decides which end of the shared column the
+// filler is at. four small independent settings rather than a name for each of the
+// arrangements they add up to.
+const PANE_NAMES = { 'reveal-panel': 'the reward art', 'list-pane': 'your task list', 'console': 'the console' };
+function paneName(role){ return PANE_NAMES[(VIEW_SLOTS[viewMode] || VIEW_SLOTS.art)[role]]; }
+function sideName(){ return paneName('side'); }
+function stackedName(){ return paneName('stacked'); }
+function fillerName(){ return paneName('filler'); }
 function sideEdge(){ return mirrored ? 'left' : 'right'; }
 function consoleEdge(){ return mirrored ? 'right' : 'left'; }
+// the shared column's two ends, which "flip" swaps.
+function upperName(){ return flipped ? fillerName() : stackedName(); }
+function lowerName(){ return flipped ? stackedName() : fillerName(); }
 // on a narrow screen the stylesheet stacks the columns and drops the stacked
 // panel entirely (see the max-width breakpoint in momentum.css) — so every
 // sentence in this file about left/right columns and what "split" pins is simply
@@ -2625,30 +2633,37 @@ function stackedLayout(){
 }
 function describeLayout(){
   if(stackedLayout()){
-    const other = viewMode === 'tasks' ? 'art' : 'tasks';
-    return `  ${sideName()} above the console — narrow screen, one panel at a time.`
-      + `  ("view ${other}" swaps it for ${stackedName()}.)`;
+    const others = VIEW_MODES.filter(m => m !== viewMode).join('/');
+    return `  ${sideName()} and ${fillerName()} — narrow screen, two panes at a time.`
+      + `  ("view ${others}" rearranges them.)`;
   }
-  return `  ${sideName()} on the ${sideEdge()}, console on the ${consoleEdge()}`
-    + (splitOn ? `, ${stackedName()} above it.` : `. "split on" pins ${stackedName()} above the console.`);
+  const otherEdge = mirrored ? 'right' : 'left';
+  return `  ${sideName()} on the ${sideEdge()}, ${fillerName()} on the ${otherEdge}`
+    + (splitOn
+        ? `, ${stackedName()} ${flipped ? 'below' : 'above'} it.`
+        : `. "split on" pins ${stackedName()} ${flipped ? 'below' : 'above'} it.`);
 }
 
 function cmd_view(arg){
   if(!arg){
-    print(`current view: ${viewMode}  (switch with: view art | view tasks)`, 'info');
+    print(`current view: ${viewMode}  (switch with: ${VIEW_MODES.map(m => 'view ' + m).join(' | ')})`, 'info');
     print(describeLayout(), 'info');
     return;
   }
-  const target = arg.toLowerCase();
+  // "view commandline" and "view console" mean "view cmd" — see VIEW_ALIASES.
+  const target = VIEW_ALIASES[arg.toLowerCase()] || arg.toLowerCase();
   if(!VIEW_MODES.includes(target)){ print(`usage: view <${VIEW_MODES.join('|')}>`, 'err'); return; }
   if(target === viewMode){ print(`already in the ${target} view`, 'info'); return; }
   viewMode = target;
   applyView();
-  renderPanel();      // the panel that just became visible was skipped while hidden — rebuild it
+  renderPanel();      // the pane that just became visible was skipped while hidden — rebuild it
   print(stackedLayout()
-    ? `view: ${viewMode} — ${sideName()} is the panel above the console now.`
-    : `view: ${viewMode} — ${sideName()} now has the ${sideEdge()}-hand column.`, 'ok');
+    ? `view: ${viewMode} — ${sideName()} shares the screen with ${fillerName()} now.`
+    : `view: ${viewMode} — ${sideName()} now has the ${sideEdge()}-hand column to itself.`, 'ok');
   print(describeLayout(), 'info');
+  // the art is the one pane that keeps working off screen, so it's the only one whose
+  // absence is worth a word — and only when it's actually gone, which in the cmd view
+  // it never is.
   if(!splitOn && viewMode === 'tasks'){
     print('(the art keeps uncovering while it\'s off screen — "art" reports where it is, "display" shows it full-screen)', 'info');
   }
@@ -2660,7 +2675,7 @@ function cmd_view(arg){
 function cmd_split(arg){
   if(!arg){
     print(`split view is ${splitOn ? 'on' : 'off'}  (turn it on/off with: split on | split off)`, 'info');
-    print(`  in the ${viewMode} view it pins ${stackedName()} above the console.`, 'info');
+    print(`  in the ${viewMode} view it pins ${stackedName()} ${flipped ? 'below' : 'above'} ${fillerName()}.`, 'info');
     return;
   }
   arg = arg.toLowerCase();
@@ -2671,8 +2686,8 @@ function cmd_split(arg){
   applyView();
   renderPanel();      // the panel that just appeared/vanished was skipped while hidden
   print(splitOn
-    ? `split view on — ${stackedName()} now stays put above the console. drag the divider between them to resize it.`
-    : 'split view off — back to the full-height console.', 'ok');
+    ? `split view on — ${stackedName()} now stays put ${flipped ? 'below' : 'above'} ${fillerName()}. drag the divider between them to resize it.`
+    : `split view off — ${fillerName()} has the whole column.`, 'ok');
   // saved either way, so it's already set the way you want it on a wider screen —
   // but on a phone there's only room for one panel and the setting has nothing to
   // show for itself, which is worth saying rather than leaving it looking broken.
@@ -2763,6 +2778,28 @@ const SETTINGS = {
       : v
         ? `mirrored — ${sideName()} is on the left now, the console on the right.`
         : `unmirrored — ${sideName()} is back on the right.`,
+  },
+  flip: {
+    // the other axis of "mirror": that one decides which *edge* the side column is
+    // against, this one which *end* of the shared column the filler is at. kept apart
+    // rather than folded into one two-axis command, because a single word answering
+    // "which way round?" for two different axes would need reading twice every time.
+    label: 'put the console above the stacked panel instead of below',
+    get: () => flipped,
+    // no complement of splitRatio here, deliberately — and this is where it differs
+    // from mirror just above. mirror swaps two columns of *different* widths and
+    // corrects the ratio so the divider doesn't jump, because the pane arriving at an
+    // edge should fill what the other one filled there. flip swaps two rows you
+    // deliberately sized against each other: a console you dragged to two-thirds is
+    // still a console you want two-thirds of once it's on top. so the panes keep
+    // their heights and the divider is the thing that moves — which is the whole
+    // visible point of the command.
+    apply: v => { flipped = v; applyView(); },
+    said: v => stackedLayout()
+      ? `${v ? 'flipped' : 'unflipped'} — saved, but a screen this narrow shows one pane above the console with nothing stacked, so there are no two rows to swap yet.`
+      : v
+        ? `flipped — ${upperName()} is the upper row now, ${lowerName()} below it.`
+        : `unflipped — ${upperName()} is back on top, ${lowerName()} below.`,
   },
   age: {
     label: '"[3d ago]" on each task\'s details line',

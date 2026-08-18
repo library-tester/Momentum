@@ -302,7 +302,17 @@ added #13 "draft the proposal" [proj:work]
 
 **A few things start switched off.** Bare `set` lists every switch with its current state, in two groups: how the app *looks*, and which *features* exist. Out of the box a task is a title, an estimate, tags and a project — `priority`, due dates and the `streak` heatmap are off, because meeting six fields at once is a lot and each one is a single `set priority on` away. Nothing is deleted by a feature being off, so switching one on later brings back every value you'd already set.
 
-**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set helpline off` drops the clickable command row under it, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
+**Three panes, two places.** The reward art, your task list and the console share the screen, and `view` decides which of the three gets a column to itself — the other two share the rest, split into two rows.
+
+```
+view art          the picture in its own column, task list pinned above the console
+view tasks        the task list takes that column, the picture is what's pinned
+view cmd          the console takes it, art and tasks share the other column
+```
+
+`view commandline`, `view console` and `view terminal` all mean `view cmd`. Two switches compose with whichever you pick: **`set mirror`** decides which *edge* the full-height column is against, and **`set flip`** which *end* of the shared column the big pane is at — `set flip on` in the art view puts the console above the task list instead of below it. Drag either boundary to resize; both positions are remembered.
+
+**The rest of the layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set helpline off` drops the clickable command row under it, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
 **And so is the font.** Twelve monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
 

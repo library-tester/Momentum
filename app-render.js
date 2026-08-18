@@ -827,14 +827,17 @@ function wireDivider(el, axis, onDrag){
   });
 }
 
-// the horizontal one: trades height between the stacked panel and the console,
-// measured down from the top of the left column. whichever panel is stacked in the
-// current view is the one being resized, so this reads the slot, not a fixed id.
+// the horizontal one: trades height between the two rows of the shared column.
+// whichever pane is stacked in the current view is the one being resized, so this
+// reads the slot, not a fixed id — and it's that pane's *own* height being set, so
+// the measurement runs inward from whichever end it's against, which "flip" swaps.
+// same shape as the column divider's mirrored/unmirrored measurement below.
 wireDivider(document.getElementById('split-divider'), 'row', (ev) => {
   const rect = document.getElementById('term-wrap').getBoundingClientRect();
   const pane = document.querySelector('.slot-stacked');
   if(!rect.height || !pane) return;
-  splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ((ev.clientY - rect.top) / rect.height) * 100));
+  const span = flipped ? rect.bottom - ev.clientY : ev.clientY - rect.top;
+  splitRatio = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, (span / rect.height) * 100));
   pane.style.flex = `0 0 ${splitRatio}%`;
 });
 

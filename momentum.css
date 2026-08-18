@@ -434,19 +434,28 @@
     min-width:280px;
   }
   /* ---- layout slots ----
-     there are two panels — the task list and the reward art — and two places to
-     put them: "stacked", pinned above the console and toggled by "split", and
-     "side", the full-height column beside it. the view decides which panel goes
-     where: the art view keeps the art at the side and stacks the task list, the
-     tasks view swaps them. applyView() moves the elements and sets these classes,
-     which is what lets the sizing be written once against the slot instead of
-     twice against each panel.
-     flex-basis is assigned inline from the live ratio, so only grow/shrink and the
-     things that don't vary live here. */
+     three panes — the task list, the reward art, the console — and three roles they
+     take turns in: "side" is the full-height column of its own, and the other column
+     is shared by "stacked" (a fixed share of its height, toggled by "split") and
+     "filler" (whatever height is left). "view" decides who plays what; see VIEW_SLOTS
+     in app-state.js for the table. applyView() moves the elements and sets these
+     classes, which is what lets the sizing be written once against the role instead
+     of three times against each pane.
+     flex-basis is assigned inline from the live ratio for side and stacked, so only
+     grow/shrink and the things that don't vary live here. filler takes no inline
+     size at all — it's defined as "the rest", which is exactly what flex:1 says. */
   .slot-side{ min-width:0; }
   .slot-stacked{ min-height:0; }
-  #list-pane.slot-side, #list-pane.slot-stacked{ display:block; }
-  #reveal-panel.slot-side, #reveal-panel.slot-stacked{ display:flex; }
+  .slot-filler{ flex:1; min-height:0; }
+  #list-pane.slot-side, #list-pane.slot-stacked, #list-pane.slot-filler{ display:block; }
+  #reveal-panel.slot-side, #reveal-panel.slot-stacked, #reveal-panel.slot-filler{ display:flex; }
+  /* the console is the one pane that's never "stacked" (see the invariant in
+     applyView), so it only needs the two roles it can actually take. */
+  #console.slot-side, #console.slot-filler{ display:flex; }
+  /* "flip": reverse the shared column, so the filler is the upper of the two rows and
+     the stacked pane the lower — in the art view, the console above the task list.
+     one rule on one axis, exactly as body.mirrored does for the other. */
+  body.flipped #term-wrap{ flex-direction:column-reverse; }
   /* split off: nothing is pinned above the console, so the stacked slot and its
      divider both go away and the console has the whole left column. */
   body:not(.split) #list-pane.slot-stacked,
@@ -589,7 +598,7 @@
      on which side is handled by the slots above, not here. the column boundary is
      draggable (#col-divider) in both views now, so this just drops the fixed 45%
      basis that only ever made sense for the art view's column split. */
-  body.view-tasks #term-wrap{
+  body.view-tasks #term-wrap, body.view-cmd #term-wrap{
     flex:1 1 auto;
   }
   /* The console is set like a page in a book. The command you typed is the heading:
@@ -795,6 +804,16 @@
        row axis. listing that mirrored rule here too overrides it, since left/right
        has nothing left to mean once the columns are stacked. */
     #main, body.mirrored #main{ flex-direction:column-reverse; }
+    /* except in the cmd view, where the side pane *is* the console: column-reverse
+       would put the thing you type into at the top of a phone screen, as far from the
+       keyboard as it gets. normal order there puts the art up and the console down,
+       which is what "view art" gives on this screen anyway. */
+    body.view-cmd #main{ flex-direction:column; }
+    /* "flip" has nothing to reverse here either — the stacked pane is hidden below,
+       so the shared column is one row deep. left listed rather than left to chance,
+       since a column-reverse on a single-child column is a no-op today and wouldn't
+       be if that ever changed. */
+    body.flipped #term-wrap{ flex-direction:column; }
     /* the console column's 280px minimum is wider than a small phone, and stacked
        it can only force a horizontal scrollbar. min-height:0 is what actually lets
        the console scroll internally instead of growing past the screen. */
