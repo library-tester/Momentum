@@ -42,7 +42,6 @@ listed first by the `font` command.
 | --- | --- | --- | --- |
 | **Azeret Mono** | Displaay, Martin Vácha | SIL OFL 1.1 | contemporary, slightly severe |
 | **DM Mono** | Colophon Foundry | SIL OFL 1.1 | low-contrast and calm |
-| **Xanh Mono** | Yellow Type, Lâm Bảo, Duy Dao | SIL OFL 1.1 | a serif monospace — unusual and elegant |
 
 ## Removing one
 

@@ -286,7 +286,7 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
 
 **The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
-**And so is the font.** Thirteen monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
+**And so is the font.** Twelve monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
 
 ```
 $ font
@@ -295,19 +295,19 @@ fonts  —  pick one with:  font <number>
   1.  IBM Plex Mono   ← current
 
   character
-  2.  Azeret Mono          … DM Mono, Xanh Mono
+  2.  Azeret Mono          … DM Mono
   futuristic
-  5.  B612 Mono            … Martian Mono
+  4.  B612 Mono            … Martian Mono
   modern
-  7.  Fira Code            … Inconsolata, JetBrains Mono, Roboto Mono, Source Code Pro
+  6.  Fira Code            … Inconsolata, JetBrains Mono, Roboto Mono, Source Code Pro
   retro
-  12. Courier Prime        … Space Mono
+  11. Courier Prime        … Space Mono
 
   on this computer
-  14. System monospace     … plus whatever else is installed
+  13. System monospace     … plus whatever else is installed
 ```
 
-Worth trying first: **Space Mono** is retro-futurist with real quirks, **Xanh Mono** is a serif monospace and genuinely unusual, **Martian Mono** is wide and engineered, and **B612 Mono** was drawn for aircraft cockpit displays. Every one is SIL Open Font Licensed — see [FONT_CREDITS.md](FONT_CREDITS.md) for designers and licences.
+Worth trying first: **Space Mono** is retro-futurist with real quirks, **Courier Prime** is Courier redrawn properly, **Martian Mono** is wide and engineered, and **B612 Mono** was drawn for aircraft cockpit displays. Every one is SIL Open Font Licensed — see [FONT_CREDITS.md](FONT_CREDITS.md) for designers and licences.
 
 **`font next`** steps to the next one and wraps at the end, which is the fastest way to actually try them on — `next font` and `font prev` do what they look like. **`font info`** says what you're currently in:
 
@@ -318,7 +318,7 @@ $ font info
   source        bundled with the app (fonts/)
   size          16px
   weights       400, 700
-  in the list   5 of 18   ("font 5" comes back here)
+  in the list   4 of 17   ("font 4" comes back here)
 ```
 
 The list only ever offers fonts that are genuinely installed and genuinely fixed-width, so nothing in it can silently do nothing or quietly wreck the ascii art. (You can still name any font you like directly — `font Iosevka` — and if it isn't monospace the app says so and lets you have it anyway.) `switch font` works too, for the muscle memory.

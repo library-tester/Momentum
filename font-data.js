@@ -3,7 +3,7 @@
 // fonts/, so the "font" command sees them (and so the app still works
 // offline, opened directly as a file:// with no server running).
 window.FONT_DATA = {
-  "generatedAt": "2026-08-18T13:17:29.529556+00:00",
+  "generatedAt": "2026-08-18T13:36:46.871761+00:00",
   "families": [
     {
       "id": "azeret-mono",
@@ -235,20 +235,6 @@ window.FONT_DATA = {
           "file": "fonts/retro/space-mono-700.woff2",
           "format": "woff2",
           "weight": 700,
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "id": "xanh-mono",
-      "family": "Xanh Mono",
-      "name": "Xanh Mono",
-      "category": "character",
-      "files": [
-        {
-          "file": "fonts/character/xanh-mono-400.woff2",
-          "format": "woff2",
-          "weight": 400,
           "style": "normal"
         }
       ]
