@@ -217,10 +217,19 @@ let galleryDetailIdx = null;
 // preference worth restoring on reload, and a stale id left in here from a task
 // that's since been deleted is harmless — it just never matches a rendered row.
 let expandedTaskIds = new Set();
-let titleOn = true;                                      // the "MOMENTUM — yet another task manager" banner — purely cosmetic, off just reclaims a bit of vertical space
-let statLineOn = true;                                   // the "N total · N completed · ..." summary line under the title
-let artLineOn = true;                                    // the "<piece> — 96/96 pieces · 100% · image mode" line above the art in the reveal panel
-let showAge = false;                                     // the "[created:3d ago]" detail field, computed from createdAt — see "set age". off by default: it's the one field that shows up on every task whether or not you gave it anything, and it's the least load-bearing of them
+// what the app looks like out of the box, in one place so these declarations and the
+// "a save from before this setting existed" fallbacks in loadState can't drift apart.
+// the shape it describes: title bar and the clickable command row on, the two status
+// lines (stat line, art caption) off, columns mirrored so the art sits on the left.
+// deliberately quiet — the two lines switched off here are the ones that report
+// numbers at you continuously, and a first screen with fewer of those reads as an app
+// rather than as a dashboard. every one of them is a "set" away, and "set" lists them.
+const DISPLAY_DEFAULTS = { title:true, statline:false, helpline:true, artline:false, mirror:true, age:false };
+let titleOn = DISPLAY_DEFAULTS.title;                    // the "MOMENTUM" banner — purely cosmetic, off just reclaims a bit of vertical space
+let statLineOn = DISPLAY_DEFAULTS.statline;              // the "N total · N completed · ..." summary line under the title
+let artLineOn = DISPLAY_DEFAULTS.artline;                // the "<piece> — 96/96 pieces · 100% · image mode" line above the art in the reveal panel
+let helpLineOn = DISPLAY_DEFAULTS.helpline;              // the clickable row of common commands under the stat line — see HELPLINE/renderHelpLine
+let showAge = DISPLAY_DEFAULTS.age;                      // the "[created:3d ago]" detail field, computed from createdAt — see "set age". off by default: it's the one field that shows up on every task whether or not you gave it anything, and it's the least load-bearing of them
 // ---------- feature flags ----------
 // the optional halves of the app, switchable from "set <feature> on|off". this
 // exists because the task fields kept being all-or-nothing: they were ripped out
@@ -238,10 +247,17 @@ let showAge = false;                                     // the "[created:3d ago
 //      same rule printShortcutsRow already follows for shortcuts.
 //   4. the fields vanish from list rows, sorting, stats and filters, which is the
 //      "cleaner list" the removal was originally reaching for.
-// all default on: an existing save (or a first run) behaves exactly as before,
-// and you only ever see a difference by asking for one.
-const FEATURE_KEYS = ['priority', 'due', 'est', 'tags', 'projects', 'streak'];
-let features = Object.fromEntries(FEATURE_KEYS.map(k => [k, true]));
+// a first run starts with the ones below set to true and the rest off — a task is a
+// title, an estimate, tags and a project, and that's already a lot to meet at once.
+// priority, due dates and the streak are each a whole extra field or command to learn,
+// and they're one "set priority on" away the moment you want them; nothing about a
+// task you've already written changes when you switch one on.
+// an existing *save* is treated differently — see loadState, where a key the save
+// doesn't mention still means "on", because there it means "this was in use when the
+// file was written" rather than "a new user hasn't asked for it".
+const DEFAULT_FEATURES = { priority:false, due:false, est:true, tags:true, projects:true, streak:false };
+const FEATURE_KEYS = Object.keys(DEFAULT_FEATURES);
+let features = { ...DEFAULT_FEATURES };
 function featureOn(key){ return features[key] !== false; }
 let excludedImageFolders = [];                           // top-level image_art/ subfolders left out of the random pool — see "exclude"/"include"
 // the standing filter on the always-visible task pane — same {status, proj, tag}
@@ -273,7 +289,7 @@ const VIEW_MODES = ['art', 'tasks'];
 // goes out of its way to preserve when it flips the columns end for end.
 let sidePaneRatio = 55;                                  // % of the window the side column takes, in either view — the old fixed art split, now just the default
 const SIDE_MIN = 15, SIDE_MAX = 70;
-let mirrored = false;                                    // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them
+let mirrored = DISPLAY_DEFAULTS.mirror;                  // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them. on by default, which with the "art" view puts the picture on the left and the task list + console on the right
 
 // how big the image reveal blocks are, set by "block size <tier>". tiers are a
 // target *block count*, not a target pixel size — an earlier version measured
@@ -382,6 +398,14 @@ function applyStatLine(){
 // ("click one, or gallery show <n>"), so only the live one is scoped by .reveal-title.
 function applyArtLine(){
   document.body.classList.toggle('no-artline', !artLineOn);
+}
+
+// the clickable command row. renders as well as toggles, because which commands it
+// can offer depends on the feature flags, and this runs at every moment those could
+// have changed underneath it — boot, undo, import, recover.
+function applyHelpLine(){
+  document.body.classList.toggle('no-helpline', !helpLineOn);
+  renderHelpLine();
 }
 
 const STORAGE_KEY = 'momentum-tasks-v1';
@@ -494,6 +518,7 @@ function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, artLineOn, showAge, features,
     blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter, activeProject,
+    helpLineOn,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -523,14 +548,25 @@ function applyStateSnapshot(data){
     : FONT_SIZE_DEFAULT;
   splitOn = data.splitOn === undefined ? true : !!data.splitOn;   // undefined: a save from before split defaulted on
   splitRatio = Number.isFinite(data.splitRatio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, data.splitRatio)) : 38;
+  // these fall back to how the app *looked when the save was written*, which is not
+  // always what DISPLAY_DEFAULTS says a fresh install gets — and the difference is
+  // deliberate, not drift. a save that predates a setting is someone already using
+  // the app; changing their layout underneath them because a default moved is the
+  // one thing an update shouldn't do. a brand-new install has no such history, so it
+  // gets the defaults. (nobody is stuck either way: "set" lists all of them.)
   titleOn = data.titleOn === undefined ? true : !!data.titleOn;   // undefined: a save from before this setting existed, when the title was always on
-  statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn
-  artLineOn = data.artLineOn === undefined ? true : !!data.artLineOn;      // same reasoning again — a save from before it could be switched off had it on
-  showAge = data.showAge === undefined ? false : !!data.showAge;  // undefined: a save from before this setting existed. unlike titleOn above it defaults *off*, matching the declaration — see the note there
+  statLineOn = data.statLineOn === undefined ? true : !!data.statLineOn;   // same reasoning as titleOn — it was on then, so it stays on
+  artLineOn = data.artLineOn === undefined ? true : !!data.artLineOn;      // same again: the caption was always drawn before it could be switched off
+  helpLineOn = data.helpLineOn === undefined ? true : !!data.helpLineOn;   // the one exception, on purpose: a returning user should meet the new row rather than have to hear it exists
+  showAge = data.showAge === undefined ? false : !!data.showAge;  // undefined: a save from before this setting existed, when there was no age field to show
   // read key by key rather than trusted wholesale, so a save from before feature
   // flags existed (or one naming a feature this version has since dropped) still
   // lands on "everything on" — the state it was actually written in — instead of
   // silently switching half the app off.
+  // note this does NOT fall back to DEFAULT_FEATURES: a key an existing save doesn't
+  // mention means the feature was in use when it was written (it predates the flag),
+  // so "on" is what preserves that file's meaning. DEFAULT_FEATURES is for a first
+  // run, where the same silence means "nobody has asked for this yet".
   features = Object.fromEntries(FEATURE_KEYS.map(k => [k, (data.features || {})[k] !== false]));
   excludedImageFolders = Array.isArray(data.excludedImageFolders) ? data.excludedImageFolders : [];
   // rebuilt field by field rather than trusted wholesale: a saved filter is the one
@@ -553,7 +589,7 @@ function applyStateSnapshot(data){
   const savedSide = Number.isFinite(data.sidePaneRatio) ? data.sidePaneRatio
     : viewMode === 'tasks' ? data.taskPaneRatio : data.artPaneRatio;
   sidePaneRatio = Number.isFinite(savedSide) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, savedSide)) : 55;
-  mirrored = !!data.mirrored;                                              // undefined: a save from before mirroring existed — unmirrored, as it looked then
+  mirrored = data.mirrored === undefined ? false : !!data.mirrored;        // undefined: a save from before mirroring existed — unmirrored, as it looked then, whatever a fresh install now starts as
   blockSizePref = sanitizeBlockSizePref(data.blockSizePref);
   blockCountOverride = Number.isFinite(data.blockCountOverride) && data.blockCountOverride > 0
     ? Math.min(BLOCK_COUNT_MAX, Math.round(data.blockCountOverride)) : null;
@@ -589,6 +625,7 @@ async function cmd_undo(){
   applyTitle();
   applyStatLine();
   applyArtLine();
+  applyHelpLine();
   await Promise.all([asciiTrack.resync(), imageTrack.resync()]);   // in case we rewound past a piece switch
   asciiTrack.pruneMissing(); imageTrack.pruneMissing();            // ditto for a since-deleted piece the rewind brought back
   saveState();
@@ -635,6 +672,7 @@ async function loadState(){
   applyTitle();
   applyStatLine();
   applyArtLine();
+  applyHelpLine();
   try{
     await Promise.all([asciiTrack.init(), imageTrack.init()]);
     // a piece collected in an earlier session can have been deleted from disk
@@ -955,7 +993,7 @@ function cmd_recover(arg){
     `recover ${n}`,
     async () => {
       applyStateSnapshot(chosen.data);
-      applyTheme(); applyFont(); applyView(); applyTitle(); applyStatLine(); applyArtLine();
+      applyTheme(); applyFont(); applyView(); applyTitle(); applyStatLine(); applyArtLine(); applyHelpLine();
       await Promise.all([asciiTrack.resync(), imageTrack.resync()]);
       asciiTrack.pruneMissing(); imageTrack.pruneMissing();
       saveState(); renderPanel(); cmd_list([]);

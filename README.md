@@ -82,6 +82,8 @@ python3 -m http.server 8000
 
 Both work identically for day-to-day use. The difference only matters when you're **adding your own art** — see [Adding your own art](#adding-your-own-art) below.
 
+Under the header there's a row of the commands worth knowing first — `help · add · done · list · gallery · display · theme · fullscreen`. Clicking one *writes it into the input* rather than running it, so you see the word you would have typed and still press Enter yourself. Once you know them, `set helpline off` takes the row away.
+
 Type `help` at any time. It opens a short menu of command groups — `help tasks`, `help art`, `help layout`, `help data` — rather than one long wall; `help <command>` explains a single one (`help done`), and `help all` prints everything at once. `Tab` completes command names and their options.
 
 ---
@@ -298,7 +300,9 @@ $ add draft the proposal
 added #13 "draft the proposal" [proj:work]
 ```
 
-**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
+**A few things start switched off.** Bare `set` lists every switch with its current state, in two groups: how the app *looks*, and which *features* exist. Out of the box a task is a title, an estimate, tags and a project — `priority`, due dates and the `streak` heatmap are off, because meeting six fields at once is a lot and each one is a single `set priority on` away. Nothing is deleted by a feature being off, so switching one on later brings back every value you'd already set.
+
+**The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set helpline off` drops the clickable command row under it, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 
 **And so is the font.** Twelve monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
 

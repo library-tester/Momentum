@@ -541,6 +541,23 @@ function updateStats(){
     `${collected} art collected`,
   ];
   document.getElementById('stats').textContent = parts.join(' · ');
+  // the other header line, refreshed on the same beat: switching a feature off ends
+  // in renderPanel() like every other change, and its commands have to leave the row
+  // at that moment rather than at the next reload.
+  renderHelpLine();
+}
+
+// the header's third line: HELPLINE, as clickable words. rebuilt rather than written
+// once, because a command whose feature is switched off has no business being offered
+// — "set tags off" should take its commands out of here exactly as it takes them out
+// of help and Tab, which is what featureAllows already decides everywhere else.
+function renderHelpLine(){
+  const el = document.getElementById('helpline');
+  if(!el) return;
+  el.innerHTML = HELPLINE
+    .filter(fill => featureAllows(commandNameOf(fill)))
+    .map(fill => `<span class="helpline-cmd" data-fill="${escapeHtml(fill)}">${escapeHtml(fill.trim())}</span>`)
+    .join('<span class="helpline-sep">·</span>');
 }
 
 
@@ -722,6 +739,25 @@ cmdInput.addEventListener('keydown', (e)=>{
 // is actually selected, so that's the one case this backs off.
 document.body.addEventListener('click', ()=> { if(window.getSelection().isCollapsed) cmdInput.focus(); });
 
+// puts a ready-to-edit command in the input without running it, caret at the end.
+// the rule every click in this app follows: a click can *offer* a command, never
+// issue one. that keeps a misclick free — "next" would have skipped an artwork,
+// "done 3" would have finished a task — and it means the two clickable surfaces
+// teach the words rather than replacing them: you see what you would have typed,
+// and you're still the one who presses Enter.
+function prefillCommand(text){
+  cmdInput.value = text;
+  cmdInput.focus();
+  cmdInput.setSelectionRange(text.length, text.length);
+}
+
+// ---------- clicking a command in the header's help line ----------
+document.getElementById('helpline').addEventListener('click', (e) => {
+  if(!window.getSelection().isCollapsed) return;      // a drag-select is a copy, not a click — same guard the list pane uses
+  const cmd = e.target.closest('.helpline-cmd');
+  if(cmd) prefillCommand(cmd.getAttribute('data-fill'));
+});
+
 // ---------- clicking a row in the list pane ----------
 // two click targets, and neither of them types an id at you: clicking anywhere on
 // a task opens its metadata line, and clicking its [id] bracket pre-fills "done
@@ -743,11 +779,8 @@ document.getElementById('list-pane').addEventListener('click', (e) => {
   const id = row.getAttribute('data-id');
   if(e.target.closest('.row-id')){
     // pre-fills the command, doesn't run it — clicking a task is not the same
-    // as deciding it's done. replaces the input outright rather than inserting,
-    // since "done <id>" is a complete, ready-to-edit command on its own.
-    cmdInput.value = `done ${id}`;
-    cmdInput.focus();
-    cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
+    // as deciding it's done.
+    prefillCommand(`done ${id}`);
     return;
   }
   // everything else on the row — the title, the [+]/[–] mark, the metadata line

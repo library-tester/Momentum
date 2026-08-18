@@ -288,6 +288,19 @@ const COMMANDS = [
     extra: ['"help all" prints every command at once'] },
 ];
 
+// the clickable row under the stat line ("set helpline off" hides it). deliberately
+// short and hand-picked rather than generated from COMMANDS: the whole value of it is
+// being readable at a glance, and a row of thirty commands would be a worse "help"
+// than "help" is. these are what a newcomer needs first — the two verbs the app is
+// built on, the two ways to look at things, and the three that are simply nice to
+// discover — not what a fluent user types most.
+//
+// each entry is the text that lands in the input. one that needs an argument keeps
+// its trailing space, so the caret arrives where you'd carry on typing; one that's
+// complete arrives complete, needing only Enter. nothing is ever *run* by a click —
+// see prefillCommand in app-render.js for why.
+const HELPLINE = ['help', 'add ', 'done ', 'list', 'gallery', 'display', 'theme ', 'fullscreen'];
+
 // one-letter shortcuts for the commands typed most often. these are rewrites of
 // what you typed, applied before anything else looks at the command name — so a
 // shortcut can never drift into being a second implementation of the command.
@@ -764,10 +777,13 @@ const BLOCK_SIZE_NAMES = ['very small', 'small', 'medium', 'big', 'very big', 'f
 const LEGACY_COMMAND_NAMES = [...new Set([...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES), 'projects'])];
 const ON_OFF = () => ['on', 'off'];
 const ARG_COMPLETIONS = {
-  // "switch project" and "switch font" both land on this command (see SPELLINGS and
-  // the dispatch interceptions), so its completions have to cover all three things
-  // the word can introduce, not just the themes it's named for.
-  theme:      (pos, prior) => {
+  theme:      pos => pos === 0 ? THEMES : [],
+  // "switch" resolves to the theme command, but it introduces more than themes:
+  // dispatch hands "switch font" and "switch project" to those commands instead. it
+  // gets its own entry rather than widening theme's, because the two words genuinely
+  // offer different things — and it's looked up by the word typed (see
+  // computeCompletion), so "theme <Tab>" stays colour schemes only.
+  switch:     (pos, prior) => {
     if(pos === 0) return [...THEMES, 'font', 'project'];
     return (prior[0] || '').toLowerCase() === 'project' ? projectNameCandidates() : [];
   },
@@ -882,11 +898,16 @@ function computeCompletion(value){
     pool = commandNames().filter(c => c.toLowerCase().startsWith(prefix));
     if(pool.length === 0) pool = LEGACY_COMMAND_NAMES.filter(c => featureAllows(c));
   } else {
-    const head = resolveAlias(prior[0].toLowerCase());
+    const typed = prior[0].toLowerCase();
+    const head = resolveAlias(typed);
     // a switched-off command completes to nothing rather than to its subcommands:
     // it's still typeable (dispatch explains itself), but Tab shouldn't help you
     // build out an argument list for something that's only going to refuse.
-    const fn = featureAllows(head) ? ARG_COMPLETIONS[head] : null;
+    // the word as *typed* is consulted first, and only then what it resolves to: an
+    // old spelling can introduce more than its canonical command does ("switch font",
+    // "switch project" — see dispatch), and completing the canonical word with those
+    // extras offered "font" and "project" as if they were colour schemes.
+    const fn = featureAllows(head) ? (ARG_COMPLETIONS[typed] || ARG_COMPLETIONS[head]) : null;
     pool = fn ? fn(prior.length - 1, prior.slice(1)) : [];
   }
   return { base: value.slice(0, start), candidates: pool.filter(c => c.toLowerCase().startsWith(prefix)) };
@@ -2682,6 +2703,19 @@ const SETTINGS = {
     get: () => statLineOn,
     apply: v => { statLineOn = v; applyStatLine(); },
     said: v => v ? 'stat line on.' : 'stat line off — a bit more room for the terminal.',
+  },
+  helpline: {
+    // the row is for the moment before you know the vocabulary, so it defaults on and
+    // is the kind of thing you switch off once — which is exactly why it's a setting
+    // rather than a permanent fixture. clicking a word in it fills the input without
+    // running it (see prefillCommand), so it teaches the command rather than replacing
+    // it: switch the row off later and you already know what to type.
+    label: 'the row of clickable commands under the stat line',
+    get: () => helpLineOn,
+    apply: v => { helpLineOn = v; applyHelpLine(); },
+    said: v => v
+      ? 'help line on — click a command to put it in the input.'
+      : 'help line off — a bit more room, and "help" still has all of them.',
   },
   artline: {
     // the reveal panel's caption, not the header's — "statline" above is the one

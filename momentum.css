@@ -190,6 +190,20 @@
     color:var(--amber);
   }
   header .title span{ color:var(--accent); }
+  /* the banner is a link to the project's source. it inherits everything so it looks
+     exactly like the heading it replaced — the underline on hover is the only thing
+     that says it's clickable, which is the web's own convention and doesn't need
+     explaining. inline-block so the underline is as wide as the word rather than as
+     wide as the header. */
+  header .title a{
+    color:inherit;
+    text-decoration:none;
+    display:inline-block;
+  }
+  header .title a:hover{ text-decoration:underline; }
+  /* keyboard focus has to be visible, and the app draws nothing else with an outline,
+     so this is unambiguous wherever it lands. */
+  header .title a:focus-visible{ outline:1px solid var(--amber); outline-offset:3px; }
   body.no-title header .title{ display:none; }
   /* the banner's own top padding goes with it, so hiding it isn't just a blank gap */
   body.no-title header{ padding-top:8px; }
@@ -200,9 +214,33 @@
     letter-spacing:0.5px;
   }
   body.no-statline header .stats{ display:none; }
-  /* only one of the two lines gone still needs the header's own padding; both gone
-     means nothing is left in it, so the bar (and its border) collapses entirely */
-  body.no-title.no-statline header{ display:none; }
+  /* the third header line: the same strip as .stats, in the same type, but the words
+     in it are commands you can click. it sits *under* the stat line on purpose —
+     nearest the console, which is where a click puts its text. wraps rather than
+     scrolls, since on a phone a second row of two words is readable and a hidden
+     overflow is not. */
+  header .helpline{
+    margin-top:4px;
+    font-size:calc(12px * var(--font-scale));
+    color:var(--text-dim);
+    letter-spacing:0.5px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:0 8px;
+  }
+  body.no-helpline header .helpline{ display:none; }
+  /* the one place in this app with a hover state. everywhere else the pointer cursor
+     is enough (see "#list-pane .line.row"), because everywhere else you're clicking
+     a thing that's visibly *there* — a task, a tile. here you're clicking a word in a
+     line of words, which needs something to say the word is the target. the colour it
+     brightens to is --amber, the same ink the prompt and every echoed command use, so
+     what it turns into on hover is a preview of what it becomes when clicked. */
+  .helpline-cmd{ cursor:pointer; }
+  .helpline-cmd:hover{ color:var(--amber); }
+  .helpline-sep{ opacity:0.4; }
+  /* one line gone still needs the header's own padding; all three gone means nothing
+     is left in it, so the bar (and its border) collapses entirely */
+  body.no-title.no-statline.no-helpline header{ display:none; }
   #main{
     flex:1;
     display:flex;
