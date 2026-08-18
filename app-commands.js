@@ -211,6 +211,10 @@ const COMMANDS = [
   { usage: 'project add <name>', desc: 'create a project', feat: 'projects' },
   { usage: 'project rm <name>', desc: 'delete a project', feat: 'projects' },
   { usage: 'project set <id|all> <name|none>', desc: 'assign task(s) to a project', feat: 'projects' },
+  { usage: 'project switch <name|none>', desc: 'work inside one project: the pane shows only its tasks,', feat: 'projects',
+    extra: ['and new tasks join it until you switch away  (also: "switch project")',
+            'Tab lists the names; bare "project switch" says which one you\'re in',
+            '("none" leaves it, and so does "filter off" — "#none" on a single task opts just that one out)'] },
   { usage: 'project list', desc: 'list all projects (or: projects)', feat: 'projects' },
   { usage: () => `list [all|pending|active]${filterFlagsHint()}`, desc: 'show tasks as text, once (excludes archived)' },
   { usage: 'filter [<same arguments as list>|off]', desc: 'narrow the always-visible task pane and keep it that way',
@@ -760,7 +764,13 @@ const BLOCK_SIZE_NAMES = ['very small', 'small', 'medium', 'big', 'very big', 'f
 const LEGACY_COMMAND_NAMES = [...new Set([...Object.keys(SPELLINGS), ...Object.keys(HELP_ALIASES), 'projects'])];
 const ON_OFF = () => ['on', 'off'];
 const ARG_COMPLETIONS = {
-  theme:      () => THEMES,
+  // "switch project" and "switch font" both land on this command (see SPELLINGS and
+  // the dispatch interceptions), so its completions have to cover all three things
+  // the word can introduce, not just the themes it's named for.
+  theme:      (pos, prior) => {
+    if(pos === 0) return [...THEMES, 'font', 'project'];
+    return (prior[0] || '').toLowerCase() === 'project' ? projectNameCandidates() : [];
+  },
   // names rather than numbers: a number is only meaningful next to the printed
   // list, and Tab is what you reach for when you haven't printed it.
   font:       (pos, args) => pos === 0
@@ -788,7 +798,17 @@ const ARG_COMPLETIONS = {
   restore:    () => ['all'],
   archive:    pos => pos === 0 ? ['rm'] : ['all'],
   gallery:    pos => pos === 0 ? ['list', 'show', 'display', 'close', 'rm'] : [],
-  project:    pos => pos === 0 ? ['add', 'rm', 'list', 'set'] : [],
+  // the name slot sits at a different position per subcommand — "switch work" and
+  // "rm work" name a project second, "set 3 work" names one third — so this reads
+  // the subcommand rather than answering by position alone.
+  project:    (pos, prior) => {
+    if(pos === 0) return ['add', 'rm', 'list', 'set', 'switch'];
+    const sub = (prior[0] || '').toLowerCase();
+    if(pos === 1 && sub === 'switch') return projectNameCandidates();
+    if(pos === 1 && sub === 'rm') return projects;
+    if(pos === 2 && sub === 'set') return [...projects, 'none'];
+    return [];
+  },
   recover:    pos => pos === 0 ? ['list'] : [],
   tag:        pos => pos === 1 ? ['add', 'rm', 'set'] : [],
   mark:       pos => pos === 0 ? ['all'] : ['off'],
@@ -826,6 +846,10 @@ const FLAG_COMPLETIONS = {
 function allTagsInUse(){
   return [...new Set([...tasks, ...archive].flatMap(t => t.tags || []))].sort();
 }
+// what Tab offers where a project name goes. "none" travels with the names because
+// leaving a project is the other half of the same choice, and it's the one word you
+// would otherwise have to already know to get back out.
+function projectNameCandidates(){ return [...projects, 'none']; }
 
 // splits on plain whitespace rather than reusing tokenize(): completion only
 // ever targets command names and short keyword arguments, never a quoted task
@@ -1265,12 +1289,23 @@ function cmd_add(args){
   // rather than one winning: "add x -t home +errand" gets both, which is the only
   // reading that isn't a silent loss of something you typed.
   tags = [...new Set([...(args.t ? args.t.split(',').map(s=>s.trim()).filter(Boolean) : []), ...args.tagList])];
-  if(args.proj){
+  // "#none" / "-proj none" is how you keep a task out of the project you're
+  // currently in. it only exists because there's a default to escape from now, and
+  // it's spelled the way "project set 3 none" already spells the same idea — the
+  // one thing it must never do is found a project literally called "none".
+  const noProjectAsked = args.proj && args.proj.toLowerCase() === 'none';
+  if(args.proj && !noProjectAsked){
     project = args.proj;
     if(!projects.includes(project)){
       projects.push(project);
       print(`note: created new project "${project}"`, 'info');
     }
+  }
+  // no project named either way: the one you're working inside supplies it (see
+  // activeProject). checked against `projects` as well as the feature flag, so a
+  // context left over from a project deleted in another tab can't assign to it.
+  else if(!args.proj && featureOn('projects') && activeProject && projects.includes(activeProject)){
+    project = activeProject;
   }
   const t = { id: nextFreeId(), title, status:'pending', priority, due, est, tags, project, createdAt: Date.now() };
   tasks.push(t);
@@ -1628,13 +1663,17 @@ function cmd_project(sub, ...rest){
     if(moved) unassigned.push(`${moved} task${moved === 1 ? '' : 's'}`);
     if(movedArchived) unassigned.push(`${movedArchived} archived`);
     print(`removed project "${name}"${unassigned.length ? ` (${unassigned.join(' + ')} unassigned)` : ''}`, 'ok');
+    // you can't go on working inside a project that no longer exists — left alone,
+    // the pane would keep filtering to it and show nothing, with no clue why.
+    if(activeProject === name){
+      leaveProject();
+      print('  that was the project you were in — back to all tasks.', 'info');
+    }
     saveState(); renderPanel();
   } else if(sub === 'list'){
-    if(projects.length === 0){ print('no projects yet. create one:  project add <name>', 'info'); return; }
-    projects.forEach(p => {
-      const count = tasks.filter(t => t.project === p).length;
-      print(`${p}  (${count} task${count===1?'':'s'})`);
-    });
+    printProjectList();
+  } else if(sub === 'switch'){
+    cmd_projectSwitch(rest[0]);
   } else if(sub === 'set'){
     const idsStr = rest[0], name = rest[1];
     if(name !== 'none' && (!name || !projects.includes(name))){
@@ -1652,8 +1691,67 @@ function cmd_project(sub, ...rest){
     });
     if(changed){ saveState(); renderPanel(); }
   } else {
-    print('usage: project add|rm|list|set ...', 'err');
+    print('usage: project add|rm|list|set|switch ...', 'err');
   }
+}
+
+// shared by "project list" and the bare "switch project", which is the same list
+// asked a different way — one of them printing a different shape than the other
+// would make the two look like different things.
+function printProjectList(){
+  if(projects.length === 0){ print('no projects yet. create one:  project add <name>', 'info'); return; }
+  projects.forEach(p => {
+    const count = tasks.filter(t => t.project === p).length;
+    // the same "← current" mark the font list uses, for the same reason: the list
+    // is also the answer to "which one am I in?".
+    print(`${p}  (${count} task${count===1?'':'s'})${p === activeProject ? '   ← current' : ''}`);
+  });
+}
+
+// leaving a project: the context goes, and so does the pane filter it set — but only
+// the project axis of it, so a status/tag filter you set separately survives.
+function leaveProject(){
+  activeProject = null;
+  paneFilter = { ...paneFilter, proj: null };
+}
+
+// "switch project <name>" — the working context. it does two things at once on
+// purpose: narrows the pane to that project (composing with whatever "filter" has
+// set, rather than replacing it) and makes new tasks join it, so "switch to work,
+// add three things, switch away" needs no #work on any of them.
+function cmd_projectSwitch(name){
+  if(!name){
+    if(activeProject) print(`you're in project "${activeProject}"  ("switch project none" leaves it)`, 'info');
+    else print('not in a project  —  pick one with:  switch project <name>   (Tab lists them)', 'info');
+    printProjectList();
+    return;
+  }
+  if(['none','off','clear'].includes(name.toLowerCase())){
+    if(!activeProject){ print('you weren\'t in a project.', 'info'); return; }
+    const was = activeProject;
+    leaveProject();
+    renderListPane();
+    print(`left project "${was}" — the task pane shows all ${filterTasks(tasks, paneFilter).length} again, and new tasks go unassigned.`, 'ok');
+    saveState();
+    return;
+  }
+  // not auto-created: "project add" is the command that makes one, and a typo here
+  // would otherwise silently found a project named after the mistake and move you
+  // into it.
+  if(!projects.includes(name)){
+    print(`no such project "${name}"`, 'err');
+    if(projects.length) print(`  you have: ${projects.join(', ')}   (or: project add ${name})`, 'info');
+    else print(`  you have none yet — create it with:  project add ${name}`, 'info');
+    return;
+  }
+  if(name === activeProject){ print(`already in project "${name}"`, 'info'); return; }
+  activeProject = name;
+  paneFilter = { ...paneFilter, proj: name };
+  renderListPane();
+  const shown = filterTasks(tasks, paneFilter).length;
+  print(`project: ${name} — the task pane now shows ${shown} of ${tasks.length}, and new tasks join it.`, 'ok');
+  reportPaneNarrowed(shown);
+  saveState();
 }
 
 function parseListArgs(tokens){
@@ -2041,10 +2139,18 @@ function cmd_filter(tokens){
     // "filter all" lands here rather than parsing as status:all — as a filter,
     // "everything" and "no filter" are the same request, and this is the wording
     // most people reach for first.
-    if(!isFilterActive(paneFilter)){ print('no filter was set.', 'info'); return; }
+    if(!isFilterActive(paneFilter) && !activeProject){ print('no filter was set.', 'info'); return; }
+    // leaving the project too, not just the filter it set. keeping the context here
+    // would mean a pane showing every project while new tasks silently joined one
+    // of them — state you can't see is state you can't correct, and the chip in the
+    // pane header saying "project: work" over an unfiltered list reads as a bug
+    // whichever way you interpret it. "filter off" means all of it off.
+    const leftProject = activeProject && featureOn('projects') ? activeProject : null;
+    leaveProject();
     paneFilter = { ...NO_FILTER };
     renderListPane();
     print(`filter cleared — the task pane shows all ${tasks.length} again.`, 'ok');
+    if(leftProject) print(`  (that left project "${leftProject}" too — new tasks go unassigned again.)`, 'info');
     saveState();
     return;
   }
@@ -2052,15 +2158,27 @@ function cmd_filter(tokens){
   const spec = parseListArgs(raw);
   const bad = listArgsError(spec);
   if(bad){ print(bad.text, bad.cls); return; }
+  // "filter active" while you're working inside a project means "the active ones of
+  // *these*" — narrowing what's in front of you, not silently widening it back to
+  // every project. naming a project explicitly ("filter #home") still wins, and
+  // "filter off" still clears the lot; this only fills in the axis you left out.
+  if(activeProject && featureOn('projects') && !spec.proj) spec.proj = activeProject;
   paneFilter = spec;
   renderListPane();
   const shown = filterTasks(tasks, spec).length;
   print(`filter: ${describeFilter(spec)}  —  the task pane now shows ${shown} of ${tasks.length}.`, 'ok');
+  reportPaneNarrowed(shown);
+  saveState();
+}
+
+// the two things worth saying after anything narrows the pane, shared by "filter"
+// and "switch project" so the two spellings of the same outcome can't drift into
+// explaining themselves differently.
+function reportPaneNarrowed(shown){
   if(shown === 0) print('  nothing matches it right now — "filter off" brings everything back.', 'info');
   // the pane this narrows can be off screen entirely (art view with split off), in
   // which case the command looks like it did nothing at all. say where to find it.
   if(!listPaneVisible()) print('  (the task pane is hidden right now — "split on" or "view tasks" shows it)', 'info');
-  saveState();
 }
 
 // searches both pending/active and archived tasks at once — the point of a search
@@ -2127,8 +2245,19 @@ function rowHtml(r, id){
 function renderListPane(){
   const pane = document.getElementById('list-pane');
   if(!pane) return;
-  const filtered = isFilterActive(paneFilter);
-  const badge = filtered ? `<span class="filter-badge">filter: ${escapeHtml(describeFilter(paneFilter))}</span>` : '';
+  // two chips, because the two can disagree: "switch project work" sets both, but
+  // "filter off" afterwards clears only the filter — you're still *in* work, and the
+  // next task you add still joins it, so that has to keep saying so.
+  const inProject = activeProject && featureOn('projects');
+  const projectBadge = inProject ? `<span class="filter-badge">project: ${escapeHtml(activeProject)}</span>` : '';
+  // while they agree, the filter chip drops the project axis rather than repeating
+  // it: "project: work · filter: proj=work" is one fact printed twice, and it's the
+  // usual state right after a switch. what's left of the filter (a status, a tag)
+  // still shows, since that part is genuinely separate.
+  const beyondProject = inProject && paneFilter.proj === activeProject ? { ...paneFilter, proj: null } : paneFilter;
+  const filterBadge = isFilterActive(beyondProject)
+    ? `<span class="filter-badge">filter: ${escapeHtml(describeFilter(beyondProject))}</span>` : '';
+  const badge = projectBadge + filterBadge;
   const head = summary => `<div class="pane-head">TASKS ${badge}<span>${escapeHtml(summary)}</span></div>`;
 
   if(tasks.length === 0){
@@ -3533,6 +3662,14 @@ function cmd_gallery(sub, ...rest){
 // of an unchanged state. it records its own undo entry from inside the FileReader
 // callback that does the actual replacing — see cmd_import.
 const MUTATING = new Set(['add','rename','start','stop','done','rm','priority','due','tag','mark','project','recover','close','next','reveal','hide','block','character','archive','restore','gallery']);
+// the word typed isn't always the command that runs: "switch project work" resolves
+// to `theme` (see SPELLINGS) and is handed to the project command by dispatch. it
+// changes which project new tasks join, so undo has to cover it — the set above is
+// keyed by command word and can't say that on its own.
+function mutatesState(cmd, rest){
+  if(MUTATING.has(cmd)) return true;
+  return cmd === 'theme' && (rest[0] || '').toLowerCase() === 'project';
+}
 
 async function handleCommand(raw){
   const trimmed = raw.trim();
@@ -3566,11 +3703,20 @@ async function handleCommand(raw){
   const cmd = resolveAlias(tokens[0].toLowerCase());
   const rest = tokens.slice(1);
 
-  const before = MUTATING.has(cmd) ? JSON.stringify(buildStateSnapshot()) : null;
+  const before = mutatesState(cmd, rest) ? JSON.stringify(buildStateSnapshot()) : null;
   await dispatch(cmd, rest);
   // if the command ended by *asking* something, it hasn't changed anything yet —
   // its snapshot gets taken above when the answer arrives.
   if(before !== null && !pendingConfirm) pushUndo(trimmed, before);
+}
+
+// said in one place because two paths reach it: the gate at the top of dispatch, and
+// the "switch project" phrasing, which arrives under the *theme* command word and so
+// slips past that gate — it has to check the command it's actually about to run.
+function refuseSwitchedOffCommand(cmd){
+  const feat = FEATURE_OF_COMMAND[cmd];
+  print(`"${cmd}" is part of the ${feat} feature, which is switched off.`, 'err');
+  print(`  turn it back on with:  set ${feat} on   (nothing was deleted — every task is exactly as you left it)`, 'info');
 }
 
 function dispatch(cmd, rest){
@@ -3579,12 +3725,7 @@ function dispatch(cmd, rest){
   // should say what's actually true — the feature is off, here's the one line that
   // brings it back — instead of falling through to "unknown command", which reads
   // like the app forgot how to do something it did yesterday.
-  if(!featureAllows(cmd)){
-    const feat = FEATURE_OF_COMMAND[cmd];
-    print(`"${cmd}" is part of the ${feat} feature, which is switched off.`, 'err');
-    print(`  turn it back on with:  set ${feat} on   (nothing was deleted — every task is exactly as you left it)`, 'info');
-    return;
-  }
+  if(!featureAllows(cmd)){ refuseSwitchedOffCommand(cmd); return; }
   switch(cmd){
     case 'help': cmd_help(rest[0]); break;
     case 'add': cmd_add(parseFlags(rest)); break;
@@ -3627,8 +3768,15 @@ function dispatch(cmd, rest){
     // command, and would otherwise answer "usage: theme <amber|night|...>" to a
     // request that has nothing to do with themes. handed straight over instead.
     // "theme font" gets the same treatment for the same one line.
+    // "switch project" arrives the same way and for the same reason: it's the
+    // phrasing people reach for, and the project command is where it belongs.
     case 'theme':
       if((rest[0] || '').toLowerCase() === 'font'){ cmd_font(rest.slice(1).join(' ')); break; }
+      if((rest[0] || '').toLowerCase() === 'project'){
+        if(!featureAllows('project')){ refuseSwitchedOffCommand('project'); break; }
+        cmd_project('switch', ...rest.slice(1));
+        break;
+      }
       cmd_theme(rest[0]); break;
     // joined, not rest[0]: font names are mostly two and three words ("DejaVu Sans
     // Mono", "Courier New"), and requiring quotes around the thing the list just

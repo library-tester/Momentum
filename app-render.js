@@ -528,6 +528,10 @@ function updateStats(){
   const total = tasks.length;
   const collected = asciiTrack.collected.length + imageTrack.collected.length;
   const parts = [
+    // first, and named rather than counted: it's the one segment here that changes
+    // what a command will *do* (a new task joins it), so it reads as a state you're
+    // in rather than as another tally.
+    ...(featureOn('projects') && activeProject ? [`in ${activeProject}`] : []),
     `${total} total`,
     `${archive.length} completed`,
     ...(featureOn('projects') ? [`${projects.length} project${projects.length===1?'':'s'}`] : []),

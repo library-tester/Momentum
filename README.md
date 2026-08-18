@@ -187,6 +187,7 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | `project add <name>` | Create a project |
 | `project rm <name>` | Delete a project |
 | `project set <ids> <name\|none>` | Assign task(s) to a project |
+| `project switch <name\|none>` | **Work inside one project** — the pane shows only its tasks and new ones join it (also: `switch project`) |
 | `project list` | List projects (also: `projects`) |
 
 ### Seeing your work
@@ -286,6 +287,16 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
      same half-revealed artwork in each so only the palette changes. Themes are pure
      visual appeal — a list of five colour names sells them far worse than seeing them. -->
 
+
+**Work inside one project.** `switch project work` — or `project switch work`, they're the same command — narrows the task pane to that project *and* makes it the one new tasks join, so you can switch once and then `add` three things without typing `#work` on any of them. `Tab` after it lists your projects, so picking one is two words and a keypress rather than remembering what you called it. The pane header and the stat line both say which project you're in; `switch project none` leaves it — so does `filter off`, which clears the lot — and `#none` on a single task opts that one out without leaving.
+
+```
+$ switch project work
+project: work — the task pane now shows 4 of 12, and new tasks join it.
+
+$ add draft the proposal
+added #13 "draft the proposal" [proj:work]
+```
 
 **The layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
 

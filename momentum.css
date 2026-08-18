@@ -481,17 +481,20 @@
      that drowns the pane — the same "loud accent as a fill" problem the night-mode
      scrollbar thumb has, and the same fix: outline it instead.)
      needs to out-specify ".pane-head span" above, hence the descendant selector.
-     margin-right:auto keeps it next to TASKS and still pushes the count right, so
-     the header stays two groups rather than three evenly-spread items. */
+     the same chip carries the current project ("switch project"), and both can be
+     up at once — so the "keep these left, push the count right" job is done by the
+     count instead of by the badge (it used to be margin-right:auto here, which with
+     two badges shoved the second one across the header). the header stays two
+     groups rather than three evenly-spread items either way. */
   .pane-head .filter-badge{
     color:var(--text-dim);
     border:1px solid var(--line);
     border-radius:3px;
     padding:0 5px;
     letter-spacing:0.5px;
-    margin-right:auto;
     white-space:nowrap;
   }
+  .pane-head > span:last-child{ margin-left:auto; }
   /* two dividers, one per axis. #split-divider is the horizontal one inside the
      console column (stacked panel above / console below) and only exists when split
      is on. #col-divider is the vertical one between the console column and the side

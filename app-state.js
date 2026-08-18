@@ -248,6 +248,13 @@ let excludedImageFolders = [];                           // top-level image_art/
 // a query: "list" stays a one-off question that answers exactly what you asked it.
 const NO_FILTER = { status:'all', proj:null, tag:null };
 let paneFilter = { ...NO_FILTER };
+// the project you're currently working inside, set by "switch project". distinct
+// from paneFilter.proj, which is only what the pane happens to be showing: this is
+// a working context, so it also decides which project a new task joins when you
+// don't name one. switching sets both; clearing the filter afterwards leaves the
+// context alone, which is why the pane heading names it separately.
+// null = not in a project, which is the state the app has always been in.
+let activeProject = null;
 let splitOn = true;                                      // split view: task list pinned above the terminal instead of only appearing when you type "list"
 let splitRatio = 38;                                     // % of the left column the list pane takes, dragged via #split-divider
 const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane from being dragged away to nothing
@@ -474,7 +481,7 @@ function materializeOrder(progress, total){
 function buildStateSnapshot(){
   return {
     tasks, archive, projects, displayMode, theme, fontId, fontSize, customFont, splitOn, splitRatio, titleOn, statLineOn, showAge, features,
-    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter,
+    blockSizePref, blockCountOverride, charCountOverride, excludedImageFolders, viewMode, sidePaneRatio, mirrored, paneFilter, activeProject,
     ascii: asciiTrack.serialize(), image: imageTrack.serialize(),
   };
 }
@@ -519,6 +526,11 @@ function applyStateSnapshot(data){
   paneFilter = data.paneFilter && !listArgsError(data.paneFilter)
     ? { status: data.paneFilter.status, proj: data.paneFilter.proj || null, tag: data.paneFilter.tag || null }
     : { ...NO_FILTER };
+  // checked against the project list this same snapshot just restored, rather than
+  // trusted: a project deleted in another tab (or an imported backup that never had
+  // it) would otherwise leave you working inside a project that doesn't exist, with
+  // every new task quietly assigned to it.
+  activeProject = data.activeProject && projects.includes(data.activeProject) ? data.activeProject : null;
   viewMode = VIEW_MODES.includes(data.viewMode) ? data.viewMode : 'art';   // undefined: a save from before the tasks view existed
   // a save from when the two views had a width each carries both numbers: the one
   // that belongs to the view being restored is the width that was actually on
