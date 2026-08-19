@@ -225,12 +225,14 @@ let galleryDetailIdx = null;
 let expandedTaskIds = new Set();
 // what the app looks like out of the box, in one place so these declarations and the
 // "a save from before this setting existed" fallbacks in loadState can't drift apart.
-// the shape it describes: title bar and the clickable command row on, the two status
-// lines (stat line, art caption) off, columns mirrored so the art sits on the left.
-// deliberately quiet — the two lines switched off here are the ones that report
-// numbers at you continuously, and a first screen with fewer of those reads as an app
-// rather than as a dashboard. every one of them is a "set" away, and "set" lists them.
-const DISPLAY_DEFAULTS = { title:true, statline:false, helpline:true, artline:false, mirror:true, flip:false, age:false };
+// the shape it describes: title bar, the clickable command row, and the art caption
+// on, the stat line off, columns mirrored so the side pane sits on the left — which,
+// with the default "cmd" view (see viewMode) and flip on, puts the console on the
+// left and the art above the task list on the right. the stat line is the one
+// switched off here — it reports numbers at you continuously, and a first screen with
+// fewer of those reads as an app rather than as a dashboard. every one of these is a
+// "set"/"view" away, and "set" lists them.
+const DISPLAY_DEFAULTS = { title:true, statline:false, helpline:true, artline:true, mirror:true, flip:true, age:false };
 let titleOn = DISPLAY_DEFAULTS.title;                    // the "MOMENTUM" banner — purely cosmetic, off just reclaims a bit of vertical space
 let statLineOn = DISPLAY_DEFAULTS.statline;              // the "N total · N completed · ..." summary line under the title
 let artLineOn = DISPLAY_DEFAULTS.artline;                // the "<piece> — 96/96 pieces · 100% · image mode" line above the art in the reveal panel
@@ -288,7 +290,8 @@ const SPLIT_MIN = 12, SPLIT_MAX = 80;                    // keeps either pane fr
 // 'cmd'   — the console takes it, and the two panels share the other column
 // the reward system keeps running whichever is chosen (completions still credit reveal
 // progress) — "art"/"display" report and show it on demand even when it's off screen.
-let viewMode = 'art';
+// default: 'cmd' — the console gets its own column, art and tasks share the other.
+let viewMode = 'cmd';
 const VIEW_MODES = ['art', 'tasks', 'cmd'];
 // "view commandline" is what most people reach for first and "view console"/"view
 // terminal" are what the rest reach for; they all mean the one view, which is spelled
@@ -302,11 +305,12 @@ const VIEW_ALIASES = { commandline: 'cmd', 'command-line': 'cmd', console: 'cmd'
 // goes out of its way to preserve when it flips the columns end for end.
 let sidePaneRatio = 55;                                  // % of the window the side column takes, in either view — the old fixed art split, now just the default
 const SIDE_MIN = 15, SIDE_MAX = 70;
-let mirrored = DISPLAY_DEFAULTS.mirror;                  // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them. on by default, which with the "art" view puts the picture on the left and the task list + console on the right
+let mirrored = DISPLAY_DEFAULTS.mirror;                  // flips the two columns left-for-right — see "mirror". purely which side each column is on; nothing moves between them. on by default, which with the "cmd" view puts the console on the left and the art + task list on the right
 // the other axis: reverses the shared column, so the pane that fills it sits above the
-// fixed-height one instead of below. in the art view that's the console above the task
-// list — "set flip on". independent of "mirror" on purpose, the same way "view" and
-// "mirror" are: one decides which end, the other which edge.
+// fixed-height one instead of below. in the default "cmd" view that's the art above
+// the task list — "set flip off" for the reverse. independent of "mirror" on purpose,
+// the same way "view" and "mirror" are: one decides which end, the other which edge.
+// on by default so the art (the filler pane in "cmd") sits above the tasks (stacked).
 let flipped = DISPLAY_DEFAULTS.flip;
 
 // how big the image reveal blocks are, set by "block size <tier>". tiers are a

@@ -132,23 +132,27 @@
      "night" makes with one red, "day" with one black, and "solar" with one grey.
      the color is nord's own old --text-dim: the "welcome to Momentum" line was
      always printed in it (the terminal's dim/info style), so it's the one already
-     proven readable here rather than a new pick. 5.4:1 against bg-dark, 4.6:1
-     against bg-panel (the two backgrounds text sits on) — both clear WCAG AA's
-     4.5:1 floor. */
+     proven readable here rather than a new pick. background darkened a step from
+     nord's original (this theme was the lightest of the dark themes, on top of
+     having the least contrast headroom of any of them — see --info-opacity below);
+     --line and --accent-dim scaled down with it to keep the same relative step off
+     the panel. 6.95:1 against bg-dark, 6.47:1 against bg-panel (the two
+     backgrounds text sits on) now, both comfortably past WCAG AA's 4.5:1 floor. */
   :root[data-theme="nord"]{
-    --bg-dark:     #2a303c;
-    --bg-panel:    #343b4a;
-    --line:        #4c5568;
+    --bg-dark:     #191d24;
+    --bg-panel:    #1f232c;
+    --line:        #2e333e;
     --text-dim:    #9aa7bd;
     --text-main:   #9aa7bd;
     --amber:       #9aa7bd;
     --accent:      #9aa7bd;
-    --accent-dim:  #3d4a5c;
+    --accent-dim:  #252c37;
     --error:       #9aa7bd;
-    /* left at the inherited 0.75 default, per what was actually asked (night and
-       solar) — but measured contrast here (3.3:1) is the lowest of any theme at
-       that value, lower than night's own starting point. worth the same fix if
-       nord turns out to have the same problem in practice. */
+    /* raised to 1, same as night: measured 3.3:1 at the inherited 0.75 default
+       against the original, lighter background, under WCAG AA's 4.5:1 floor. left
+       at 1 after the background darkened above — 0.8 would clear the floor again
+       on its own, but there's no reason left to dim this one below the others. */
+    --info-opacity: 1;
   }
   /* "dos" — white on IBM blue, the EDIT.COM/Norton Commander screen. #0000aa is
      the actual CGA/EGA blue (colour 1) rather than a modern blue that resembles it,
