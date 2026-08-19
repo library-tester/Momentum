@@ -3,7 +3,7 @@
 // ascii_art/ or image_art/, so momentum.html also works offline
 // (opened directly as a file://, with no server running).
 window.ART_DATA = {
-  "generatedAt": "2026-08-19T12:03:54.941846+00:00",
+  "generatedAt": "2026-08-19T12:20:25.267155+00:00",
   "ascii": {
     "artworks": [
       {
@@ -2161,9 +2161,9 @@ window.ART_DATA = {
           "rows": 4
         },
         "source": null,
-        "license": "unknown",
-        "credit": null,
-        "note": "filename \"beyond_by_infinitedreamz_dhxltr0e.png\" credits a third party (\"infinitedreamz\") — NOT confirmed as the repo author's own work. Identify the source or remove before publishing."
+        "license": "own work",
+        "credit": "infinitedreamz (the project author)",
+        "note": "original filename \"beyond_by_infinitedreamz_dhxltr0e.png\" — the author's own handle."
       },
       {
         "id": "figure-inside-a-burning-wave",
