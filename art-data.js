@@ -3,7 +3,7 @@
 // ascii_art/ or image_art/, so momentum.html also works offline
 // (opened directly as a file://, with no server running).
 window.ART_DATA = {
-  "generatedAt": "2026-08-19T11:48:03.884207+00:00",
+  "generatedAt": "2026-08-19T12:03:54.941846+00:00",
   "ascii": {
     "artworks": [
       {
@@ -1254,7 +1254,7 @@ window.ART_DATA = {
         "id": "antennae-colliding-galaxies",
         "name": "Antennae Colliding Galaxies",
         "category": "00_space_images",
-        "file": "00_space_images/antennae-colliding-galaxies.jpg",
+        "file": "00_space_images/antennae-colliding-galaxies.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1284,7 +1284,7 @@ window.ART_DATA = {
         "id": "astronaut-on-the-moon",
         "name": "Astronaut on the Moon",
         "category": "00_space_images",
-        "file": "00_space_images/astronaut-on-the-moon.jpg",
+        "file": "00_space_images/astronaut-on-the-moon.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1299,7 +1299,7 @@ window.ART_DATA = {
         "id": "astronaut-portrait",
         "name": "Astronaut Portrait",
         "category": "00_space_images",
-        "file": "00_space_images/astronaut-portrait.jpg",
+        "file": "00_space_images/astronaut-portrait.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1329,7 +1329,7 @@ window.ART_DATA = {
         "id": "bipolar-planetary-nebula",
         "name": "Bipolar Planetary Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/bipolar-planetary-nebula.jpg",
+        "file": "00_space_images/bipolar-planetary-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1344,7 +1344,7 @@ window.ART_DATA = {
         "id": "blue-bubble-around-a-star",
         "name": "Blue Bubble Around a Star",
         "category": "00_space_images",
-        "file": "00_space_images/blue-bubble-around-a-star.jpg",
+        "file": "00_space_images/blue-bubble-around-a-star.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1359,7 +1359,7 @@ window.ART_DATA = {
         "id": "bubble-nebula",
         "name": "Bubble Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/bubble-nebula.jpg",
+        "file": "00_space_images/bubble-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1389,7 +1389,7 @@ window.ART_DATA = {
         "id": "carina-nebula-pillars",
         "name": "Carina Nebula Pillars",
         "category": "00_space_images",
-        "file": "00_space_images/carina-nebula-pillars.jpg",
+        "file": "00_space_images/carina-nebula-pillars.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1404,7 +1404,7 @@ window.ART_DATA = {
         "id": "centaurus-a-dust-lane",
         "name": "Centaurus a Dust Lane",
         "category": "00_space_images",
-        "file": "00_space_images/centaurus-a-dust-lane.jpg",
+        "file": "00_space_images/centaurus-a-dust-lane.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1419,7 +1419,7 @@ window.ART_DATA = {
         "id": "coastline-from-the-space-station",
         "name": "Coastline from the Space Station",
         "category": "00_space_images",
-        "file": "00_space_images/coastline-from-the-space-station.jpg",
+        "file": "00_space_images/coastline-from-the-space-station.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1434,7 +1434,7 @@ window.ART_DATA = {
         "id": "cosmic-couple-nebula",
         "name": "Cosmic Couple Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/cosmic-couple-nebula.jpg",
+        "file": "00_space_images/cosmic-couple-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1449,7 +1449,7 @@ window.ART_DATA = {
         "id": "distant-galaxies-field",
         "name": "Distant Galaxies Field",
         "category": "00_space_images",
-        "file": "00_space_images/distant-galaxies-field.jpg",
+        "file": "00_space_images/distant-galaxies-field.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1464,7 +1464,7 @@ window.ART_DATA = {
         "id": "earth-above-the-lunar-horizon",
         "name": "Earth Above the Lunar Horizon",
         "category": "00_space_images",
-        "file": "00_space_images/earth-above-the-lunar-horizon.jpg",
+        "file": "00_space_images/earth-above-the-lunar-horizon.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1509,7 +1509,7 @@ window.ART_DATA = {
         "id": "earth-through-the-capsule-window",
         "name": "Earth Through the Capsule Window",
         "category": "00_space_images",
-        "file": "00_space_images/earth-through-the-capsule-window.jpg",
+        "file": "00_space_images/earth-through-the-capsule-window.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1524,7 +1524,7 @@ window.ART_DATA = {
         "id": "earthrise-over-the-moon",
         "name": "Earthrise over the Moon",
         "category": "00_space_images",
-        "file": "00_space_images/earthrise-over-the-moon.jpg",
+        "file": "00_space_images/earthrise-over-the-moon.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1539,7 +1539,7 @@ window.ART_DATA = {
         "id": "edge-on-spiral-galaxy",
         "name": "Edge on Spiral Galaxy",
         "category": "00_space_images",
-        "file": "00_space_images/edge-on-spiral-galaxy.jpg",
+        "file": "00_space_images/edge-on-spiral-galaxy.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1554,7 +1554,7 @@ window.ART_DATA = {
         "id": "emission-nebula",
         "name": "Emission Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/emission-nebula.jpg",
+        "file": "00_space_images/emission-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1584,7 +1584,7 @@ window.ART_DATA = {
         "id": "galactic-center-star-clouds",
         "name": "Galactic Center Star Clouds",
         "category": "00_space_images",
-        "file": "00_space_images/galactic-center-star-clouds.jpg",
+        "file": "00_space_images/galactic-center-star-clouds.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1599,7 +1599,7 @@ window.ART_DATA = {
         "id": "galaxy-cluster-deep-field",
         "name": "Galaxy Cluster Deep Field",
         "category": "00_space_images",
-        "file": "00_space_images/galaxy-cluster-deep-field.jpg",
+        "file": "00_space_images/galaxy-cluster-deep-field.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1629,7 +1629,7 @@ window.ART_DATA = {
         "id": "helix-nebula",
         "name": "Helix Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/helix-nebula.jpg",
+        "file": "00_space_images/helix-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1644,7 +1644,7 @@ window.ART_DATA = {
         "id": "horsehead-nebula",
         "name": "Horsehead Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/horsehead-nebula.jpg",
+        "file": "00_space_images/horsehead-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1659,7 +1659,7 @@ window.ART_DATA = {
         "id": "jupiter-cloud-bands",
         "name": "Jupiter Cloud Bands",
         "category": "00_space_images",
-        "file": "00_space_images/jupiter-cloud-bands.jpg",
+        "file": "00_space_images/jupiter-cloud-bands.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1674,7 +1674,7 @@ window.ART_DATA = {
         "id": "jupiter-crescent",
         "name": "Jupiter Crescent",
         "category": "00_space_images",
-        "file": "00_space_images/jupiter-crescent.jpg",
+        "file": "00_space_images/jupiter-crescent.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1689,7 +1689,7 @@ window.ART_DATA = {
         "id": "mars-full-disk",
         "name": "Mars Full Disk",
         "category": "00_space_images",
-        "file": "00_space_images/mars-full-disk.jpg",
+        "file": "00_space_images/mars-full-disk.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1704,7 +1704,7 @@ window.ART_DATA = {
         "id": "mars-surface-from-the-lander",
         "name": "Mars Surface from the Lander",
         "category": "00_space_images",
-        "file": "00_space_images/mars-surface-from-the-lander.jpg",
+        "file": "00_space_images/mars-surface-from-the-lander.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1734,7 +1734,7 @@ window.ART_DATA = {
         "id": "nebula-dust-pillar",
         "name": "Nebula Dust Pillar",
         "category": "00_space_images",
-        "file": "00_space_images/nebula-dust-pillar.jpg",
+        "file": "00_space_images/nebula-dust-pillar.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1749,7 +1749,7 @@ window.ART_DATA = {
         "id": "orange-bipolar-nebula",
         "name": "Orange Bipolar Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/orange-bipolar-nebula.jpg",
+        "file": "00_space_images/orange-bipolar-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1764,7 +1764,7 @@ window.ART_DATA = {
         "id": "orion-nebula-infrared",
         "name": "Orion Nebula Infrared",
         "category": "00_space_images",
-        "file": "00_space_images/orion-nebula-infrared.jpg",
+        "file": "00_space_images/orion-nebula-infrared.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1779,7 +1779,7 @@ window.ART_DATA = {
         "id": "partial-solar-eclipse",
         "name": "Partial Solar Eclipse",
         "category": "00_space_images",
-        "file": "00_space_images/partial-solar-eclipse.jpg",
+        "file": "00_space_images/partial-solar-eclipse.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1809,7 +1809,7 @@ window.ART_DATA = {
         "id": "quintuplet-cluster",
         "name": "Quintuplet Cluster",
         "category": "00_space_images",
-        "file": "00_space_images/quintuplet-cluster.jpg",
+        "file": "00_space_images/quintuplet-cluster.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1824,7 +1824,7 @@ window.ART_DATA = {
         "id": "ring-nebula",
         "name": "Ring Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/ring-nebula.jpg",
+        "file": "00_space_images/ring-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1839,7 +1839,7 @@ window.ART_DATA = {
         "id": "rocket-night-launch",
         "name": "Rocket Night Launch",
         "category": "00_space_images",
-        "file": "00_space_images/rocket-night-launch.jpg",
+        "file": "00_space_images/rocket-night-launch.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1854,7 +1854,7 @@ window.ART_DATA = {
         "id": "rocket-on-the-launch-pad",
         "name": "Rocket on the Launch Pad",
         "category": "00_space_images",
-        "file": "00_space_images/rocket-on-the-launch-pad.jpg",
+        "file": "00_space_images/rocket-on-the-launch-pad.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1884,7 +1884,7 @@ window.ART_DATA = {
         "id": "star-forming-nebula",
         "name": "Star Forming Nebula",
         "category": "00_space_images",
-        "file": "00_space_images/star-forming-nebula.jpg",
+        "file": "00_space_images/star-forming-nebula.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1899,7 +1899,7 @@ window.ART_DATA = {
         "id": "starburst-galaxy-messier-94",
         "name": "Starburst Galaxy Messier 94",
         "category": "00_space_images",
-        "file": "00_space_images/starburst-galaxy-messier-94.jpg",
+        "file": "00_space_images/starburst-galaxy-messier-94.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1914,7 +1914,7 @@ window.ART_DATA = {
         "id": "the-blue-marble",
         "name": "The Blue Marble",
         "category": "00_space_images",
-        "file": "00_space_images/the-blue-marble.jpg",
+        "file": "00_space_images/the-blue-marble.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1929,7 +1929,7 @@ window.ART_DATA = {
         "id": "automaton-woman-in-a-winter-forest",
         "name": "Automaton Woman in a Winter Forest",
         "category": "01_portfolio",
-        "file": "01_portfolio/automaton-woman-in-a-winter-forest.png",
+        "file": "01_portfolio/automaton-woman-in-a-winter-forest.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1944,7 +1944,7 @@ window.ART_DATA = {
         "id": "autumn-pond-at-sunset",
         "name": "Autumn Pond at Sunset",
         "category": "01_portfolio",
-        "file": "01_portfolio/autumn-pond-at-sunset.png",
+        "file": "01_portfolio/autumn-pond-at-sunset.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1959,7 +1959,7 @@ window.ART_DATA = {
         "id": "black-beast-in-a-misty-forest",
         "name": "Black Beast in a Misty Forest",
         "category": "01_portfolio",
-        "file": "01_portfolio/black-beast-in-a-misty-forest.png",
+        "file": "01_portfolio/black-beast-in-a-misty-forest.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1974,7 +1974,7 @@ window.ART_DATA = {
         "id": "blazing-sun-over-a-sunflower-field",
         "name": "Blazing Sun over a Sunflower Field",
         "category": "01_portfolio",
-        "file": "01_portfolio/blazing-sun-over-a-sunflower-field.png",
+        "file": "01_portfolio/blazing-sun-over-a-sunflower-field.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1989,7 +1989,7 @@ window.ART_DATA = {
         "id": "bonsai-in-a-glass-sphere",
         "name": "Bonsai in a Glass Sphere",
         "category": "01_portfolio",
-        "file": "01_portfolio/bonsai-in-a-glass-sphere.png",
+        "file": "01_portfolio/bonsai-in-a-glass-sphere.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2004,7 +2004,7 @@ window.ART_DATA = {
         "id": "burning-sphere-on-the-shore",
         "name": "Burning Sphere on the Shore",
         "category": "01_portfolio",
-        "file": "01_portfolio/burning-sphere-on-the-shore.png",
+        "file": "01_portfolio/burning-sphere-on-the-shore.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2019,7 +2019,7 @@ window.ART_DATA = {
         "id": "cat-asleep-on-a-red-table",
         "name": "Cat Asleep on a Red Table",
         "category": "01_portfolio",
-        "file": "01_portfolio/cat-asleep-on-a-red-table.png",
+        "file": "01_portfolio/cat-asleep-on-a-red-table.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2034,7 +2034,7 @@ window.ART_DATA = {
         "id": "cherub-over-the-village-2",
         "name": "Cherub over the Village 2",
         "category": "01_portfolio",
-        "file": "01_portfolio/cherub-over-the-village-2.jpg",
+        "file": "01_portfolio/cherub-over-the-village-2.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2049,7 +2049,7 @@ window.ART_DATA = {
         "id": "cherub-over-the-village",
         "name": "Cherub over the Village",
         "category": "01_portfolio",
-        "file": "01_portfolio/cherub-over-the-village.png",
+        "file": "01_portfolio/cherub-over-the-village.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2064,7 +2064,7 @@ window.ART_DATA = {
         "id": "child-in-a-glowing-garden-arch",
         "name": "Child in a Glowing Garden Arch",
         "category": "01_portfolio",
-        "file": "01_portfolio/child-in-a-glowing-garden-arch.jpg",
+        "file": "01_portfolio/child-in-a-glowing-garden-arch.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2079,7 +2079,7 @@ window.ART_DATA = {
         "id": "coastal-arch-through-a-porthole",
         "name": "Coastal Arch Through a Porthole",
         "category": "01_portfolio",
-        "file": "01_portfolio/coastal-arch-through-a-porthole.png",
+        "file": "01_portfolio/coastal-arch-through-a-porthole.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2094,7 +2094,7 @@ window.ART_DATA = {
         "id": "couple-in-a-boat-on-the-canal",
         "name": "Couple in a Boat on the Canal",
         "category": "01_portfolio",
-        "file": "01_portfolio/couple-in-a-boat-on-the-canal.jpg",
+        "file": "01_portfolio/couple-in-a-boat-on-the-canal.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2109,7 +2109,7 @@ window.ART_DATA = {
         "id": "crosses-in-a-glass-case",
         "name": "Crosses in a Glass Case",
         "category": "01_portfolio",
-        "file": "01_portfolio/crosses-in-a-glass-case.png",
+        "file": "01_portfolio/crosses-in-a-glass-case.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2124,7 +2124,7 @@ window.ART_DATA = {
         "id": "family-among-golden-trees",
         "name": "Family Among Golden Trees",
         "category": "01_portfolio",
-        "file": "01_portfolio/family-among-golden-trees.png",
+        "file": "01_portfolio/family-among-golden-trees.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2139,7 +2139,7 @@ window.ART_DATA = {
         "id": "figure-and-dog-in-a-glass-box",
         "name": "Figure and Dog in a Glass Box",
         "category": "01_portfolio",
-        "file": "01_portfolio/figure-and-dog-in-a-glass-box.png",
+        "file": "01_portfolio/figure-and-dog-in-a-glass-box.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2154,7 +2154,7 @@ window.ART_DATA = {
         "id": "figure-at-a-doorway-of-light",
         "name": "Figure at a Doorway of Light",
         "category": "01_portfolio",
-        "file": "01_portfolio/figure-at-a-doorway-of-light.png",
+        "file": "01_portfolio/figure-at-a-doorway-of-light.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2169,7 +2169,7 @@ window.ART_DATA = {
         "id": "figure-inside-a-burning-wave",
         "name": "Figure Inside a Burning Wave",
         "category": "01_portfolio",
-        "file": "01_portfolio/figure-inside-a-burning-wave.png",
+        "file": "01_portfolio/figure-inside-a-burning-wave.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2184,7 +2184,7 @@ window.ART_DATA = {
         "id": "figure-on-a-peak-under-swirling-stars",
         "name": "Figure on a Peak under Swirling Stars",
         "category": "01_portfolio",
-        "file": "01_portfolio/figure-on-a-peak-under-swirling-stars.png",
+        "file": "01_portfolio/figure-on-a-peak-under-swirling-stars.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2199,7 +2199,7 @@ window.ART_DATA = {
         "id": "figure-on-a-rock-under-a-swirling-sky",
         "name": "Figure on a Rock under a Swirling Sky",
         "category": "01_portfolio",
-        "file": "01_portfolio/figure-on-a-rock-under-a-swirling-sky.png",
+        "file": "01_portfolio/figure-on-a-rock-under-a-swirling-sky.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2214,7 +2214,7 @@ window.ART_DATA = {
         "id": "fire-spheres-in-a-vitrine",
         "name": "Fire Spheres in a Vitrine",
         "category": "01_portfolio",
-        "file": "01_portfolio/fire-spheres-in-a-vitrine.png",
+        "file": "01_portfolio/fire-spheres-in-a-vitrine.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2229,7 +2229,7 @@ window.ART_DATA = {
         "id": "girl-holding-a-white-flower",
         "name": "Girl Holding a White Flower",
         "category": "01_portfolio",
-        "file": "01_portfolio/girl-holding-a-white-flower.png",
+        "file": "01_portfolio/girl-holding-a-white-flower.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2244,7 +2244,7 @@ window.ART_DATA = {
         "id": "girl-in-a-straw-hat",
         "name": "Girl in a Straw Hat",
         "category": "01_portfolio",
-        "file": "01_portfolio/girl-in-a-straw-hat.jpg",
+        "file": "01_portfolio/girl-in-a-straw-hat.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2259,7 +2259,7 @@ window.ART_DATA = {
         "id": "girl-playing-the-violin",
         "name": "Girl Playing the Violin",
         "category": "01_portfolio",
-        "file": "01_portfolio/girl-playing-the-violin.png",
+        "file": "01_portfolio/girl-playing-the-violin.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2274,7 +2274,7 @@ window.ART_DATA = {
         "id": "girl-with-braids",
         "name": "Girl with Braids",
         "category": "01_portfolio",
-        "file": "01_portfolio/girl-with-braids.jpg",
+        "file": "01_portfolio/girl-with-braids.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2289,7 +2289,7 @@ window.ART_DATA = {
         "id": "green-figure-and-a-horned-idol",
         "name": "Green Figure and a Horned Idol",
         "category": "01_portfolio",
-        "file": "01_portfolio/green-figure-and-a-horned-idol.png",
+        "file": "01_portfolio/green-figure-and-a-horned-idol.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2304,7 +2304,7 @@ window.ART_DATA = {
         "id": "horned-giant-in-a-winter-wood",
         "name": "Horned Giant in a Winter Wood",
         "category": "01_portfolio",
-        "file": "01_portfolio/horned-giant-in-a-winter-wood.png",
+        "file": "01_portfolio/horned-giant-in-a-winter-wood.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2319,7 +2319,7 @@ window.ART_DATA = {
         "id": "jungle-huts-at-dusk-2",
         "name": "Jungle Huts at Dusk 2",
         "category": "01_portfolio",
-        "file": "01_portfolio/jungle-huts-at-dusk-2.png",
+        "file": "01_portfolio/jungle-huts-at-dusk-2.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2334,7 +2334,7 @@ window.ART_DATA = {
         "id": "jungle-huts-at-dusk",
         "name": "Jungle Huts at Dusk",
         "category": "01_portfolio",
-        "file": "01_portfolio/jungle-huts-at-dusk.jpg",
+        "file": "01_portfolio/jungle-huts-at-dusk.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2349,7 +2349,7 @@ window.ART_DATA = {
         "id": "lantern-and-bluebird-2",
         "name": "Lantern and Bluebird 2",
         "category": "01_portfolio",
-        "file": "01_portfolio/lantern-and-bluebird-2.png",
+        "file": "01_portfolio/lantern-and-bluebird-2.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2364,7 +2364,7 @@ window.ART_DATA = {
         "id": "lantern-and-bluebird",
         "name": "Lantern and Bluebird",
         "category": "01_portfolio",
-        "file": "01_portfolio/lantern-and-bluebird.jpg",
+        "file": "01_portfolio/lantern-and-bluebird.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2379,7 +2379,7 @@ window.ART_DATA = {
         "id": "lone-figure-at-a-red-sunset",
         "name": "Lone Figure at a Red Sunset",
         "category": "01_portfolio",
-        "file": "01_portfolio/lone-figure-at-a-red-sunset.png",
+        "file": "01_portfolio/lone-figure-at-a-red-sunset.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2394,7 +2394,7 @@ window.ART_DATA = {
         "id": "masked-figure-in-orange",
         "name": "Masked Figure in Orange",
         "category": "01_portfolio",
-        "file": "01_portfolio/masked-figure-in-orange.png",
+        "file": "01_portfolio/masked-figure-in-orange.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2409,7 +2409,7 @@ window.ART_DATA = {
         "id": "moonlit-river-with-a-rowboat",
         "name": "Moonlit River with a Rowboat",
         "category": "01_portfolio",
-        "file": "01_portfolio/moonlit-river-with-a-rowboat.jpg",
+        "file": "01_portfolio/moonlit-river-with-a-rowboat.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2424,7 +2424,7 @@ window.ART_DATA = {
         "id": "moonlit-surf",
         "name": "Moonlit Surf",
         "category": "01_portfolio",
-        "file": "01_portfolio/moonlit-surf.png",
+        "file": "01_portfolio/moonlit-surf.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2439,7 +2439,7 @@ window.ART_DATA = {
         "id": "mosaic-eye",
         "name": "Mosaic Eye",
         "category": "01_portfolio",
-        "file": "01_portfolio/mosaic-eye.jpg",
+        "file": "01_portfolio/mosaic-eye.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2454,7 +2454,7 @@ window.ART_DATA = {
         "id": "ocean-waves-and-sea-stacks",
         "name": "Ocean Waves and Sea Stacks",
         "category": "01_portfolio",
-        "file": "01_portfolio/ocean-waves-and-sea-stacks.png",
+        "file": "01_portfolio/ocean-waves-and-sea-stacks.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2469,7 +2469,7 @@ window.ART_DATA = {
         "id": "pale-woman-in-a-green-frame",
         "name": "Pale Woman in a Green Frame",
         "category": "01_portfolio",
-        "file": "01_portfolio/pale-woman-in-a-green-frame.png",
+        "file": "01_portfolio/pale-woman-in-a-green-frame.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2484,7 +2484,7 @@ window.ART_DATA = {
         "id": "pale-woman-in-round-glasses",
         "name": "Pale Woman in Round Glasses",
         "category": "01_portfolio",
-        "file": "01_portfolio/pale-woman-in-round-glasses.png",
+        "file": "01_portfolio/pale-woman-in-round-glasses.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2499,7 +2499,7 @@ window.ART_DATA = {
         "id": "pendulum-vitrine-at-dusk",
         "name": "Pendulum Vitrine at Dusk",
         "category": "01_portfolio",
-        "file": "01_portfolio/pendulum-vitrine-at-dusk.png",
+        "file": "01_portfolio/pendulum-vitrine-at-dusk.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2514,7 +2514,7 @@ window.ART_DATA = {
         "id": "peony-under-glass-by-moonlight",
         "name": "Peony under Glass by Moonlight",
         "category": "01_portfolio",
-        "file": "01_portfolio/peony-under-glass-by-moonlight.png",
+        "file": "01_portfolio/peony-under-glass-by-moonlight.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2529,7 +2529,7 @@ window.ART_DATA = {
         "id": "pink-cliffs-above-the-sea",
         "name": "Pink Cliffs Above the Sea",
         "category": "01_portfolio",
-        "file": "01_portfolio/pink-cliffs-above-the-sea.png",
+        "file": "01_portfolio/pink-cliffs-above-the-sea.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2544,7 +2544,7 @@ window.ART_DATA = {
         "id": "portrait-in-a-black-bow-tie",
         "name": "Portrait in a Black Bow Tie",
         "category": "01_portfolio",
-        "file": "01_portfolio/portrait-in-a-black-bow-tie.png",
+        "file": "01_portfolio/portrait-in-a-black-bow-tie.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2559,7 +2559,7 @@ window.ART_DATA = {
         "id": "portrait-of-a-freckled-woman",
         "name": "Portrait of a Freckled Woman",
         "category": "01_portfolio",
-        "file": "01_portfolio/portrait-of-a-freckled-woman.png",
+        "file": "01_portfolio/portrait-of-a-freckled-woman.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2574,7 +2574,7 @@ window.ART_DATA = {
         "id": "portrait-of-a-scowling-youth",
         "name": "Portrait of a Scowling Youth",
         "category": "01_portfolio",
-        "file": "01_portfolio/portrait-of-a-scowling-youth.png",
+        "file": "01_portfolio/portrait-of-a-scowling-youth.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2589,7 +2589,7 @@ window.ART_DATA = {
         "id": "portrait-of-a-woman-by-the-shore",
         "name": "Portrait of a Woman by the Shore",
         "category": "01_portfolio",
-        "file": "01_portfolio/portrait-of-a-woman-by-the-shore.png",
+        "file": "01_portfolio/portrait-of-a-woman-by-the-shore.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2604,7 +2604,7 @@ window.ART_DATA = {
         "id": "portrait-of-a-woman-in-white",
         "name": "Portrait of a Woman in White",
         "category": "01_portfolio",
-        "file": "01_portfolio/portrait-of-a-woman-in-white.png",
+        "file": "01_portfolio/portrait-of-a-woman-in-white.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2619,7 +2619,7 @@ window.ART_DATA = {
         "id": "red-flower-under-a-bell-jar",
         "name": "Red Flower under a Bell Jar",
         "category": "01_portfolio",
-        "file": "01_portfolio/red-flower-under-a-bell-jar.png",
+        "file": "01_portfolio/red-flower-under-a-bell-jar.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2634,7 +2634,7 @@ window.ART_DATA = {
         "id": "red-lilies-under-a-glass-dome",
         "name": "Red Lilies under a Glass Dome",
         "category": "01_portfolio",
-        "file": "01_portfolio/red-lilies-under-a-glass-dome.png",
+        "file": "01_portfolio/red-lilies-under-a-glass-dome.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2649,7 +2649,7 @@ window.ART_DATA = {
         "id": "riders-against-a-red-sun",
         "name": "Riders Against a Red Sun",
         "category": "01_portfolio",
-        "file": "01_portfolio/riders-against-a-red-sun.png",
+        "file": "01_portfolio/riders-against-a-red-sun.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2664,7 +2664,7 @@ window.ART_DATA = {
         "id": "riverside-village-in-the-hills",
         "name": "Riverside Village in the Hills",
         "category": "01_portfolio",
-        "file": "01_portfolio/riverside-village-in-the-hills.jpg",
+        "file": "01_portfolio/riverside-village-in-the-hills.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2679,7 +2679,7 @@ window.ART_DATA = {
         "id": "ships-at-sunset-on-the-shore-2",
         "name": "Ships at Sunset on the Shore 2",
         "category": "01_portfolio",
-        "file": "01_portfolio/ships-at-sunset-on-the-shore-2.png",
+        "file": "01_portfolio/ships-at-sunset-on-the-shore-2.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2694,7 +2694,7 @@ window.ART_DATA = {
         "id": "ships-at-sunset-on-the-shore",
         "name": "Ships at Sunset on the Shore",
         "category": "01_portfolio",
-        "file": "01_portfolio/ships-at-sunset-on-the-shore.jpg",
+        "file": "01_portfolio/ships-at-sunset-on-the-shore.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2709,7 +2709,7 @@ window.ART_DATA = {
         "id": "small-dog-in-a-glass-vitrine",
         "name": "Small Dog in a Glass Vitrine",
         "category": "01_portfolio",
-        "file": "01_portfolio/small-dog-in-a-glass-vitrine.png",
+        "file": "01_portfolio/small-dog-in-a-glass-vitrine.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2724,7 +2724,7 @@ window.ART_DATA = {
         "id": "snow-mountain-valley",
         "name": "Snow Mountain Valley",
         "category": "01_portfolio",
-        "file": "01_portfolio/snow-mountain-valley.png",
+        "file": "01_portfolio/snow-mountain-valley.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2739,7 +2739,7 @@ window.ART_DATA = {
         "id": "snowglobe-mountain-in-the-snow",
         "name": "Snowglobe Mountain in the Snow",
         "category": "01_portfolio",
-        "file": "01_portfolio/snowglobe-mountain-in-the-snow.png",
+        "file": "01_portfolio/snowglobe-mountain-in-the-snow.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2754,7 +2754,7 @@ window.ART_DATA = {
         "id": "starlit-canyon-river",
         "name": "Starlit Canyon River",
         "category": "01_portfolio",
-        "file": "01_portfolio/starlit-canyon-river.png",
+        "file": "01_portfolio/starlit-canyon-river.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2769,7 +2769,7 @@ window.ART_DATA = {
         "id": "starlit-tree-over-a-bridge",
         "name": "Starlit Tree over a Bridge",
         "category": "01_portfolio",
-        "file": "01_portfolio/starlit-tree-over-a-bridge.png",
+        "file": "01_portfolio/starlit-tree-over-a-bridge.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2784,7 +2784,7 @@ window.ART_DATA = {
         "id": "starry-night-cypress",
         "name": "Starry Night Cypress",
         "category": "01_portfolio",
-        "file": "01_portfolio/starry-night-cypress.png",
+        "file": "01_portfolio/starry-night-cypress.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2799,7 +2799,7 @@ window.ART_DATA = {
         "id": "sunlit-cove-with-breaking-waves",
         "name": "Sunlit Cove with Breaking Waves",
         "category": "01_portfolio",
-        "file": "01_portfolio/sunlit-cove-with-breaking-waves.png",
+        "file": "01_portfolio/sunlit-cove-with-breaking-waves.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2814,7 +2814,7 @@ window.ART_DATA = {
         "id": "two-children-in-a-dark-wood",
         "name": "Two Children in a Dark Wood",
         "category": "01_portfolio",
-        "file": "01_portfolio/two-children-in-a-dark-wood.png",
+        "file": "01_portfolio/two-children-in-a-dark-wood.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2829,7 +2829,7 @@ window.ART_DATA = {
         "id": "two-women-and-a-golden-arch",
         "name": "Two Women and a Golden Arch",
         "category": "01_portfolio",
-        "file": "01_portfolio/two-women-and-a-golden-arch.png",
+        "file": "01_portfolio/two-women-and-a-golden-arch.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2844,7 +2844,7 @@ window.ART_DATA = {
         "id": "van-gogh-self-portrait-mosaic",
         "name": "Van Gogh Self Portrait Mosaic",
         "category": "01_portfolio",
-        "file": "01_portfolio/van-gogh-self-portrait-mosaic.jpg",
+        "file": "01_portfolio/van-gogh-self-portrait-mosaic.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2859,7 +2859,7 @@ window.ART_DATA = {
         "id": "veiled-profile-against-the-sun",
         "name": "Veiled Profile Against the Sun",
         "category": "01_portfolio",
-        "file": "01_portfolio/veiled-profile-against-the-sun.png",
+        "file": "01_portfolio/veiled-profile-against-the-sun.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2874,7 +2874,7 @@ window.ART_DATA = {
         "id": "winter-cabin-under-the-stars",
         "name": "Winter Cabin under the Stars",
         "category": "01_portfolio",
-        "file": "01_portfolio/winter-cabin-under-the-stars.jpg",
+        "file": "01_portfolio/winter-cabin-under-the-stars.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2889,7 +2889,7 @@ window.ART_DATA = {
         "id": "woman-bathing-in-the-river",
         "name": "Woman Bathing in the River",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-bathing-in-the-river.png",
+        "file": "01_portfolio/woman-bathing-in-the-river.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2904,7 +2904,7 @@ window.ART_DATA = {
         "id": "woman-in-a-glass-case",
         "name": "Woman in a Glass Case",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-in-a-glass-case.png",
+        "file": "01_portfolio/woman-in-a-glass-case.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2919,7 +2919,7 @@ window.ART_DATA = {
         "id": "woman-in-a-night-garden",
         "name": "Woman in a Night Garden",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-in-a-night-garden.jpg",
+        "file": "01_portfolio/woman-in-a-night-garden.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2934,7 +2934,7 @@ window.ART_DATA = {
         "id": "woman-in-glasses-with-storm-hair",
         "name": "Woman in Glasses with Storm Hair",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-in-glasses-with-storm-hair.png",
+        "file": "01_portfolio/woman-in-glasses-with-storm-hair.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2949,7 +2949,7 @@ window.ART_DATA = {
         "id": "woman-in-hanbok-on-gold",
         "name": "Woman in Hanbok on Gold",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-in-hanbok-on-gold.png",
+        "file": "01_portfolio/woman-in-hanbok-on-gold.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2964,7 +2964,7 @@ window.ART_DATA = {
         "id": "woman-reading-by-a-window",
         "name": "Woman Reading by a Window",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-reading-by-a-window.jpg",
+        "file": "01_portfolio/woman-reading-by-a-window.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2979,7 +2979,7 @@ window.ART_DATA = {
         "id": "woman-resting-at-sunset",
         "name": "Woman Resting at Sunset",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-resting-at-sunset.png",
+        "file": "01_portfolio/woman-resting-at-sunset.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -2994,7 +2994,7 @@ window.ART_DATA = {
         "id": "woman-under-a-stormy-sky",
         "name": "Woman under a Stormy Sky",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-under-a-stormy-sky.png",
+        "file": "01_portfolio/woman-under-a-stormy-sky.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3009,7 +3009,7 @@ window.ART_DATA = {
         "id": "woman-with-an-afro",
         "name": "Woman with an Afro",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-with-an-afro.png",
+        "file": "01_portfolio/woman-with-an-afro.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3024,7 +3024,7 @@ window.ART_DATA = {
         "id": "woman-with-cloud-hair",
         "name": "Woman with Cloud Hair",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-with-cloud-hair.png",
+        "file": "01_portfolio/woman-with-cloud-hair.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3039,7 +3039,7 @@ window.ART_DATA = {
         "id": "woman-with-oranges-in-the-garden-2",
         "name": "Woman with Oranges in the Garden 2",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-with-oranges-in-the-garden-2.png",
+        "file": "01_portfolio/woman-with-oranges-in-the-garden-2.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3054,7 +3054,7 @@ window.ART_DATA = {
         "id": "woman-with-oranges-in-the-garden",
         "name": "Woman with Oranges in the Garden",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-with-oranges-in-the-garden.jpg",
+        "file": "01_portfolio/woman-with-oranges-in-the-garden.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3069,7 +3069,7 @@ window.ART_DATA = {
         "id": "woman-with-red-flowers-at-a-window",
         "name": "Woman with Red Flowers at a Window",
         "category": "01_portfolio",
-        "file": "01_portfolio/woman-with-red-flowers-at-a-window.png",
+        "file": "01_portfolio/woman-with-red-flowers-at-a-window.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3084,7 +3084,7 @@ window.ART_DATA = {
         "id": "women-on-the-beach-with-boats",
         "name": "Women on the Beach with Boats",
         "category": "01_portfolio",
-        "file": "01_portfolio/women-on-the-beach-with-boats.jpg",
+        "file": "01_portfolio/women-on-the-beach-with-boats.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -3099,7 +3099,7 @@ window.ART_DATA = {
         "id": "fur-traders-descending-the-missouri",
         "name": "Fur Traders Descending the Missouri",
         "category": "02_public_domain",
-        "file": "02_public_domain/fur-traders-descending-the-missouri.jpg",
+        "file": "02_public_domain/fur-traders-descending-the-missouri.webp",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
