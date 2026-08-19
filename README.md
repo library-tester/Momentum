@@ -14,7 +14,7 @@ $ done 1
 #1 "water the plants" done! moved to the archive.
 ```
 
-*...and on the right, a little more of the picture appears.*
+*...and in the art panel, a little more of the picture appears.*
 
 <!-- SUGGESTED: a short looping GIF right here — type a task, complete it, watch blocks
      pop off the image. ~10 seconds, no audio needed. This is the single highest-value
@@ -28,18 +28,24 @@ $ done 1
 
 <table>
   <tr>
-    <td width="50%">
-      <img src="Screenshots/momentum-image-reveal.jpeg" alt="Momentum with a fully revealed image: the task list fills the left column, the artwork sits above the console on the right" width="100%">
-      <br><em><b>A finished piece.</b> 96 of 96 blocks uncovered — the app offers to save it to the gallery or download it, then starts a new one, hidden.</em>
-    </td>
-    <td width="50%">
-      <img src="Screenshots/momentum-ascii-amber.jpeg" alt="Momentum in ascii mode on the amber theme, artwork in the full-height left column with the task list pinned above the console" width="100%">
-      <br><em><b>Ascii mode, amber.</b> The artwork takes the full-height column, the task list is pinned above the console, and the header keeps the running count.</em>
+    <td colspan="2">
+      <img src="Screenshots/momentum-default-layout-solar.png" alt="Momentum in its default layout: the console fills the left column, a photograph sits top-right, the task list below it" width="100%">
+      <br><em><b>The default layout.</b> Console on the left, the piece you're uncovering top-right, your task list underneath it. This one's fully revealed and on the <code>solar</code> theme; note the <code>•</code> in the margin of task <code>[3]</code> — that's a mark, and there's <a href="#reading-the-task-list">a whole column of them</a>.</em>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <img src="Screenshots/momentum-ascii-nord.jpeg" alt="The same layout on the nord theme, showing an ascii drawing of a space shuttle on its gantry" width="100%">
+      <img src="Screenshots/momentum-image-reveal.jpeg" alt="Momentum with a fully revealed image, task list in the left column" width="100%">
+      <br><em><b>A finished piece.</b> 96 of 96 blocks uncovered — the app offers to save it to the gallery or download it, then starts a new one, hidden.</em>
+    </td>
+    <td width="50%">
+      <img src="Screenshots/momentum-ascii-amber.jpeg" alt="Momentum in ascii mode on the amber theme, artwork in a full-height column" width="100%">
+      <br><em><b>Ascii mode, amber.</b> Here the artwork has been given the full-height column with <code>view art</code> — one of three arrangements you can pick between.</em>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="Screenshots/momentum-ascii-nord.jpeg" alt="The nord theme, showing an ascii drawing of a space shuttle on its gantry" width="100%">
       <br><em><b>The nord theme.</b> Ten themes ship — from <code>dos</code> (white on IBM blue) to <code>paper</code> and <code>noir</code> — and every one is a whole-app palette, art included.</em>
     </td>
     <td width="50%">
@@ -59,6 +65,7 @@ These are stills, so the one thing they can't show is the part that matters: eac
 - [Quick start](#quick-start)
 - [How the reward loop works](#how-the-reward-loop-works)
 - [Your first five minutes](#your-first-five-minutes)
+- [Reading the task list](#reading-the-task-list) — the marks and the `[label:value]` fields
 - [Command reference](#command-reference)
 - [Keyboard and shortcuts](#keyboard-and-shortcuts)
 - [Making it yours](#making-it-yours)
@@ -71,44 +78,47 @@ These are stills, so the one thing they can't show is the part that matters: eac
 
 ## Quick start
 
-**The fastest way** — double-click `momentum.html`. That's it. No server, no install, no build step, no dependencies. It runs entirely in your browser and saves to that browser's local storage.
+**The fastest way** — double-click `index.html`. That's it. No server, no install, no build step, no dependencies, no `node_modules`. It runs entirely in your browser and saves to that browser's local storage.
 
 **The nicer way** — run a local server from the project folder:
 
 ```bash
 python3 -m http.server 8000
-# then open http://localhost:8000/momentum.html
+# then open http://localhost:8000/index.html
 ```
 
 Both work identically for day-to-day use. The difference only matters when you're **adding your own art** — see [Adding your own art](#adding-your-own-art) below.
 
 Under the header there's a row of the commands worth knowing first — `help · add · done · list · gallery · display · theme · fullscreen`. Clicking one *writes it into the input* rather than running it, so you see the word you would have typed and still press Enter yourself. Once you know them, `set helpline off` takes the row away.
 
-Type `help` at any time. It opens a short menu of command groups — `help tasks`, `help art`, `help layout`, `help data` — rather than one long wall; `help <command>` explains a single one (`help done`), and `help all` prints everything at once. `Tab` completes command names and their options.
+Type `help` at any time. It opens a short menu of groups — `help tasks`, `help art`, `help layout`, `help data`, `help other` — rather than one long wall. `help <command>` explains a single one (`help done`), `help marks` decodes [the symbol column](#reading-the-task-list), `help dates` lists every date word the app understands, and `help all` prints everything at once. `Tab` completes command names and their options.
+
+Clicking the **MOMENTUM** title opens this project's GitHub page in a new tab.
 
 ---
 
 ## How the reward loop works
 
-The screen is split. **Left:** your task list and a command prompt. **Right:** the artwork you're currently uncovering.
+Out of the box the screen is split three ways: **the console on the left**, **the artwork you're currently uncovering top-right**, and **your task list underneath it**. (All three are movable — see [Three panes, two places](#three-panes-two-places).)
 
 ```
-┌─────────────────────────────┬──────────────────────┐
-│  TASKS            3 tasks   │                      │
-│    [1] water the plants     │     ▓▓▓▓░░░░▓▓▓▓     │
-│    [2] reply to Sam         │     ▓▓░░░░░░░░▓▓     │
-│    [3] file the receipts    │     ░░░░  ░░░░░░     │
-│ ─────────── drag ────────── │     ▓▓░░░░░░░░▓▓     │
-│  $ done 1                   │     ▓▓▓▓░░░░▓▓▓▓     │
-│  #1 "water the plants"      │                      │
-│      done! moved to archive │   Wildflower · 40%   │
-│  $                          │                      │
-└─────────────────────────────┴──────────────────────┘
+┌──────────────────────────────┬─────────────────────────┐
+│  $ done 1                    │                         │
+│  #1 "water the plants"       │    ▓▓▓▓░░░░▓▓▓▓         │
+│      done! moved to archive  │    ▓▓░░░░░░░░▓▓         │
+│  $                           │    ░░░░  ░░░░░░         │
+│                              │    ▓▓░░░░░░░░▓▓         │
+│                              │  Wildflower · 40%       │
+│                              ├──────── drag ───────────┤
+│                              │  TASKS         2 tasks  │
+│                              │   >>[2] reply to Sam    │
+│                              │     [3] file receipts   │
+└──────────────────────────────┴─────────────────────────┘
 ```
 
 **One completed task = one payment toward the current piece.**
 
-- In **ASCII mode**, each piece declares how many tasks it takes to fully reveal (5–8 for the bundled artworks). Each completed task uncovers its share of the characters, in random order.
+- In **ASCII mode**, each piece declares how many tasks it takes to fully reveal (6 by default for the bundled artworks). Each completed task uncovers its share of the characters, in random order.
 - In **image mode**, the picture is cut into a grid of blocks, and each completed task pops off a fixed number of them (10 by default). You control both the block size and how many uncover per task — see [`block size`](#the-artwork) and [`block count`](#the-artwork).
 
 When a piece is fully revealed, it freezes and waits for you:
@@ -119,11 +129,12 @@ What do you want to do?
   close     (save it, start a new one — also: save)
   skip      (discard it, no gallery credit, start a new one)
   download  (save the file to your computer)
+  copy      (copy the ascii text to your clipboard)
   display   (see it fullscreen — esc/click to exit)
   (finishing another task skips it — "close" first to keep it)
 ```
 
-`close` files it in your permanent `gallery` and starts a fresh hidden piece. `download` saves the real file to your machine first.
+`close` files it in your permanent `gallery` and starts a fresh hidden piece. `download` saves the real file to your machine first. `copy` (ascii only) puts the text on your clipboard.
 
 **It waits, but not forever.** A finished piece is a decision, and the next task you finish makes it for you: complete another task while one is sitting there and it's skipped exactly as if you'd typed `skip` — discarded, no gallery credit, a fresh piece starting from zero. So `close` it while it's in front of you.
 
@@ -137,8 +148,8 @@ Pieces are picked randomly, but from a pool that excludes what you've already se
 
 ```bash
 add buy coffee beans           # quotes are optional
-add reply to Sam -p high       # ...but flags still work
-add file receipts -d 2026-09-01 -t admin
+add reply to Sam +urgent       # ...but tags and flags still work
+add file receipts -est 45m #admin
 
 list                           # see them all
 start 2                        # mark one as in-progress
@@ -154,6 +165,79 @@ help                           # everything else
 
 ---
 
+## Reading the task list
+
+A task row looks small, but it carries two separate kinds of information: a **mark** in the left margin, and a row of **`[label:value]` fields** underneath. Here's a loaded list with most of it switched on:
+
+```
+- - - - - - - - - - - - - - - - - - - - - - -
+>>[3] file receipts
+      [active] [tag:next] [est:45m]
+  [2] reply to Sam
+      [prior:high] [proj:work] [due:in 2 days]
+ ![1] water the plants
+      [tag:urgent] [tag:marked]
+- - - - - - - - - - - - - - - - - - - - - - -
+```
+
+### The mark column — the symbols in front of each `[id]`
+
+The narrow column just left of each id is the app's one piece of shorthand. It exists so that "what needs my attention" survives a glance, without you having to read any of the fields.
+
+| Mark | Means | How a task gets it |
+|:---:|---|---|
+| `!!` | very urgent | `tag 3 add "very urgent"` |
+| `!` | urgent | `+urgent` (or `tag 3 add urgent`) |
+| `>>` | started — you're on it | `start 3` |
+| `>` | next up | `+next` |
+| `●` | important / focus | `+important` |
+| `•` | marked — a plain flag | `mark 3` (and `mark 3 off` clears it) |
+
+Three things worth knowing, and `help marks` says all of them in the app too:
+
+- **They're just tags underneath.** Every mark except `>>` is an ordinary tag with a symbol attached, so it filters and clears like any other one — `list +urgent`, `tag 3 rm urgent`. Even `mark 3` is only a shortcut that writes a tag called `marked` for you, which is why `list +marked` finds them.
+- **A task shows one mark, never two.** The table above is the order they win in, top to bottom, so something that's both urgent and marked reads as urgent. `>>` sits deliberately in the middle: being underway beats a plan or a flag, but it doesn't beat an actual emergency.
+- **Spelling is forgiving.** `very urgent`, `very-urgent` and `Very_Urgent` all count as the same tag. Only the spaced version needs the `tag` command, because `+very urgent` would split into two separate tags.
+
+`>>` is the odd one out on purpose: it's a *status*, not a tag. `start 3` sets it and `stop 3` clears it, and an archived task never shows it — finishing something shouldn't leave it claiming to be in progress.
+
+### The `[label:value]` fields
+
+Underneath each title, on its own indented line, is whatever detail that task actually carries. A task with nothing on it stays a single clean line — the second row only appears when there's something to put there.
+
+| Field | Means | Set by |
+|---|---|---|
+| `[prior:high]` | priority — `high`, `med` or `low` | `-p high`, or `priority 3 high` |
+| `[proj:work]` | which project it belongs to | `#work`, or `project set 3 work` |
+| `[tag:urgent]` | a tag — **one bracket each**, so three tags is three brackets | `+urgent`, or `tag 3 add urgent` |
+| `[due:in 2 days]` | when it's due, read back in plain language | `-d friday`, or `due 3 friday` |
+| `[est:45m]` | how long you think it'll take | `-est 45m`, or `est 3 45m` |
+| `[created:3d ago]` | how long ago you added it | always there; show it with `set age on` |
+| `[active]` | this task is started | `start 3` |
+| `[OVERDUE]` | past its due date — the whole row turns red | earned, not set |
+| `[completed:8/19/2026]` | when you finished it (archive only) | `done 3` |
+
+Every field is labelled rather than bare, and that's deliberate: `[home] [urgent]` could never tell you which of the two was the project and which was the tag, because both are just words you chose. The label is the only thing that can carry that.
+
+> **Tags get one bracket each** — `[tag:a] [tag:b]` rather than `[tag:a,b]` — because they really are separate things. You can remove or filter by exactly one of them (`tag 1 rm b`, `list +b`), so showing them as a single comma-joined field would be quietly lying about what they are. The comma form you *type* (`+a,b,c`) is just typing shorthand.
+
+### The order the list is in
+
+Not insertion order. **Overdue first, then active, then by priority** — each tier only breaking ties left by the one before it. So a low-priority overdue task still outranks a high-priority one that isn't overdue, because "overdue" is the more urgent fact about it. Anything tied on all three keeps the order you added it in.
+
+Switch a feature off and it drops out of the sort as well as the display — being sorted by something you can't see is exactly the confusion the feature flags exist to avoid.
+
+### Clicking, instead of typing
+
+The always-visible task pane is clickable in two places, and neither of them runs anything:
+
+- **Click anywhere on a task** to open or close its `[label:value]` line. The `[+]` at the end of a row is the hint that there's something folded away.
+- **Click the `[3]` bracket** to pre-fill `done 3` in the input — you still press Enter yourself.
+
+That's the rule every click in this app follows: a click can *offer* a command, never issue one. A misclick costs you nothing, and the clickable surfaces teach you the words rather than replacing them.
+
+---
+
 ## Command reference
 
 Most task commands accept **multiple ids** (`done 3,5,6`), **ranges** (`rm 1-4`), or **`all`** (`rm all`).
@@ -165,88 +249,113 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | Command | What it does |
 |---|---|
 | `add <title>` | Add a task. Quotes are optional — `add buy milk` works. |
-| `add <title> -p high\|med\|low` | ...with a priority |
-| `add <title> -d <date>` | ...with a due date — `friday`, `tomorrow`, `+3d`, `eom`, or `2026-01-31` |
-| `add <title> +tag` / `+car,home,key` | ...with tags |
 | `add <title> #project` | ...assigned to a project (created if new) |
-| `rename <id> <new title>` | Fix a typo without delete-and-retype. One task at a time. |
-| `start <id\|ids\|all>` | Mark task(s) active |
+| `add <title> +tag` / `+car,home,key` | ...with tags |
+| `add <title> -p high\|med\|low` | ...with a priority |
+| `add <title> -d <date>` | ...with a due date — `friday`, `tomorrow`, `+3d`, `eom`, `2026-01-31` |
+| `add <title> -est <time>` | ...with an estimate — `45m`, `2h`, `1h30`, `1.5h`, `2d` |
+| `rename <id> "new title"` | Fix a typo without delete-and-retype. One task at a time. |
+| `edit <id>` | Load the current title into the input to tweak, Enter to save |
+| `start <id\|ids\|all>` | Mark task(s) active — this is what earns the `>>` mark |
 | `stop <id\|ids\|all>` | Put active task(s) back to pending |
 | `done <id\|ids\|all>` | Complete task(s) → moves to archive, **pays out reveal progress** |
 | `rm <id\|ids\|all>` | Delete task(s). Also `remove`, `delete`. Does *not* archive them. |
 | `undo` | Reverse the last command that changed anything (20 deep, this session) |
+
+> The older `-proj name` and `-t tag1,tag2` flag spellings still work everywhere the `#` and `+` marks do. The marks are just the version worth typing.
 
 ### Organising
 
 | Command | What it does |
 |---|---|
 | `priority <ids> <high\|med\|low>` | Change priority |
-| `due <ids> <date\|none>` | Set or clear a due date. Takes `friday`, `tomorrow`, `+2w`, `eom`, or `2026-01-31`. |
+| `due <ids> <date\|none>` | Set or clear a due date — see the date vocabulary below |
+| `est <ids> <time\|none>` | Set or clear an estimate. Also spelled `estimate`, `duration`, `time`. |
 | `tag <ids> add <tag>` | Add a tag |
 | `tag <ids> rm <tag>` | Remove a tag |
 | `tag <ids> set <tag1,tag2>` | Replace all tags |
 | `tags` | List every tag in use |
+| `mark <ids> [off]` | Put the `•` in the margin (writes the `marked` tag for you) |
 | `project add <name>` | Create a project |
 | `project rm <name>` | Delete a project |
 | `project set <ids> <name\|none>` | Assign task(s) to a project |
 | `project switch <name\|none>` | **Work inside one project** — the pane shows only its tasks and new ones join it (also: `switch project`) |
 | `project list` | List projects (also: `projects`) |
 
+**Dates** — `-d` and `due` both understand the same vocabulary, and `help dates` prints the full table:
+
+| Form | Examples |
+|---|---|
+| written out | `2026-01-31` |
+| named days | `today`, `tomorrow`, `yesterday` |
+| a weekday, the next one counting today | `friday`, `fri`, `monday`, `mon` … |
+| counting forward | `2 days`, `in 3 weeks`, `next week`, `next month` |
+| terse | `+3d`, `+2w`, `+1m`, `+1y` (the `+` is optional) |
+| end of a period | `eow` (Sunday), `eom`, `eoy` |
+| clearing it | `none` (with `due`) |
+
+Two-word forms need quotes behind `-d`, which can't tell where the date stops and the title starts again (`-d "2 days"`). After `due` they're fine as they are: `due 3 in 2 weeks`. Whichever you type, it lands on one calendar day and the app echoes that day back — and the list reads it back in plain language (`tomorrow`, `in 3 days`) until it's more than a week out, where it shows the date.
+
+**Estimates** are stored as whole minutes, which is what lets the list total them: `45m`, `2h`, `1h30`, `1h 30m`, `1.5h`, `90` (bare numbers are minutes), `2d` (a working day = 8h). The list summary says `45m estimated (of 1)` when only some of the shown tasks have one, so a partial total can't read as the cost of everything.
+
 ### Seeing your work
 
 | Command | What it does |
 |---|---|
-| `list` | Show active + pending tasks |
+| `list` | Show active + pending tasks, once, in the console |
 | `list all\|pending\|active` | Filter by status |
 | `list #project` / `list +tag` | Filter by project or tag |
+| `filter <same args as list>` | **Narrow the always-visible task pane and keep it that way** |
+| `filter off` | Clear it (and leave the project you're in, if any) |
 | `archive` | Show completed tasks (also accepts `#project` / `+tag`) |
+| `archive rm <ids\|all>` | Permanently delete archived task(s) — no coming back from this one |
+| `restore <ids\|all>` | Move archived task(s) back to your list |
 | `find <text>` | **Search titles and tags — across your list *and* your archive at once** |
-| `stats` | One-line summary of everything |
+| `stats` | One-line summary, plus where your data actually lives |
+| `streak` | Current/longest completion streak, with a heatmap |
 
-> The list is sorted meaningfully, not by insertion order: **overdue first, then active, then by priority.** A low-priority overdue task still outranks a high-priority one that isn't overdue.
+> `list` is a one-off question printed into the console; `filter` is a standing view preference for the pane. Keeping them separate means asking "what's overdue?" once doesn't silently change what you're looking at from then on.
 
 ### The artwork
 
 | Command | What it does |
 |---|---|
 | `art` | Status of the current piece (also: `image`) |
-| `next` | Skip to a new piece — no credit for the one you abandon |
+| `next` | Skip to a new piece — no credit for the one you abandon (also: `skip`) |
 | `reveal` | Cheat: instantly finish the current piece |
 | `hide` | Cheat: re-mask it back to 0% |
-| `close` | Once complete — file it in the gallery, start a new one |
-| `download` | Once complete — save the real file to your computer |
+| `close` | Once complete — file it in the gallery, start a new one (also: `save`) |
+| `download [<n\|name>]` | Save the real file to your computer |
+| `copy [<n\|name>]` | Copy an ascii piece's text to your clipboard |
+| `display` | Blow up the current piece as large as the screen allows |
 | `gallery` | Your collection, as a contact sheet in the side panel |
 | `gallery show <n\|name>` | Open one piece full-size — or just click its tile |
+| `gallery display [<n\|name>]` | Fullscreen a collected piece — **←/→ steps through the collection** |
+| `gallery rm <n\|name\|all>` | Remove piece(s) from your collection |
 | `gallery close` | Back to the live reveal |
 | `mode ascii\|image` | Switch reveal tracks |
 | `folders [<numbers>]` | List the `image_art/` folders, or flip one in/out of the random pool |
 | `block size <tier>` | Image granularity: `very small`, `small`, `medium`, `big`, `very big`, `full` |
-| `block count <1-20>` | How many blocks one completed task uncovers |
+| `block count <1-20>` | How many blocks one completed task uncovers (image mode) |
+| `character count <1-100\|all>` | How many characters one completed task uncovers (ascii mode) |
 
-> **`block size full`** makes a single completed task reveal an entire image. **`very small`** cuts it into ~300 blocks for a long, slow burn. Changing this mid-piece keeps what you've already uncovered — the same region of the picture stays visible, just redrawn at the new resolution.
+> **`block size full`** makes a single completed task reveal an entire image. **`very small`** cuts it into ~300 blocks for a long, slow burn. Changing this mid-piece keeps what you've already uncovered — the same region of the picture stays visible, just redrawn at the new resolution. **`character count all`** is the ascii equivalent of `full`, and it stays "one task = the whole piece" no matter how big the piece is.
 
 ### Look and layout
 
 | Command | What it does |
 |---|---|
-| `theme <name>` | `amber`, `night`, `day`, `solar`, `nord` (also: `switch`) |
-| `view art\|tasks` | Which panel gets the right-hand column |
-| `split on\|off` | Pin the other panel above the terminal (on by default — drag the divider to resize) |
-| `set [<key>] [on\|off]` | The on/off display settings — bare `set` lists them all |
+| `theme [<name>]` | Bare `theme` lists all ten and marks the one you're in (also: `switch`) |
+| `font [<n>\|<name>]` | Bare `font` lists them numbered; `font 11` picks one |
+| `font next` / `font prev` | Step through them, wrapping at the ends |
+| `font info` | What you're currently in — name, style, size, where it came from |
+| `font size <9-28\|+2\|-2\|reset>` | Everything scales together |
+| `view art\|tasks\|cmd` | Which of the three panes gets a column to itself |
+| `split on\|off` | Whether a second pane is pinned in the shared column |
+| `set [<key>] [on\|off\|toggle]` | Every on/off switch — bare `set` lists them all |
 | `display` | Blow up the current piece as large as the screen allows |
-| `fullscreen [on\|off]` | Real browser fullscreen, F11-style |
+| `fullscreen [on\|off]` | Real browser fullscreen, F11-style (esc to leave) |
 | `clear` | Clear the terminal |
-
-`set` covers four switches that used to be four separate commands — bare `set` shows all of them and their current state:
-
-| Key | Controls |
-|---|---|
-| `title` | The MOMENTUM banner |
-| `statline` | The `N total · N completed · ...` line under it |
-| `mirror` | Flips the two columns left-for-right |
-| `age` | The `[3d ago]` field on each task's details line |
-
-> The old spellings still work — `title off`, `statline on`, `mirror` — they just route into `set` rather than being their own implementations. Task age is `set age on|off` only; it never earned a command word of its own. `set <key> toggle` flips one without naming a direction.
 
 ### Backups
 
@@ -263,10 +372,12 @@ Anything that would affect more than three tasks at once asks for confirmation f
 | Key | Does |
 |---|---|
 | `Tab` | Complete the command name, or the option you're typing — press again to cycle |
-| `↑` / `↓` | Walk back through your command history |
+| `←` `→` `↑` `↓` | Move through the completion list Tab opened (→/← by one, ↓/↑ by a whole row) |
+| `↑` / `↓` | With no completion list open: walk back through your command history |
 | `Esc` / `Enter` / `Space` / click | Exit the `display` overlay |
+| `←` / `→` | Step through pieces inside `gallery display` fullscreen |
 
-`Tab` knows what each command accepts, so `theme ⇥` cycles the five themes, `set ⇥` the four display keys, `block size ⇥` the six tiers, and `split ⇥` just `on`/`off`. An unambiguous completion adds a trailing space so the next `Tab` starts on the next argument.
+`Tab` knows what each command accepts, so `theme ⇥` cycles the ten themes, `set ⇥` the thirteen switches, `block size ⇥` the six tiers, and `split ⇥` just `on`/`off`. It also completes against what you've actually used — `#⇥` offers your projects, `+⇥` your tags. An unambiguous completion adds a trailing space so the next `Tab` starts on the next argument. Every candidate is listed in a panel above the prompt as you cycle, so you can see the whole set instead of pressing Tab repeatedly and watching the input change underneath you.
 
 Command history persists across reloads (the last 100), and `↑`/`↓` search by whatever you've already typed rather than just walking the list — type `do`, press `↑`, and only past commands starting with `do` come back. Type anything else and the next `↑` searches fresh against that.
 
@@ -283,11 +394,13 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
 
 ## Making it yours
 
-**Ten themes**, each a complete palette — one text colour and its backgrounds, nothing else. Contrast is measured rather than eyeballed: every one of them is documented in `momentum.css` with its actual ratio against both backgrounds.
+### Themes
+
+**Ten themes**, each a complete palette — one text colour and its backgrounds, nothing else. Contrast is measured rather than eyeballed: every one is documented in `momentum.css` with its actual ratio against both backgrounds, and none of them ships below WCAG AA.
 
 | dark | | light | |
 |---|---|---|---|
-| `amber` | warm gold on near-black — the default | `day` | pure black on white, 21:1 |
+| `amber` | warm gold on near-black | `day` | pure black on white, 21:1 — **the default** |
 | `night` | one red on pure black | `paper` | ink on warm off-white, for when `day` glares |
 | `solar` | solarized-inspired, grey on deep teal | | |
 | `nord` | arctic blue-grey | | |
@@ -296,14 +409,63 @@ So a normal session looks like `a water the plants` → `l` → `d 1`.
 | `phosphor` | green CRT, at the saturation those tubes really had | | |
 | `noir` | white on black, the highest contrast two colours can have | | |
 
-Bare `theme` lists them grouped like this and marks the one you're in.
+Bare `theme` lists them grouped like this and marks the one you're in. The classic `nightmode` / `daymode` spellings still work.
 
 <!-- SUGGESTED: five small screenshots in a row here, one per theme, same task list and
      same half-revealed artwork in each so only the palette changes. Themes are pure
-     visual appeal — a list of five colour names sells them far worse than seeing them. -->
+     visual appeal — a list of ten colour names sells them far worse than seeing them. -->
 
+### Three panes, two places
 
-**Work inside one project.** `switch project work` — or `project switch work`, they're the same command — narrows the task pane to that project *and* makes it the one new tasks join, so you can switch once and then `add` three things without typing `#work` on any of them. `Tab` after it lists your projects, so picking one is two words and a keypress rather than remembering what you called it. The pane header and the stat line both say which project you're in; `switch project none` leaves it — so does `filter off`, which clears the lot — and `#none` on a single task opts that one out without leaving.
+The reward art, your task list and the console share the screen, and `view` decides which of the three gets a column to itself — the other two share the rest, split into two rows.
+
+```
+view cmd          the console takes the column, art and tasks share the other   ← the default
+view art          the picture in its own column, task list pinned above the console
+view tasks        the task list takes that column, the picture is what's pinned
+```
+
+`view commandline`, `view console` and `view terminal` all mean `view cmd`. Two switches compose with whichever you pick:
+
+- **`set mirror`** decides which *edge* the full-height column is against. On by default, which is what puts the console on the left.
+- **`set flip`** decides which *end* of the shared column the big pane is at. On by default, which is what puts the art above the task list.
+
+Drag either boundary to resize; both positions are remembered. And `split off` drops the second pane from the shared column entirely, if you want one big thing and one big console.
+
+> On a phone or a narrow window (under 700px) the columns stack automatically — one panel on top, the console filling the rest — and come straight back when there's room again. Nothing to set, nothing to reset.
+
+### Every switch in one place
+
+Bare `set` lists all thirteen with their current state, in two blocks: how the app **looks**, and which **features** exist.
+
+| Display key | Controls | Default |
+|---|---|---|
+| `title` | The MOMENTUM banner | on |
+| `statline` | The `N total · N completed · …` line under it | off |
+| `helpline` | The clickable command row under that | on |
+| `artline` | The `<piece> — 96/96 pieces · 100%` caption above the art | on |
+| `mirror` | Flips the two columns left-for-right | on |
+| `flip` | Which end of the shared column the big pane sits at | on |
+| `age` | The `[created:3d ago]` field on each task | off |
+
+| Feature key | Controls | Default |
+|---|---|---|
+| `est` | Estimates — the command, `-est`, `[est:…]`, and the list total | on |
+| `tags` | Tags — the commands, `+tag`, `[tag:…]`, and the mark column | on |
+| `projects` | Projects — the commands, `#project`, `[proj:…]` | on |
+| `priority` | Priority — the command, `-p`, `[prior:…]`, its place in the sort | off |
+| `due` | Due dates — the command, `-d`, `[due:…]`, `[OVERDUE]`, the sort | off |
+| `streak` | The `streak` command and its completion heatmap | off |
+
+**A few things start switched off on purpose.** Out of the box a task is a title, an estimate, tags and a project — meeting six fields at once is a lot, and priority, due dates and the streak are each a whole extra thing to learn. Each is one `set priority on` away.
+
+**Switching a feature off never deletes anything.** A task keeps its priority, dates, tags and project while the feature is off; switching it back on brings every value back exactly as it was. Off means four specific things: the fields vanish from the list, the sort and stats; the commands refuse with an explanation rather than an "unknown command"; and both `help` and `Tab` stop offering them, so nothing is ever advertised that would only turn you down.
+
+`set <key> toggle` flips one without naming a direction, and the old spellings (`title off`, `statline on`, `mirror`) still work — they just route into `set` now.
+
+### Working inside one project
+
+`switch project work` — or `project switch work`, same command — narrows the task pane to that project *and* makes it the one new tasks join. So you switch once and then `add` three things without typing `#work` on any of them.
 
 ```
 $ switch project work
@@ -313,21 +475,11 @@ $ add draft the proposal
 added #13 "draft the proposal" [proj:work]
 ```
 
-**A few things start switched off.** Bare `set` lists every switch with its current state, in two groups: how the app *looks*, and which *features* exist. Out of the box a task is a title, an estimate, tags and a project — `priority`, due dates and the `streak` heatmap are off, because meeting six fields at once is a lot and each one is a single `set priority on` away. Nothing is deleted by a feature being off, so switching one on later brings back every value you'd already set.
+`Tab` after it lists your projects. The pane header and the stat line both say which project you're in. `switch project none` leaves it, and so does `filter off`, which clears the lot — while `#none` on a single task opts just that one out without leaving.
 
-**Three panes, two places.** The reward art, your task list and the console share the screen, and `view` decides which of the three gets a column to itself — the other two share the rest, split into two rows.
+### Fonts
 
-```
-view art          the picture in its own column, task list pinned above the console
-view tasks        the task list takes that column, the picture is what's pinned
-view cmd          the console takes it, art and tasks share the other column
-```
-
-`view commandline`, `view console` and `view terminal` all mean `view cmd`. Two switches compose with whichever you pick: **`set mirror`** decides which *edge* the full-height column is against, and **`set flip`** which *end* of the shared column the big pane is at — `set flip on` in the art view puts the console above the task list instead of below it. Drag either boundary to resize; both positions are remembered.
-
-**The rest of the layout is yours to set.** `set title off` and `set statline off` reclaim the header, `set helpline off` drops the clickable command row under it, `set artline off` drops the caption above the artwork (the `art` command still reports where it is), `set mirror on` flips the columns left-for-right, drag the split divider to give the task list more or less room, or `split off` for a full-height terminal. Bare `set` shows every switch and where it currently stands. Every one of these preferences is saved with your tasks and comes back next time.
-
-**And so is the font.** Twelve monospace faces ship with the app, grouped by mood. `font` prints them numbered and `font 11` picks one.
+**Twelve monospace faces ship with the app**, grouped by mood. `font` prints them numbered and `font 11` picks one.
 
 ```
 $ font
@@ -350,7 +502,7 @@ fonts  —  pick one with:  font <number>
 
 Worth trying first: **Space Mono** is retro-futurist with real quirks, **Courier Prime** is Courier redrawn properly, **Martian Mono** is wide and engineered, and **B612 Mono** was drawn for aircraft cockpit displays. Every one is SIL Open Font Licensed — see [FONT_CREDITS.md](FONT_CREDITS.md) for designers and licences.
 
-**`font next`** steps to the next one and wraps at the end, which is the fastest way to actually try them on — `next font` and `font prev` do what they look like. **`font info`** says what you're currently in:
+**`font next`** steps to the next one and wraps at the end, which is the fastest way to actually try them on. **`font info`** says what you're currently in:
 
 ```
 $ font info
@@ -362,9 +514,11 @@ $ font info
   in the list   4 of 17   ("font 4" comes back here)
 ```
 
-The list only ever offers fonts that are genuinely installed and genuinely fixed-width, so nothing in it can silently do nothing or quietly wreck the ascii art. (You can still name any font you like directly — `font Iosevka` — and if it isn't monospace the app says so and lets you have it anyway.) `switch font` works too, for the muscle memory.
+The list only ever offers fonts that are genuinely installed and genuinely fixed-width, so nothing in it can silently do nothing or quietly wreck the ascii art. (You can still name any font directly — `font Iosevka` — and if it isn't monospace the app says so and lets you have it anyway.)
 
 **`font size 16`** makes everything bigger — title, tasks, metadata and ascii art scale together, keeping the design's proportions rather than flattening them. It takes `9` to `28`, relative steps (`font size +2`), and `font size reset`.
+
+Every one of these preferences is saved alongside your tasks and comes back next time.
 
 ---
 
@@ -381,7 +535,7 @@ Subfolders become categories automatically (`ascii_art/nature/tree.txt` → cate
 
 **If you're running a server**, that's genuinely it — reload and they're there.
 
-**If you're opening `momentum.html` directly** (the `file://` way), run this one command afterward:
+**If you're opening `index.html` directly** (the `file://` way), run this one command afterward:
 
 ```bash
 python3 build_art_data.py
@@ -434,7 +588,7 @@ Each folder has a `manifest.json` for overriding the auto-derived defaults. Ever
 }
 ```
 
-`revealTasks` is how many completed tasks fully uncover that piece. `grid` is its default block layout (image mode only, and overridden by your `block size` setting if you've changed it).
+`revealTasks` is how many completed tasks fully uncover that piece (6 if you don't say). `grid` is its default block layout (image mode only, and overridden by your `block size` setting if you've changed it).
 
 ### Where your art came from, and why it matters
 
@@ -486,13 +640,13 @@ That also means it can vanish: a new browser profile, cleared site data, private
 Worth being precise about what each threat is, because they're usually lumped together:
 
 - **Clearing the *cache*** doesn't touch your tasks at all. That's the HTTP cache; `localStorage` is separate.
-- **The browser evicting storage on its own** — under disk pressure, or Safari's seven-day cap on script-writable storage for sites you haven't visited — is defended against: once you have a few tasks, the app quietly asks for [persistent storage](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API), which exempts it from automatic eviction. Chrome grants this silently; Firefox asks. `stats` reports which you got.
+- **The browser evicting storage on its own** — under disk pressure, or Safari's seven-day cap on script-writable storage for sites you haven't visited — is defended against: once you have a few tasks, the app quietly asks for [persistent storage](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API), which exempts it from automatic eviction. Chrome grants this silently; Firefox asks. `stats` reports which you got, alongside how much space you're using and when you last exported.
 - **Clearing site data deliberately** takes everything with it, and no web page can opt out of that — nor should one be able to. This is the gap `export` exists to fill, and the reason it's worth doing occasionally.
 
-The app reminds you to `export` if it's been more than a week — or sooner if you've built up a real list without ever having exported, since that's the state with the most to lose.
+The app reminds you to `export` if it's been more than a week — or sooner if you've built up 25 or more tasks without ever having exported, since that's the state with the most to lose.
 
 ```bash
-export        # → momentum-backup-2026-08-05.json
+export        # → momentum-backup-2026-08-19.json
 import        # ← pick that file back up on any machine
 ```
 
@@ -501,7 +655,13 @@ import        # ← pick that file back up on any machine
 ## Project structure
 
 ```
-momentum.html          the entire application — markup, styles, logic, one file
+index.html             the page itself — markup only, ~55 lines
+momentum.css           every style, including all ten themes
+app-state.js           state, settings, storage, undo, backups
+app-art.js             the reveal engine — both tracks, pieces, progress
+app-commands.js        the command table, parsing, dispatch, and help
+app-render.js          drawing the panes, the terminal, and input handling
+
 art-data.js            generated snapshot of both art folders (for file:// use)
 build_art_data.py      regenerates the above
 font-data.js           generated snapshot of fonts/ (same reason as art-data.js)
@@ -509,16 +669,18 @@ build_font_data.py     regenerates the above
 IMAGE_CREDITS.md       source + licence for every shipped image (generated)
 build_credits.py       regenerates the above from image_art/manifest.json
 FONT_CREDITS.md        designer + licence for every bundled font (hand-maintained)
+
 fonts/                 self-hosted webfonts, subfolders = categories
-  retro/ futuristic/   19 monospace families, all SIL OFL
+  retro/ futuristic/   12 monospace families, all SIL OFL
   modern/ character/
 ascii_art/             .txt artworks, subfolders = categories
   manifest.json        optional per-file overrides
 image_art/             image artworks, subfolders = categories
   manifest.json        optional per-file overrides, plus source/licence/credit
+Screenshots/           the images used in this README
 ```
 
-`momentum.html` is deliberately self-contained: no build tooling, no bundler, no `node_modules`, no framework, no external requests. Open it and it runs — including offline: the IBM Plex Mono font is self-hosted under `fonts/` rather than pulled from Google Fonts, so the double-click-and-go `file://` path looks exactly like the served one instead of silently falling back to system monospace.
+The app was one large `momentum.html` for most of its life and has since been split into the six files above — but the important property is unchanged: **no build tooling, no bundler, no `node_modules`, no framework, no external requests.** Open `index.html` and it runs, including offline. The fonts are self-hosted under `fonts/` rather than pulled from Google Fonts, so the double-click-and-go `file://` path looks exactly like the served one instead of silently falling back to system monospace.
 
 ---
 
@@ -528,11 +690,19 @@ A few decisions that aren't obvious from the outside:
 
 **The id is the checkbox.** There are no `[ ]` marks in the list, because everything in the list is by definition unfinished — completing something moves it to the archive. The right-aligned `[3]` is both the marker and the thing you type.
 
+**A click can offer a command, never issue one.** Every clickable surface — the help line, a task row, a gallery tile — pre-fills the input and stops. A misclick is free, and you learn the word you would have typed instead of learning a button.
+
+**One mark, never two.** The margin column could have stacked symbols, and it deliberately doesn't: a column you have to *parse* is worse than no column at all. Ranked, first match wins, done.
+
+**Metadata gets its own line.** Fields used to ride along on the title's line, which packed more into less height — until labels made a loaded task too wide for a normal console. It wrapped anyway, but at whatever character the width ran out at, which chopped up the column of titles you actually scan. A deliberate second line costs the same height and spends it on a straight title column.
+
 **Unrevealed ASCII is blank, not dotted.** Placeholder dots traced the artwork's silhouette before you'd earned any of it, which gave away the shape and took the surprise out of the reveal.
 
 **Fullscreen ASCII isn't scaled up.** Glyph size *is* the artwork — blowing characters up turns crisp texture into soft giant letters. So `display` in ASCII mode means "centered on a black screen with nothing else around it," and only ever scales *down*, for pieces too big to fit.
 
 **Destructive commands ask, and stay reversible.** Anything hitting more than three tasks confirms first, and everything that changes state is undoable afterward. Two independent safety nets, because one mistyped `rm all` shouldn't be able to end your week.
+
+**Switching a feature off is never a deletion.** The task fields were ripped out wholesale once for a cleaner list, then wanted back — and a rip-out/put-back cycle is expensive and lossy. A flag makes it a one-word decision that costs nothing to reverse.
 
 ---
 
