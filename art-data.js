@@ -3,7 +3,7 @@
 // ascii_art/ or image_art/, so momentum.html also works offline
 // (opened directly as a file://, with no server running).
 window.ART_DATA = {
-  "generatedAt": "2026-08-13T13:59:25.557063+00:00",
+  "generatedAt": "2026-08-19T11:48:03.884207+00:00",
   "ascii": {
     "artworks": [
       {
@@ -1251,40 +1251,910 @@ window.ART_DATA = {
   "image": {
     "images": [
       {
-        "id": "desert-dunes",
-        "name": "Desert Dunes",
-        "category": "nature",
-        "file": "examples/desert-dunes.jpg",
-        "revealTasks": 8,
-        "grid": {
-          "cols": 8,
-          "rows": 5
-        },
-        "source": null,
-        "license": "own work",
-        "credit": "Made for this project",
-        "note": null
-      },
-      {
-        "id": "forest",
-        "name": "Forest Path",
-        "category": "nature",
-        "file": "examples/forest.svg",
+        "id": "antennae-colliding-galaxies",
+        "name": "Antennae Colliding Galaxies",
+        "category": "00_space_images",
+        "file": "00_space_images/antennae-colliding-galaxies.jpg",
         "revealTasks": 6,
         "grid": {
-          "cols": 5,
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e001327~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "apollo-11-flag-on-the-moon",
+        "name": "Apollo 11 Flag on the Moon",
+        "category": "00_space_images",
+        "file": "00_space_images/apollo-11-flag-on-the-moon.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.nasa.gov/history/alsj/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"as11-40-5874~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "astronaut-on-the-moon",
+        "name": "Astronaut on the Moon",
+        "category": "00_space_images",
+        "file": "00_space_images/astronaut-on-the-moon.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.nasa.gov/history/alsj/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"as11-40-5903~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "astronaut-portrait",
+        "name": "Astronaut Portrait",
+        "category": "00_space_images",
+        "file": "00_space_images/astronaut-portrait.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://eol.jsc.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"iss074e0432727~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "barred-spiral-galaxy",
+        "name": "Barred Spiral Galaxy",
+        "category": "00_space_images",
+        "file": "00_space_images/barred-spiral-galaxy.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e002154~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "bipolar-planetary-nebula",
+        "name": "Bipolar Planetary Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/bipolar-planetary-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000210~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "blue-bubble-around-a-star",
+        "name": "Blue Bubble Around a Star",
+        "category": "00_space_images",
+        "file": "00_space_images/blue-bubble-around-a-star.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000409~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "bubble-nebula",
+        "name": "Bubble Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/bubble-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000383~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "carina-nebula-cosmic-cliffs",
+        "name": "Carina Nebula Cosmic Cliffs",
+        "category": "00_space_images",
+        "file": "00_space_images/carina-nebula-cosmic-cliffs.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://webbtelescope.org/contents/media/images/2022/031/01G77PKB8NKR7S8Z6HBXMYATGJ",
+        "license": "public domain (NASA)",
+        "credit": "NASA/ESA/CSA/STScI",
+        "note": "NASA original: \"carina_nebula~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "carina-nebula-pillars",
+        "name": "Carina Nebula Pillars",
+        "category": "00_space_images",
+        "file": "00_space_images/carina-nebula-pillars.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e002076~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "centaurus-a-dust-lane",
+        "name": "Centaurus a Dust Lane",
+        "category": "00_space_images",
+        "file": "00_space_images/centaurus-a-dust-lane.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e001893~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "coastline-from-the-space-station",
+        "name": "Coastline from the Space Station",
+        "category": "00_space_images",
+        "file": "00_space_images/coastline-from-the-space-station.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://eol.jsc.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"iss070e035893~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "cosmic-couple-nebula",
+        "name": "Cosmic Couple Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/cosmic-couple-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.flickr.com/photos/nasagoddard/",
+        "license": "public domain (NASA)",
+        "credit": "NASA Goddard Space Flight Center",
+        "note": "NASA original: \"a-hubble-cosmic-couple_20140593234_o~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "distant-galaxies-field",
+        "name": "Distant Galaxies Field",
+        "category": "00_space_images",
+        "file": "00_space_images/distant-galaxies-field.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA07906",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA07906~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "earth-above-the-lunar-horizon",
+        "name": "Earth Above the Lunar Horizon",
+        "category": "00_space_images",
+        "file": "00_space_images/earth-above-the-lunar-horizon.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.nasa.gov/history/alsj/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"as11-44-6551~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "earth-from-orbit",
+        "name": "Earth from Orbit",
+        "category": "00_space_images",
+        "file": "00_space_images/earth-from-orbit.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"art002e000192~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "earth-full-disk",
+        "name": "Earth Full Disk",
+        "category": "00_space_images",
+        "file": "00_space_images/earth-full-disk.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA18033",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA18033~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "earth-through-the-capsule-window",
+        "name": "Earth Through the Capsule Window",
+        "category": "00_space_images",
+        "file": "00_space_images/earth-through-the-capsule-window.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"art002e009007~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "earthrise-over-the-moon",
+        "name": "Earthrise over the Moon",
+        "category": "00_space_images",
+        "file": "00_space_images/earthrise-over-the-moon.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"art002e009288~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "edge-on-spiral-galaxy",
+        "name": "Edge on Spiral Galaxy",
+        "category": "00_space_images",
+        "file": "00_space_images/edge-on-spiral-galaxy.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA04217",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA04217~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "emission-nebula",
+        "name": "Emission Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/emission-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA23121",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA23121~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "face-on-spiral-galaxy",
+        "name": "Face on Spiral Galaxy",
+        "category": "00_space_images",
+        "file": "00_space_images/face-on-spiral-galaxy.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e001925~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "galactic-center-star-clouds",
+        "name": "Galactic Center Star Clouds",
+        "category": "00_space_images",
+        "file": "00_space_images/galactic-center-star-clouds.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000390~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "galaxy-cluster-deep-field",
+        "name": "Galaxy Cluster Deep Field",
+        "category": "00_space_images",
+        "file": "00_space_images/galaxy-cluster-deep-field.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000528~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "globular-cluster-core",
+        "name": "Globular Cluster Core",
+        "category": "00_space_images",
+        "file": "00_space_images/globular-cluster-core.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000282~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "helix-nebula",
+        "name": "Helix Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/helix-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA18164",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA18164~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "horsehead-nebula",
+        "name": "Horsehead Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/horsehead-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA16008",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA16008~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "jupiter-cloud-bands",
+        "name": "Jupiter Cloud Bands",
+        "category": "00_space_images",
+        "file": "00_space_images/jupiter-cloud-bands.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA26077",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA26077~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "jupiter-crescent",
+        "name": "Jupiter Crescent",
+        "category": "00_space_images",
+        "file": "00_space_images/jupiter-crescent.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA21390",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA21390~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "mars-full-disk",
+        "name": "Mars Full Disk",
+        "category": "00_space_images",
+        "file": "00_space_images/mars-full-disk.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000332~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "mars-surface-from-the-lander",
+        "name": "Mars Surface from the Lander",
+        "category": "00_space_images",
+        "file": "00_space_images/mars-surface-from-the-lander.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA01120",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA01120~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "milky-way-galactic-center",
+        "name": "Milky Way Galactic Center",
+        "category": "00_space_images",
+        "file": "00_space_images/milky-way-galactic-center.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA03654",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA03654~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "nebula-dust-pillar",
+        "name": "Nebula Dust Pillar",
+        "category": "00_space_images",
+        "file": "00_space_images/nebula-dust-pillar.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000671~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "orange-bipolar-nebula",
+        "name": "Orange Bipolar Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/orange-bipolar-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e002086~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "orion-nebula-infrared",
+        "name": "Orion Nebula Infrared",
+        "category": "00_space_images",
+        "file": "00_space_images/orion-nebula-infrared.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA13005",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA13005~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "partial-solar-eclipse",
+        "name": "Partial Solar Eclipse",
+        "category": "00_space_images",
+        "file": "00_space_images/partial-solar-eclipse.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"NHQ202608120200~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "pillars-of-creation",
+        "name": "Pillars of Creation",
+        "category": "00_space_images",
+        "file": "00_space_images/pillars-of-creation.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e000842~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "quintuplet-cluster",
+        "name": "Quintuplet Cluster",
+        "category": "00_space_images",
+        "file": "00_space_images/quintuplet-cluster.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.flickr.com/photos/nasagoddard/",
+        "license": "public domain (NASA)",
+        "credit": "NASA Goddard Space Flight Center",
+        "note": "NASA original: \"hubble-uncovering-the-secrets-of-the-quintuplet-cluster_19779352405_o~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "ring-nebula",
+        "name": "Ring Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/ring-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA/Goddard Space Flight Center",
+        "note": "NASA original: \"GSFC_20171208_Archive_e001465~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "rocket-night-launch",
+        "name": "Rocket Night Launch",
+        "category": "00_space_images",
+        "file": "00_space_images/rocket-night-launch.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"KSC-2009-1972~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "rocket-on-the-launch-pad",
+        "name": "Rocket on the Launch Pad",
+        "category": "00_space_images",
+        "file": "00_space_images/rocket-on-the-launch-pad.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://images.nasa.gov/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"KSC-2009-1955~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "star-cluster-in-nebula",
+        "name": "Star Cluster in Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/star-cluster-in-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA16884",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA16884~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "star-forming-nebula",
+        "name": "Star Forming Nebula",
+        "category": "00_space_images",
+        "file": "00_space_images/star-forming-nebula.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://photojournal.jpl.nasa.gov/catalog/PIA11226",
+        "license": "public domain (NASA)",
+        "credit": "NASA/JPL-Caltech",
+        "note": "NASA original: \"PIA11226~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "starburst-galaxy-messier-94",
+        "name": "Starburst Galaxy Messier 94",
+        "category": "00_space_images",
+        "file": "00_space_images/starburst-galaxy-messier-94.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.flickr.com/photos/nasagoddard/",
+        "license": "public domain (NASA)",
+        "credit": "NASA Goddard Space Flight Center",
+        "note": "NASA original: \"a-hubble-view-of-starburst-galaxy-messier-94_22411319925_o~orig.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "the-blue-marble",
+        "name": "The Blue Marble",
+        "category": "00_space_images",
+        "file": "00_space_images/the-blue-marble.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.nasa.gov/history/alsj/",
+        "license": "public domain (NASA)",
+        "credit": "NASA",
+        "note": "NASA original: \"as17-148-22727~large.jpg\". NASA media are generally not copyrighted; NASA asks to be credited and must not be shown as endorsing anything. Hubble/Webb frames co-released with ESA are CC-BY-4.0 — credit as given."
+      },
+      {
+        "id": "automaton-woman-in-a-winter-forest",
+        "name": "Automaton Woman in a Winter Forest",
+        "category": "01_portfolio",
+        "file": "01_portfolio/automaton-woman-in-a-winter-forest.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
           "rows": 4
         },
         "source": null,
-        "license": "own work",
-        "credit": "Made for this project",
-        "note": null
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "li-moly-2091",
-        "name": "Li Moly 2091",
-        "category": "examples",
-        "file": "examples/li-moly-2091.jpg",
+        "id": "autumn-pond-at-sunset",
+        "name": "Autumn Pond at Sunset",
+        "category": "01_portfolio",
+        "file": "01_portfolio/autumn-pond-at-sunset.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "black-beast-in-a-misty-forest",
+        "name": "Black Beast in a Misty Forest",
+        "category": "01_portfolio",
+        "file": "01_portfolio/black-beast-in-a-misty-forest.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "blazing-sun-over-a-sunflower-field",
+        "name": "Blazing Sun over a Sunflower Field",
+        "category": "01_portfolio",
+        "file": "01_portfolio/blazing-sun-over-a-sunflower-field.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "bonsai-in-a-glass-sphere",
+        "name": "Bonsai in a Glass Sphere",
+        "category": "01_portfolio",
+        "file": "01_portfolio/bonsai-in-a-glass-sphere.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "burning-sphere-on-the-shore",
+        "name": "Burning Sphere on the Shore",
+        "category": "01_portfolio",
+        "file": "01_portfolio/burning-sphere-on-the-shore.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "cat-asleep-on-a-red-table",
+        "name": "Cat Asleep on a Red Table",
+        "category": "01_portfolio",
+        "file": "01_portfolio/cat-asleep-on-a-red-table.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "cherub-over-the-village-2",
+        "name": "Cherub over the Village 2",
+        "category": "01_portfolio",
+        "file": "01_portfolio/cherub-over-the-village-2.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "cherub-over-the-village",
+        "name": "Cherub over the Village",
+        "category": "01_portfolio",
+        "file": "01_portfolio/cherub-over-the-village.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "child-in-a-glowing-garden-arch",
+        "name": "Child in a Glowing Garden Arch",
+        "category": "01_portfolio",
+        "file": "01_portfolio/child-in-a-glowing-garden-arch.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "coastal-arch-through-a-porthole",
+        "name": "Coastal Arch Through a Porthole",
+        "category": "01_portfolio",
+        "file": "01_portfolio/coastal-arch-through-a-porthole.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "couple-in-a-boat-on-the-canal",
+        "name": "Couple in a Boat on the Canal",
+        "category": "01_portfolio",
+        "file": "01_portfolio/couple-in-a-boat-on-the-canal.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "crosses-in-a-glass-case",
+        "name": "Crosses in a Glass Case",
+        "category": "01_portfolio",
+        "file": "01_portfolio/crosses-in-a-glass-case.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "family-among-golden-trees",
+        "name": "Family Among Golden Trees",
+        "category": "01_portfolio",
+        "file": "01_portfolio/family-among-golden-trees.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "figure-and-dog-in-a-glass-box",
+        "name": "Figure and Dog in a Glass Box",
+        "category": "01_portfolio",
+        "file": "01_portfolio/figure-and-dog-in-a-glass-box.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "figure-at-a-doorway-of-light",
+        "name": "Figure at a Doorway of Light",
+        "category": "01_portfolio",
+        "file": "01_portfolio/figure-at-a-doorway-of-light.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1293,73 +2163,13 @@ window.ART_DATA = {
         "source": null,
         "license": "unknown",
         "credit": null,
-        "note": "unresolved — identify the source, or remove before publishing"
+        "note": "filename \"beyond_by_infinitedreamz_dhxltr0e.png\" credits a third party (\"infinitedreamz\") — NOT confirmed as the repo author's own work. Identify the source or remove before publishing."
       },
       {
-        "id": "meadow",
-        "name": "Rolling Meadow",
-        "category": "nature",
-        "file": "examples/meadow.png",
-        "revealTasks": 7,
-        "grid": {
-          "cols": 6,
-          "rows": 4
-        },
-        "source": null,
-        "license": "own work",
-        "credit": "Made for this project",
-        "note": null
-      },
-      {
-        "id": "nadi-wind-18-1",
-        "name": "Nadi Wind 18 1",
-        "category": "examples",
-        "file": "examples/nadi_wind-18-1.jpg",
-        "revealTasks": 6,
-        "grid": {
-          "cols": 6,
-          "rows": 4
-        },
-        "source": null,
-        "license": "unknown",
-        "credit": null,
-        "note": "unresolved — identify the source, or remove before publishing"
-      },
-      {
-        "id": "ocean-night",
-        "name": "Starry Ocean Night",
-        "category": "nature",
-        "file": "examples/ocean-night.svg",
-        "revealTasks": 9,
-        "grid": {
-          "cols": 6,
-          "rows": 5
-        },
-        "source": null,
-        "license": "own work",
-        "credit": "Made for this project",
-        "note": null
-      },
-      {
-        "id": "sunset",
-        "name": "Desert Sunset",
-        "category": "nature",
-        "file": "examples/sunset.svg",
-        "revealTasks": 8,
-        "grid": {
-          "cols": 6,
-          "rows": 4
-        },
-        "source": null,
-        "license": "own work",
-        "credit": "Made for this project",
-        "note": null
-      },
-      {
-        "id": "00027-143724114",
-        "name": "00027 143724114",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/00027-143724114.png",
+        "id": "figure-inside-a-burning-wave",
+        "name": "Figure Inside a Burning Wave",
+        "category": "01_portfolio",
+        "file": "01_portfolio/figure-inside-a-burning-wave.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1367,14 +2177,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "00044-3453245357",
-        "name": "00044 3453245357",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/00044-3453245357.png",
+        "id": "figure-on-a-peak-under-swirling-stars",
+        "name": "Figure on a Peak under Swirling Stars",
+        "category": "01_portfolio",
+        "file": "01_portfolio/figure-on-a-peak-under-swirling-stars.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1382,14 +2192,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "00056-2661726201",
-        "name": "00056 2661726201",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/00056-2661726201.png",
+        "id": "figure-on-a-rock-under-a-swirling-sky",
+        "name": "Figure on a Rock under a Swirling Sky",
+        "category": "01_portfolio",
+        "file": "01_portfolio/figure-on-a-rock-under-a-swirling-sky.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1397,14 +2207,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "00148-1774344079",
-        "name": "00148 1774344079",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/00148-1774344079.png",
+        "id": "fire-spheres-in-a-vitrine",
+        "name": "Fire Spheres in a Vitrine",
+        "category": "01_portfolio",
+        "file": "01_portfolio/fire-spheres-in-a-vitrine.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1412,29 +2222,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "2024-08-15-17-37-img-0331",
-        "name": "IMG",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/2024_08_15_17_37_IMG_0331.JPG",
-        "revealTasks": 6,
-        "grid": {
-          "cols": 6,
-          "rows": 4
-        },
-        "source": null,
-        "license": "unknown",
-        "credit": null,
-        "note": "camera-style IMG_ filename in the stable_diffusion folder — likely misfiled"
-      },
-      {
-        "id": "010-i-don-t-give-a-shit-warm",
-        "name": "I Don't Give A Shit Warm",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/_010_I don't give a shit_warm.png",
+        "id": "girl-holding-a-white-flower",
+        "name": "Girl Holding a White Flower",
+        "category": "01_portfolio",
+        "file": "01_portfolio/girl-holding-a-white-flower.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1442,14 +2237,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "011-auntitled-2-warm",
-        "name": "Auntitled Warm",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/_011_aUntitled_2_warm.png",
+        "id": "girl-in-a-straw-hat",
+        "name": "Girl in a Straw Hat",
+        "category": "01_portfolio",
+        "file": "01_portfolio/girl-in-a-straw-hat.jpg",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1457,14 +2252,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "022-00028-4013610666",
-        "name": "022 00028 4013610666",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/_022_00028-4013610666.png",
+        "id": "girl-playing-the-violin",
+        "name": "Girl Playing the Violin",
+        "category": "01_portfolio",
+        "file": "01_portfolio/girl-playing-the-violin.png",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1472,14 +2267,14 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
       },
       {
-        "id": "025-00036-2941276205e-warm",
-        "name": "2941276205e Warm",
-        "category": "stable_diffusion",
-        "file": "stable_diffusion/_025_00036-2941276205e_warm.png",
+        "id": "girl-with-braids",
+        "name": "Girl with Braids",
+        "category": "01_portfolio",
+        "file": "01_portfolio/girl-with-braids.jpg",
         "revealTasks": 6,
         "grid": {
           "cols": 6,
@@ -1487,8 +2282,833 @@ window.ART_DATA = {
         },
         "source": null,
         "license": "AI-generated",
-        "credit": "Generated by the project author with Stable Diffusion",
-        "note": "no human authorship — not copyrightable in the US; no rights asserted"
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "green-figure-and-a-horned-idol",
+        "name": "Green Figure and a Horned Idol",
+        "category": "01_portfolio",
+        "file": "01_portfolio/green-figure-and-a-horned-idol.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "horned-giant-in-a-winter-wood",
+        "name": "Horned Giant in a Winter Wood",
+        "category": "01_portfolio",
+        "file": "01_portfolio/horned-giant-in-a-winter-wood.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "jungle-huts-at-dusk-2",
+        "name": "Jungle Huts at Dusk 2",
+        "category": "01_portfolio",
+        "file": "01_portfolio/jungle-huts-at-dusk-2.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "jungle-huts-at-dusk",
+        "name": "Jungle Huts at Dusk",
+        "category": "01_portfolio",
+        "file": "01_portfolio/jungle-huts-at-dusk.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "lantern-and-bluebird-2",
+        "name": "Lantern and Bluebird 2",
+        "category": "01_portfolio",
+        "file": "01_portfolio/lantern-and-bluebird-2.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "lantern-and-bluebird",
+        "name": "Lantern and Bluebird",
+        "category": "01_portfolio",
+        "file": "01_portfolio/lantern-and-bluebird.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "lone-figure-at-a-red-sunset",
+        "name": "Lone Figure at a Red Sunset",
+        "category": "01_portfolio",
+        "file": "01_portfolio/lone-figure-at-a-red-sunset.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "masked-figure-in-orange",
+        "name": "Masked Figure in Orange",
+        "category": "01_portfolio",
+        "file": "01_portfolio/masked-figure-in-orange.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "moonlit-river-with-a-rowboat",
+        "name": "Moonlit River with a Rowboat",
+        "category": "01_portfolio",
+        "file": "01_portfolio/moonlit-river-with-a-rowboat.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "moonlit-surf",
+        "name": "Moonlit Surf",
+        "category": "01_portfolio",
+        "file": "01_portfolio/moonlit-surf.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "mosaic-eye",
+        "name": "Mosaic Eye",
+        "category": "01_portfolio",
+        "file": "01_portfolio/mosaic-eye.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "ocean-waves-and-sea-stacks",
+        "name": "Ocean Waves and Sea Stacks",
+        "category": "01_portfolio",
+        "file": "01_portfolio/ocean-waves-and-sea-stacks.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "pale-woman-in-a-green-frame",
+        "name": "Pale Woman in a Green Frame",
+        "category": "01_portfolio",
+        "file": "01_portfolio/pale-woman-in-a-green-frame.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "pale-woman-in-round-glasses",
+        "name": "Pale Woman in Round Glasses",
+        "category": "01_portfolio",
+        "file": "01_portfolio/pale-woman-in-round-glasses.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "pendulum-vitrine-at-dusk",
+        "name": "Pendulum Vitrine at Dusk",
+        "category": "01_portfolio",
+        "file": "01_portfolio/pendulum-vitrine-at-dusk.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "peony-under-glass-by-moonlight",
+        "name": "Peony under Glass by Moonlight",
+        "category": "01_portfolio",
+        "file": "01_portfolio/peony-under-glass-by-moonlight.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "pink-cliffs-above-the-sea",
+        "name": "Pink Cliffs Above the Sea",
+        "category": "01_portfolio",
+        "file": "01_portfolio/pink-cliffs-above-the-sea.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "portrait-in-a-black-bow-tie",
+        "name": "Portrait in a Black Bow Tie",
+        "category": "01_portfolio",
+        "file": "01_portfolio/portrait-in-a-black-bow-tie.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "portrait-of-a-freckled-woman",
+        "name": "Portrait of a Freckled Woman",
+        "category": "01_portfolio",
+        "file": "01_portfolio/portrait-of-a-freckled-woman.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "portrait-of-a-scowling-youth",
+        "name": "Portrait of a Scowling Youth",
+        "category": "01_portfolio",
+        "file": "01_portfolio/portrait-of-a-scowling-youth.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "portrait-of-a-woman-by-the-shore",
+        "name": "Portrait of a Woman by the Shore",
+        "category": "01_portfolio",
+        "file": "01_portfolio/portrait-of-a-woman-by-the-shore.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "portrait-of-a-woman-in-white",
+        "name": "Portrait of a Woman in White",
+        "category": "01_portfolio",
+        "file": "01_portfolio/portrait-of-a-woman-in-white.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "red-flower-under-a-bell-jar",
+        "name": "Red Flower under a Bell Jar",
+        "category": "01_portfolio",
+        "file": "01_portfolio/red-flower-under-a-bell-jar.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "red-lilies-under-a-glass-dome",
+        "name": "Red Lilies under a Glass Dome",
+        "category": "01_portfolio",
+        "file": "01_portfolio/red-lilies-under-a-glass-dome.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "riders-against-a-red-sun",
+        "name": "Riders Against a Red Sun",
+        "category": "01_portfolio",
+        "file": "01_portfolio/riders-against-a-red-sun.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "riverside-village-in-the-hills",
+        "name": "Riverside Village in the Hills",
+        "category": "01_portfolio",
+        "file": "01_portfolio/riverside-village-in-the-hills.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "ships-at-sunset-on-the-shore-2",
+        "name": "Ships at Sunset on the Shore 2",
+        "category": "01_portfolio",
+        "file": "01_portfolio/ships-at-sunset-on-the-shore-2.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "ships-at-sunset-on-the-shore",
+        "name": "Ships at Sunset on the Shore",
+        "category": "01_portfolio",
+        "file": "01_portfolio/ships-at-sunset-on-the-shore.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "small-dog-in-a-glass-vitrine",
+        "name": "Small Dog in a Glass Vitrine",
+        "category": "01_portfolio",
+        "file": "01_portfolio/small-dog-in-a-glass-vitrine.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "snow-mountain-valley",
+        "name": "Snow Mountain Valley",
+        "category": "01_portfolio",
+        "file": "01_portfolio/snow-mountain-valley.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "snowglobe-mountain-in-the-snow",
+        "name": "Snowglobe Mountain in the Snow",
+        "category": "01_portfolio",
+        "file": "01_portfolio/snowglobe-mountain-in-the-snow.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "starlit-canyon-river",
+        "name": "Starlit Canyon River",
+        "category": "01_portfolio",
+        "file": "01_portfolio/starlit-canyon-river.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "starlit-tree-over-a-bridge",
+        "name": "Starlit Tree over a Bridge",
+        "category": "01_portfolio",
+        "file": "01_portfolio/starlit-tree-over-a-bridge.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "starry-night-cypress",
+        "name": "Starry Night Cypress",
+        "category": "01_portfolio",
+        "file": "01_portfolio/starry-night-cypress.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "sunlit-cove-with-breaking-waves",
+        "name": "Sunlit Cove with Breaking Waves",
+        "category": "01_portfolio",
+        "file": "01_portfolio/sunlit-cove-with-breaking-waves.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "two-children-in-a-dark-wood",
+        "name": "Two Children in a Dark Wood",
+        "category": "01_portfolio",
+        "file": "01_portfolio/two-children-in-a-dark-wood.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "two-women-and-a-golden-arch",
+        "name": "Two Women and a Golden Arch",
+        "category": "01_portfolio",
+        "file": "01_portfolio/two-women-and-a-golden-arch.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "van-gogh-self-portrait-mosaic",
+        "name": "Van Gogh Self Portrait Mosaic",
+        "category": "01_portfolio",
+        "file": "01_portfolio/van-gogh-self-portrait-mosaic.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "veiled-profile-against-the-sun",
+        "name": "Veiled Profile Against the Sun",
+        "category": "01_portfolio",
+        "file": "01_portfolio/veiled-profile-against-the-sun.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "winter-cabin-under-the-stars",
+        "name": "Winter Cabin under the Stars",
+        "category": "01_portfolio",
+        "file": "01_portfolio/winter-cabin-under-the-stars.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-bathing-in-the-river",
+        "name": "Woman Bathing in the River",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-bathing-in-the-river.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-in-a-glass-case",
+        "name": "Woman in a Glass Case",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-in-a-glass-case.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-in-a-night-garden",
+        "name": "Woman in a Night Garden",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-in-a-night-garden.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-in-glasses-with-storm-hair",
+        "name": "Woman in Glasses with Storm Hair",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-in-glasses-with-storm-hair.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-in-hanbok-on-gold",
+        "name": "Woman in Hanbok on Gold",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-in-hanbok-on-gold.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-reading-by-a-window",
+        "name": "Woman Reading by a Window",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-reading-by-a-window.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-resting-at-sunset",
+        "name": "Woman Resting at Sunset",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-resting-at-sunset.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-under-a-stormy-sky",
+        "name": "Woman under a Stormy Sky",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-under-a-stormy-sky.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-with-an-afro",
+        "name": "Woman with an Afro",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-with-an-afro.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-with-cloud-hair",
+        "name": "Woman with Cloud Hair",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-with-cloud-hair.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-with-oranges-in-the-garden-2",
+        "name": "Woman with Oranges in the Garden 2",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-with-oranges-in-the-garden-2.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-with-oranges-in-the-garden",
+        "name": "Woman with Oranges in the Garden",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-with-oranges-in-the-garden.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "woman-with-red-flowers-at-a-window",
+        "name": "Woman with Red Flowers at a Window",
+        "category": "01_portfolio",
+        "file": "01_portfolio/woman-with-red-flowers-at-a-window.png",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "women-on-the-beach-with-boats",
+        "name": "Women on the Beach with Boats",
+        "category": "01_portfolio",
+        "file": "01_portfolio/women-on-the-beach-with-boats.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": null,
+        "license": "AI-generated",
+        "credit": "Generated by the project author",
+        "note": "no human authorship — not copyrightable in the US; no rights asserted. Embedded metadata (prompts, XMP, EXIF) stripped."
+      },
+      {
+        "id": "fur-traders-descending-the-missouri",
+        "name": "Fur Traders Descending the Missouri",
+        "category": "02_public_domain",
+        "file": "02_public_domain/fur-traders-descending-the-missouri.jpg",
+        "revealTasks": 6,
+        "grid": {
+          "cols": 6,
+          "rows": 4
+        },
+        "source": "https://www.metmuseum.org/art/collection/search/11331",
+        "license": "public domain (CC0)",
+        "credit": "George Caleb Bingham, \"Fur Traders Descending the Missouri\" (1845), The Metropolitan Museum of Art",
+        "note": "Met Open Access original: \"DT73.jpg\". Work is out of copyright."
       }
     ]
   }
