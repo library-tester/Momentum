@@ -102,7 +102,7 @@ The screen is split. **Left:** your task list and a command prompt. **Right:** t
 │  $ done 1                   │     ▓▓▓▓░░░░▓▓▓▓     │
 │  #1 "water the plants"      │                      │
 │      done! moved to archive │   Wildflower · 40%   │
-│  $ ▊                        │                      │
+│  $                          │                      │
 └─────────────────────────────┴──────────────────────┘
 ```
 
